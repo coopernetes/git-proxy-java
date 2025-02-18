@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RootController {
 
-    @GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/api", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Resource> root() {
         var resource = new ClassPathResource("api/root.json");
         return ResponseEntity.ok(resource);

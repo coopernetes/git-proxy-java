@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class PushController {
 
-    @GetMapping("/")
+    @GetMapping()
     public ResponseEntity<Object> getPushes(@RequestParam Map<String, String> queryParams) {
         // TODO: Implement this method
         log.debug("Received request to get pushes with query params: {}", queryParams);

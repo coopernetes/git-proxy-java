@@ -51,7 +51,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Map> logout() {
         // stub
-        return ResponseEntity.ok(Map.of("isAuth", false, "user", Collections.emptyMap()));
+        return ResponseEntity.ok(Map.of("isAuth", true, "user", Collections.emptyMap()));
     }
 
     // https://github.com/finos/git-proxy/blob/363f4ae0588c02b32c8bb3d987919bc0b4268d12/src/service/routes/auth.js#L75

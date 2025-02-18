@@ -1,5 +1,6 @@
 package com.github.coopernetes.jgitproxy.api;
 
+import java.util.ArrayList;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -11,11 +12,11 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class RepoController {
 
-    @GetMapping("/")
+    @GetMapping()
     public ResponseEntity<Object> getRepos(@RequestParam Map<String, String> queryParams) {
         // TODO: Implement this method
-        log.debug("getRepos called with queryParams: {}", queryParams);
-        return ResponseEntity.ok().build();
+        log.debug("getReposRoot called with queryParams: {}", queryParams);
+        return ResponseEntity.ok(new ArrayList<>());
     }
 
     @GetMapping("/{name}")
@@ -61,7 +62,7 @@ public class RepoController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/")
+    @PostMapping
     public ResponseEntity<Object> createRepo(@RequestBody Map<String, String> body) {
         // TODO: Implement this method
         log.debug("createRepo called with body: {}", body);

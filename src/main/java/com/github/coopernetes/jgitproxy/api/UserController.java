@@ -1,5 +1,6 @@
 package com.github.coopernetes.jgitproxy.api;
 
+import java.util.ArrayList;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -13,10 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class UserController {
 
-    @GetMapping("/")
+    @GetMapping()
     public ResponseEntity<Object> getUsers() {
         // TODO: Implement this method
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new ArrayList<>());
     }
 
     @GetMapping("/{id}")
