@@ -7,7 +7,6 @@ import com.github.coopernetes.jgitproxy.git.GitClient;
 import com.github.coopernetes.jgitproxy.git.HttpAuthScheme;
 import com.github.coopernetes.jgitproxy.git.HttpOperation;
 import com.github.coopernetes.jgitproxy.provider.GitHubProvider;
-import com.github.coopernetes.jgitproxy.provider.GitProxyProvider;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

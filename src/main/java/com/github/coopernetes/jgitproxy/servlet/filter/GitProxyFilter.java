@@ -3,7 +3,6 @@ package com.github.coopernetes.jgitproxy.servlet.filter;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 
 import com.github.coopernetes.jgitproxy.git.HttpOperation;
-import com.github.coopernetes.jgitproxy.provider.GitProxyProvider;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

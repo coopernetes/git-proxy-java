@@ -2,7 +2,6 @@ package com.github.coopernetes.jgitproxy.servlet.filter;
 
 import com.github.coopernetes.jgitproxy.git.HttpOperation;
 import com.github.coopernetes.jgitproxy.provider.GitProxyProvider;
-
 import java.util.Set;
 
 public abstract class ProviderSpecificGitProxyFilter<P extends GitProxyProvider>
@@ -14,5 +13,4 @@ public abstract class ProviderSpecificGitProxyFilter<P extends GitProxyProvider>
         super(order, appliedOperations, provider);
         this.provider = provider;
     }
-
 }
