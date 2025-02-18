@@ -1,7 +1,6 @@
 package com.github.coopernetes.jgitproxy.servlet.filter;
 
 import com.github.coopernetes.jgitproxy.git.HttpOperation;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;

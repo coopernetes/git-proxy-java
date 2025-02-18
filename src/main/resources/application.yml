@@ -2,12 +2,12 @@ spring:
   application:
     name: jgit-proxy
 server:
-  port: 8000
+  port: 8080
 management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: mappings, health, info
 logging:
   level:
     com.github.coopernetes: DEBUG
