@@ -33,9 +33,9 @@ repositories {
     }
 }
 
-//application {
-//    mainClass = 'org.finos.gitproxy.GitProxyApplication'
-//}
+application {
+    mainClass = 'org.finos.gitproxy.GitProxyApplication'
+}
 
 ext {
     jgitVersion = '7.0.0.202409031743-r'
