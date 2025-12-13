@@ -4,7 +4,53 @@ This is a simple implementation of a git proxy in Java. This is a possible succe
 ## Usage
 To use this project, you need to have Java 17 or higher installed on your machine. You can run the project using the following command:
 ```shell
-./gradlew bootRun
+./gradlew run
+```
+
+## Configuration
+
+The Jetty-based server supports YAML-based configuration for providers and filters. Configuration files:
+- `src/main/resources/application.yml` - Base configuration
+- `src/main/resources/application-local.yml` - Local overrides
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
+
+### Quick Configuration Example
+
+Configure providers and filters in `application-local.yml`:
+
+```yaml
+server:
+  port: 8080
+
+git-proxy:
+  providers:
+    github:
+      enabled: true
+    gitlab:
+      enabled: true
+    bitbucket:
+      enabled: true
+  filters:
+    github-user-authenticated:
+      enabled: true
+      order: 1
+      operations:
+        - PUSH
+      required-auth-schemes: bearer, token, basic
+      providers:
+        - github
+    whitelists:
+      - enabled: true
+        order: 5
+        operations:
+          - FETCH
+          - PUSH
+        providers:
+          - github
+        slugs:
+          - coopernetes/test-repo
+          - finos/git-proxy
 ```
 
 ## Endpoints
