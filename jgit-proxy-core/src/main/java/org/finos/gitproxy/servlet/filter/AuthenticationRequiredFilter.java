@@ -12,7 +12,7 @@ public interface AuthenticationRequiredFilter {
 
     default HttpAuthScheme getAuthScheme(HttpServletRequest request) {
         return Stream.of(HttpAuthScheme.values())
-                .filter(scheme -> request.getHeader("Authorization").startsWith(scheme.getHedaderValue()))
+                .filter(scheme -> request.getHeader("Authorization").startsWith(scheme.getHeaderValue()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("No authentication scheme found"));
     }

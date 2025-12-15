@@ -10,5 +10,5 @@ public enum HttpAuthScheme {
     BEARER("Bearer"),
     TOKEN("token");
 
-    private final String hedaderValue;
+    private final String headerValue;
 }
