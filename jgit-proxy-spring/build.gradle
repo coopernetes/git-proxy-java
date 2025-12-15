@@ -17,6 +17,12 @@ java {
     }
 }
 
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
 repositories {
     mavenCentral()
 }
@@ -40,8 +46,8 @@ dependencies {
     runtimeOnly 'com.h2database:h2'
     
     // Lombok
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
     
     // Development
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
