@@ -45,9 +45,9 @@ dependencies {
     // H2 Database
     runtimeOnly 'com.h2database:h2'
     
-    // Lombok
-    compileOnly 'org.projectlombok:lombok:1.18.34'
-    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+    // Lombok - managed by Spring Boot BOM
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
     
     // Development
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
