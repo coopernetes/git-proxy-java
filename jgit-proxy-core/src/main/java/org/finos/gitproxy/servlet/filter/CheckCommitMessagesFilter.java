@@ -18,11 +18,13 @@ import org.finos.gitproxy.git.HttpOperation;
 /**
  * Filter that validates commit messages against configured blocked patterns and literals. This filter ensures commit
  * messages don't contain sensitive information or blocked content.
+ *
+ * <p>This filter runs at order 2200, which is in the built-in content filters range (2000-4999).
  */
 @Slf4j
 public class CheckCommitMessagesFilter extends AbstractGitProxyFilter {
 
-    private static final int ORDER = 310;
+    private static final int ORDER = 2200;
     private final CommitConfig commitConfig;
 
     public CheckCommitMessagesFilter(CommitConfig commitConfig) {

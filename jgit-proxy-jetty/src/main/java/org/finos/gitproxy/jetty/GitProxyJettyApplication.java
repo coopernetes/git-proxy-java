@@ -122,8 +122,8 @@ public class GitProxyJettyApplication {
 
         // Example whitelist filter (can be configured based on requirements)
         var whitelistFilters = List.of(new WhitelistByUrlFilter(
-                102, provider, List.of("finos/git-proxy", "coopernetes/test-repo"), RepositoryUrlFilter.Target.SLUG));
-        var whitelistAggregateFilter = new WhitelistAggregateFilter(20, provider, whitelistFilters);
+                1100, provider, List.of("finos/git-proxy", "coopernetes/test-repo"), RepositoryUrlFilter.Target.SLUG));
+        var whitelistAggregateFilter = new WhitelistAggregateFilter(1000, provider, whitelistFilters);
         var whitelistAggFilterHolder = new FilterHolder(whitelistAggregateFilter);
         whitelistAggFilterHolder.setAsyncSupported(true);
         context.addFilter(whitelistAggFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));

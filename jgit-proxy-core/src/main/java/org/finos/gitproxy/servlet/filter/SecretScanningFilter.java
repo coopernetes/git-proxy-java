@@ -14,6 +14,8 @@ import org.finos.gitproxy.git.HttpOperation;
  * Stub filter for secret scanning functionality. This filter is designed to integrate with external secret scanning
  * tools like Gitleaks via external process execution.
  *
+ * <p>This filter runs at order 2400, which is in the built-in content filters range (2000-4999).
+ *
  * <p>Future implementation will:
  *
  * <ul>
@@ -39,7 +41,7 @@ import org.finos.gitproxy.git.HttpOperation;
 @Slf4j
 public class SecretScanningFilter extends AbstractGitProxyFilter {
 
-    private static final int ORDER = 400;
+    private static final int ORDER = 2400;
     private final boolean enabled;
 
     public SecretScanningFilter(boolean enabled) {
