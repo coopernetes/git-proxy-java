@@ -24,6 +24,24 @@ import org.finos.gitproxy.git.HttpOperation;
  *
  * <p>Custom filters should generally extend {@link AbstractGitProxyFilter} or
  * {@link AbstractProviderAwareGitProxyFilter} {@see AbstractGitProxyFilter} {@see AbstractProviderAwareGitProxyFilter}
+ *
+ * <h2>Filter Order Ranges</h2>
+ *
+ * Filters are executed in order based on their {@link #getOrder()} value. The following ranges are reserved:
+ *
+ * <ul>
+ *   <li><b>Preprocessing filters (Integer.MIN_VALUE to Integer.MIN_VALUE+99):</b> Core system filters that must run
+ *       first (e.g., ForceGitClientFilter, ParseGitRequestFilter, EnrichPushCommitsFilter)
+ *   <li><b>Custom preprocessing filters (1-999):</b> Reserved for user-defined filters that need to run before
+ *       whitelisting
+ *   <li><b>Whitelist filters (1000-1999):</b> Authorization filters that determine if a request is allowed. Up to 1000
+ *       custom whitelist filters can be configured in this range.
+ *   <li><b>Built-in content filters (2000-4999):</b> Core validation filters (email checks, commit message validation,
+ *       GPG signatures, etc.). Built-in filters use multiples of 100 (2000, 2100, 2200, etc.) to allow up to 99 custom
+ *       filters between each built-in filter.
+ *   <li><b>Custom post-processing filters (5000+):</b> User-defined filters that run after all built-in filters
+ *   <li><b>Audit filters (Integer.MAX_VALUE):</b> Audit and logging filters that should run last
+ * </ul>
  */
 public interface GitProxyFilter extends Filter {
 
