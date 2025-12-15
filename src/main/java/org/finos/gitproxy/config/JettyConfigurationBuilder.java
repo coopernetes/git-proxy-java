@@ -3,7 +3,6 @@ package org.finos.gitproxy.config;
 import java.net.URI;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
-import org.finos.gitproxy.git.HttpAuthScheme;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.*;
 import org.finos.gitproxy.servlet.filter.*;
@@ -41,7 +40,7 @@ public class JettyConfigurationBuilder {
 
             boolean enabled = (Boolean) providerConfig.getOrDefault("enabled", false);
             if (!enabled) {
-                log.debug("Provider {} is disabled, skipping", providerName);
+                log.info("Provider {} is disabled, skipping", providerName);
                 continue;
             }
 
@@ -108,9 +107,6 @@ public class JettyConfigurationBuilder {
         filters.add(new ForceGitClientFilter());
         filters.add(new ParseGitRequestFilter(provider));
 
-        // Build GitHub user authenticated filter
-        filters.addAll(buildGitHubUserAuthFilter(provider, filtersConfig));
-
         // Build whitelist filters
         filters.addAll(buildWhitelistFilters(provider, filtersConfig));
 
@@ -118,74 +114,6 @@ public class JettyConfigurationBuilder {
         filters.add(new AuditLogFilter());
 
         providerFilters.put(provider, filters);
-        return filters;
-    }
-
-    /** Build GitHub user authentication filter if configured. */
-    @SuppressWarnings("unchecked")
-    private List<GitProxyFilter> buildGitHubUserAuthFilter(
-            GitProxyProvider provider, Map<String, Object> filtersConfig) {
-        List<GitProxyFilter> filters = new ArrayList<>();
-
-        if (!(provider instanceof GitHubProvider)) {
-            return filters;
-        }
-
-        Object githubUserAuthConfig = filtersConfig.get("github-user-authenticated");
-        if (githubUserAuthConfig == null) {
-            return filters;
-        }
-
-        Map<String, Object> authConfig = (Map<String, Object>) githubUserAuthConfig;
-        boolean enabled = (Boolean) authConfig.getOrDefault("enabled", false);
-        if (!enabled) {
-            return filters;
-        }
-
-        // Check if this provider is in the list
-        List<String> providerList = (List<String>) authConfig.get("providers");
-        if (providerList != null && !providerList.contains(provider.getName())) {
-            return filters;
-        }
-
-        int order = (Integer) authConfig.getOrDefault("order", 1);
-        Object authSchemesObj = authConfig.get("required-auth-schemes");
-
-        Set<HttpAuthScheme> schemes = new HashSet<>();
-        if (authSchemesObj != null) {
-            List<String> authSchemes;
-            if (authSchemesObj instanceof List) {
-                authSchemes = (List<String>) authSchemesObj;
-            } else if (authSchemesObj instanceof String) {
-                // Handle comma-separated string
-                String authSchemesStr = (String) authSchemesObj;
-                authSchemes = Arrays.asList(authSchemesStr.split("\\s*,\\s*"));
-            } else {
-                authSchemes = new ArrayList<>();
-            }
-
-            for (String scheme : authSchemes) {
-                switch (scheme.toLowerCase().trim()) {
-                    case "basic":
-                        schemes.add(HttpAuthScheme.BASIC);
-                        break;
-                    case "bearer":
-                        schemes.add(HttpAuthScheme.BEARER);
-                        break;
-                    case "token":
-                        schemes.add(HttpAuthScheme.TOKEN);
-                        break;
-                }
-            }
-        } else {
-            schemes.add(HttpAuthScheme.BEARER);
-        }
-
-        GitHubUserAuthenticatedFilter filter =
-                new GitHubUserAuthenticatedFilter(order, (GitHubProvider) provider, schemes);
-        filters.add(filter);
-        log.info("Created GitHubUserAuthenticatedFilter for provider: {}", provider.getName());
-
         return filters;
     }
 

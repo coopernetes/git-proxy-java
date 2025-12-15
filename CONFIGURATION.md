@@ -1,14 +1,24 @@
 # Configuration Guide
 
-The Jetty-based GitProxy server supports configuration via YAML files. This allows you to configure providers, filters, and other server settings without modifying code.
+The Jetty-based GitProxy server supports configuration via YAML files and environment variables. This allows you to configure providers, filters, and other server settings without modifying code.
 
 ## Configuration Files
 
 The server loads configuration from the following files in order:
-1. `src/main/resources/application.yml` - Base configuration
-2. `src/main/resources/application-local.yml` - Local overrides (merged with base)
+1. `src/main/resources/git-proxy.yml` - Base configuration
+2. `src/main/resources/git-proxy-local.yml` - Local overrides (merged with base)
+3. Environment variables with `GITPROXY_` prefix
 
-Configuration from `application-local.yml` will override or extend settings from `application.yml`.
+Configuration from `git-proxy-local.yml` will override or extend settings from `git-proxy.yml`, and environment variables will override both.
+
+## Environment Variable Overrides
+
+You can override certain configuration values using environment variables with the `GITPROXY_` prefix:
+
+- `GITPROXY_SERVER_PORT`: Override the server port (e.g., `GITPROXY_SERVER_PORT=9090`)
+- `GITPROXY_GITPROXY_BASEPATH`: Override the base path (e.g., `GITPROXY_GITPROXY_BASEPATH=/proxy`)
+
+Note: Whitelist configurations are not supported via environment variables due to their complex structure.
 
 ## Server Configuration
 
@@ -61,29 +71,7 @@ git-proxy:
 
 Filters control access to repositories and enforce policies.
 
-### GitHub User Authentication Filter
-
-Requires authentication for GitHub operations.
-
-```yaml
-git-proxy:
-  filters:
-    github-user-authenticated:
-      enabled: true
-      order: 1
-      operations:
-        - PUSH
-      required-auth-schemes: bearer, token, basic  # Can be comma-separated or list
-      providers:
-        - github
-```
-
-Options:
-- `enabled` (boolean): Enable/disable the filter
-- `order` (int): Filter execution order (lower numbers run first)
-- `operations` (list): Git operations to apply filter to (PUSH, FETCH)
-- `required-auth-schemes` (string or list): Required authentication schemes (bearer, token, basic)
-- `providers` (list): Provider names to apply filter to
+Note: GitHub already enforces authentication for push operations using personal access tokens (PATs). The proxy transparently forwards requests upstream and returns errors from GitHub directly, so authentication checking is handled by GitHub itself.
 
 ### Whitelist Filters
 
