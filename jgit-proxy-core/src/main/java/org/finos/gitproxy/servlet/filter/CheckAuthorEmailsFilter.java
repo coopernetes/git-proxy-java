@@ -19,11 +19,13 @@ import org.finos.gitproxy.git.HttpOperation;
 /**
  * Filter that validates commit author email addresses against configured patterns. This filter checks that all commit
  * author emails are valid and match allowed domain patterns, and don't match blocked local part patterns.
+ *
+ * <p>This filter runs at order 2100, which is in the built-in content filters range (2000-4999).
  */
 @Slf4j
 public class CheckAuthorEmailsFilter extends AbstractGitProxyFilter {
 
-    private static final int ORDER = 300;
+    private static final int ORDER = 2100;
     private final CommitConfig commitConfig;
 
     public CheckAuthorEmailsFilter(CommitConfig commitConfig) {

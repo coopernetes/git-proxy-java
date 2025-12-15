@@ -21,11 +21,13 @@ import org.finos.gitproxy.git.HttpOperation;
 /**
  * Filter that validates GPG signatures on commits. This filter checks that commits are signed with a trusted GPG key
  * when signature validation is enabled.
+ *
+ * <p>This filter runs at order 2300, which is in the built-in content filters range (2000-4999).
  */
 @Slf4j
 public class GpgSignatureFilter extends AbstractGitProxyFilter {
 
-    private static final int ORDER = 350;
+    private static final int ORDER = 2300;
     private final GpgConfig config;
     private PGPPublicKeyRingCollection trustedKeys;
 
