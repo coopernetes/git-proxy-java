@@ -32,7 +32,7 @@ public class GitClient {
 
     /**
      * List of Unicode codepoints used to display symbols and/or emojis in the client response. Note that not all
-     * clients support the same set of chracters. Certain client interactions (git fetch) may also restrict what is
+     * clients support the same set of characters. Certain client interactions (git fetch) may also restrict what is
      * displayed.
      */
     @RequiredArgsConstructor
