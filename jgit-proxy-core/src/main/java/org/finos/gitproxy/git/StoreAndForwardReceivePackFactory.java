@@ -44,6 +44,15 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             creds = extractBasicAuth(req);
         }
 
+        // Store the push user in repo config so PushStorePersistenceHook can read it
+        String pushUser = (String) req.getAttribute("org.finos.gitproxy.pushUser");
+        if (pushUser == null) {
+            pushUser = extractUsername(req);
+        }
+        if (pushUser != null) {
+            db.getConfig().setString("gitproxy", null, "pushUser", pushUser);
+        }
+
         // Per-request shared contexts
         var validationContext = new ValidationContext();
         var pushContext = new PushContext();
@@ -54,41 +63,47 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             persistenceHook.setPushContext(pushContext);
         }
 
-        // Chain hooks:
-        // 0. PushStorePersistenceHook.preReceive — record initial push (if store configured)
-        // 1. SlowApprovalPreReceiveHook — approval gate with sideband feedback (short-circuits if rejected)
-        // 2. AuthorEmailValidationHook — validates emails, writes to context
-        // 3. CommitMessageValidationHook — validates messages, writes to context
-        // 4. ValidationVerifierHook — reads context, sends summary, rejects if issues
-        // 5. ProxyPreReceiveHook — informational commit inspection (only if verified)
-        // 6. DiffGenerationHook — generates push diff and default-branch diff
-        // 7. PushStorePersistenceHook.validationResult — capture results + diffs (if store configured)
+        // Hook chain — order matters:
+        //
+        // 0. PushStorePersistenceHook.preReceive — record RECEIVED (no steps yet)
+        // 1. SlowApprovalPreReceiveHook          — approval gate; records "approval" step
+        // 2. AuthorEmailValidationHook            — validates emails; records "checkAuthorEmails" step
+        // 3. CommitMessageValidationHook          — validates messages; records "checkCommitMessages" step
+        // 4. ProxyPreReceiveHook                  — commit inspection; records "inspection" step
+        // 5. DiffGenerationHook                   — generates diffs; records "diff" / "diff:default-branch" steps
+        // 6. PushStorePersistenceHook.validationResult — saves APPROVED or BLOCKED record with all steps so far
+        // 7. ValidationVerifierHook               — rejects commands if issues; chain may stop here
+        //
+        // Post-receive (only runs when pre-receive doesn't stop the chain):
+        // 8. ForwardingPostReceiveHook            — forwards to upstream; records "forward" step
+        // 9. PushStorePersistenceHook.postReceive — saves FORWARDED or ERROR record with forwarding step
+
         PreReceiveHook[] preHooks;
         if (persistenceHook != null) {
             preHooks = new PreReceiveHook[] {
                 persistenceHook.preReceiveHook(),
-                new SlowApprovalPreReceiveHook(),
-                new AuthorEmailValidationHook(commitConfig, validationContext),
-                new CommitMessageValidationHook(commitConfig, validationContext),
-                new ValidationVerifierHook(validationContext),
-                new ProxyPreReceiveHook(),
+                new SlowApprovalPreReceiveHook(pushContext),
+                new AuthorEmailValidationHook(commitConfig, validationContext, pushContext),
+                new CommitMessageValidationHook(commitConfig, validationContext, pushContext),
+                new ProxyPreReceiveHook(pushContext),
                 new DiffGenerationHook(pushContext),
-                persistenceHook.validationResultHook(validationContext)
+                persistenceHook.validationResultHook(validationContext),
+                new ValidationVerifierHook(validationContext)
             };
         } else {
             preHooks = new PreReceiveHook[] {
-                new SlowApprovalPreReceiveHook(),
-                new AuthorEmailValidationHook(commitConfig, validationContext),
-                new CommitMessageValidationHook(commitConfig, validationContext),
-                new ValidationVerifierHook(validationContext),
-                new ProxyPreReceiveHook(),
-                new DiffGenerationHook(pushContext)
+                new SlowApprovalPreReceiveHook(pushContext),
+                new AuthorEmailValidationHook(commitConfig, validationContext, pushContext),
+                new CommitMessageValidationHook(commitConfig, validationContext, pushContext),
+                new ProxyPreReceiveHook(pushContext),
+                new DiffGenerationHook(pushContext),
+                new ValidationVerifierHook(validationContext)
             };
         }
         rp.setPreReceiveHook(chainPreReceiveHooks(preHooks));
 
         // Post-receive: forward to upstream, then record final status
-        var forwardingHook = new ForwardingPostReceiveHook(provider, creds);
+        var forwardingHook = new ForwardingPostReceiveHook(provider, creds, pushContext);
         if (persistenceHook != null) {
             rp.setPostReceiveHook(chainPostReceiveHooks(forwardingHook, persistenceHook.postReceiveHook()));
         } else {
@@ -128,6 +143,17 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
     }
 
     private CredentialsProvider extractBasicAuth(HttpServletRequest req) {
+        String[] userPass = extractUserPass(req);
+        if (userPass == null) return null;
+        return new UsernamePasswordCredentialsProvider(userPass[0], userPass[1]);
+    }
+
+    private String extractUsername(HttpServletRequest req) {
+        String[] userPass = extractUserPass(req);
+        return userPass != null ? userPass[0] : null;
+    }
+
+    private String[] extractUserPass(HttpServletRequest req) {
         String authHeader = req.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Basic ")) {
             return null;
@@ -141,10 +167,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                 log.warn("Invalid Basic auth format (no colon separator)");
                 return null;
             }
-
-            String username = decoded.substring(0, colonIndex);
-            String password = decoded.substring(colonIndex + 1);
-            return new UsernamePasswordCredentialsProvider(username, password);
+            return new String[] {decoded.substring(0, colonIndex), decoded.substring(colonIndex + 1)};
         } catch (IllegalArgumentException e) {
             log.warn("Invalid Base64 in Authorization header", e);
             return null;

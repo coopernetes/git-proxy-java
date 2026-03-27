@@ -56,9 +56,9 @@ public class JdbcPushStore implements PushStore {
         String insertSql =
                 """
                 INSERT INTO push_records (id, timestamp, url, upstream_url, project, repo_name, branch,
-                    commit_from, commit_to, author, author_email, push_user, method, status,
-                    error_message, blocked_message, auto_approved, auto_rejected)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    commit_from, commit_to, message, author, author_email, push_user, user_email,
+                    method, status, error_message, blocked_message, auto_approved, auto_rejected)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection conn = dataSource.getConnection()) {
@@ -252,9 +252,11 @@ public class JdbcPushStore implements PushStore {
                 .branch(rs.getString("branch"))
                 .commitFrom(rs.getString("commit_from"))
                 .commitTo(rs.getString("commit_to"))
+                .message(rs.getString("message"))
                 .author(rs.getString("author"))
                 .authorEmail(rs.getString("author_email"))
                 .user(rs.getString("push_user"))
+                .userEmail(rs.getString("user_email"))
                 .method(rs.getString("method"))
                 .status(PushStatus.valueOf(rs.getString("status")))
                 .errorMessage(rs.getString("error_message"))
@@ -274,15 +276,17 @@ public class JdbcPushStore implements PushStore {
         ps.setString(7, r.getBranch());
         ps.setString(8, r.getCommitFrom());
         ps.setString(9, r.getCommitTo());
-        ps.setString(10, r.getAuthor());
-        ps.setString(11, r.getAuthorEmail());
-        ps.setString(12, r.getUser());
-        ps.setString(13, r.getMethod());
-        ps.setString(14, r.getStatus().name());
-        ps.setString(15, r.getErrorMessage());
-        ps.setString(16, r.getBlockedMessage());
-        ps.setBoolean(17, r.isAutoApproved());
-        ps.setBoolean(18, r.isAutoRejected());
+        ps.setString(10, r.getMessage());
+        ps.setString(11, r.getAuthor());
+        ps.setString(12, r.getAuthorEmail());
+        ps.setString(13, r.getUser());
+        ps.setString(14, r.getUserEmail());
+        ps.setString(15, r.getMethod());
+        ps.setString(16, r.getStatus().name());
+        ps.setString(17, r.getErrorMessage());
+        ps.setString(18, r.getBlockedMessage());
+        ps.setBoolean(19, r.isAutoApproved());
+        ps.setBoolean(20, r.isAutoRejected());
     }
 
     // --- Steps ---
