@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.lib.NullProgressMonitor;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.transport.*;
+import org.finos.gitproxy.db.model.PushStep;
+import org.finos.gitproxy.db.model.StepStatus;
 import org.finos.gitproxy.provider.GitProxyProvider;
 
 /**
@@ -26,6 +28,7 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
 
     private final GitProxyProvider provider;
     private final CredentialsProvider credentials;
+    private final PushContext pushContext;
 
     @Override
     public void onPostReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
@@ -35,6 +38,11 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
 
         if (accepted.isEmpty()) {
             rp.sendMessage(YELLOW + "[git-proxy] " + WARNING.emoji() + "  No refs to forward" + RESET);
+            pushContext.addStep(PushStep.builder()
+                    .stepName("forward")
+                    .status(StepStatus.PASS)
+                    .logs(List.of("No refs to forward"))
+                    .build());
             return;
         }
 
@@ -45,24 +53,48 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
             rp.sendMessage(RED + "[git-proxy] " + NO_ENTRY.emoji()
                     + "  ERROR - no upstream URL configured, cannot forward" + RESET);
             log.error("No gitproxy.upstreamUrl in repo config for {}", repo.getDirectory());
+            pushContext.addStep(PushStep.builder()
+                    .stepName("forward")
+                    .status(StepStatus.FAIL)
+                    .errorMessage("No upstream URL configured")
+                    .logs(List.of("ERROR: no gitproxy.upstreamUrl in repo config"))
+                    .build());
             return;
         }
 
         rp.sendMessage(CYAN + "[git-proxy] " + LINK.emoji() + "  Forwarding to " + upstreamUrl + "..." + RESET);
 
+        List<String> logs = new ArrayList<>();
+        logs.add("Forwarding to " + upstreamUrl);
+        boolean forwardFailed = false;
+        String forwardError = null;
+
         try {
             URIish upstream = new URIish(upstreamUrl);
-            pushToUpstream(rp, repo, upstream, accepted);
+            forwardFailed = pushToUpstream(rp, repo, upstream, accepted, logs);
         } catch (Exception e) {
             rp.sendMessage(RED + "[git-proxy] " + CROSS_MARK.emoji() + "  ERROR forwarding to upstream: "
                     + e.getMessage() + RESET);
             log.error("Failed to push to upstream {}", upstreamUrl, e);
+            logs.add("ERROR: " + e.getMessage());
+            forwardFailed = true;
+            forwardError = e.getMessage();
         }
+
+        pushContext.addStep(PushStep.builder()
+                .stepName("forward")
+                .status(forwardFailed ? StepStatus.FAIL : StepStatus.PASS)
+                .errorMessage(forwardError)
+                .logs(logs)
+                .build());
     }
 
-    private void pushToUpstream(ReceivePack rp, Repository repo, URIish upstream, List<ReceiveCommand> commands)
+    /** Returns true if any ref failed to forward. */
+    private boolean pushToUpstream(
+            ReceivePack rp, Repository repo, URIish upstream, List<ReceiveCommand> commands, List<String> logs)
             throws Exception {
 
+        boolean anyFailed = false;
         try (Transport transport = Transport.open(repo, upstream)) {
             if (credentials != null) {
                 transport.setCredentialsProvider(credentials);
@@ -83,17 +115,22 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
                     case UP_TO_DATE:
                         rp.sendMessage(GREEN + "[git-proxy]   " + HEAVY_CHECK_MARK.emoji() + "  " + remoteName + " -> "
                                 + status + RESET);
+                        logs.add("PASS: " + remoteName + " -> " + status);
                         break;
                     default:
                         String message = update.getMessage();
                         rp.sendMessage(RED + "[git-proxy]   " + CROSS_MARK.emoji() + "  " + remoteName + " -> " + status
                                 + (message != null ? " (" + message + ")" : "") + RESET);
                         log.warn("Upstream push ref {} status: {} {}", remoteName, status, message);
+                        logs.add("FAIL: " + remoteName + " -> " + status
+                                + (message != null ? " (" + message + ")" : ""));
+                        anyFailed = true;
                 }
             }
 
             rp.sendMessage(GREEN + "[git-proxy] " + HEAVY_CHECK_MARK.emoji() + "  Forwarding complete" + RESET);
         }
+        return anyFailed;
     }
 
     private List<RemoteRefUpdate> buildRefUpdates(Repository repo, List<ReceiveCommand> commands) throws Exception {

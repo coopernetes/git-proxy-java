@@ -6,10 +6,13 @@ import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.transport.PreReceiveHook;
 import org.eclipse.jgit.transport.ReceiveCommand;
 import org.eclipse.jgit.transport.ReceivePack;
+import org.finos.gitproxy.db.model.PushStep;
+import org.finos.gitproxy.db.model.StepStatus;
 
 /**
  * Demonstration pre-receive hook that simulates a slow external approval workflow (e.g. ServiceNow ticket creation,
@@ -24,6 +27,12 @@ public class SlowApprovalPreReceiveHook implements PreReceiveHook {
 
     private static final int TOTAL_SECONDS = 15;
     private static final int INTERVAL_SECONDS = 5;
+
+    private final PushContext pushContext;
+
+    public SlowApprovalPreReceiveHook(PushContext pushContext) {
+        this.pushContext = pushContext;
+    }
 
     @Override
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
@@ -40,6 +49,12 @@ public class SlowApprovalPreReceiveHook implements PreReceiveHook {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 sendAndFlush(rp, msgOut, RED + "[git-proxy] " + CROSS_MARK.emoji() + "  Approval check interrupted" + RESET);
+                pushContext.addStep(PushStep.builder()
+                        .stepName("approval")
+                        .status(StepStatus.FAIL)
+                        .errorMessage("Approval check interrupted")
+                        .logs(List.of("Interrupted after " + elapsed + "s"))
+                        .build());
                 return;
             }
 
@@ -51,6 +66,11 @@ public class SlowApprovalPreReceiveHook implements PreReceiveHook {
         }
 
         sendAndFlush(rp, msgOut, GREEN + "[git-proxy] " + HEAVY_CHECK_MARK.emoji() + "  Approval granted" + RESET);
+        pushContext.addStep(PushStep.builder()
+                .stepName("approval")
+                .status(StepStatus.PASS)
+                .logs(List.of("Approval granted after " + TOTAL_SECONDS + "s"))
+                .build());
     }
 
     /** Send a sideband message and flush immediately so it streams to the git client over HTTP. */

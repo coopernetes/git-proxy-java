@@ -53,6 +53,7 @@ public class StoreAndForwardRepositoryResolver implements RepositoryResolver<Htt
         if (userPass != null) {
             CredentialsProvider creds = new UsernamePasswordCredentialsProvider(userPass[0], userPass[1]);
             req.setAttribute(CREDENTIALS_ATTRIBUTE, creds);
+            req.setAttribute("org.finos.gitproxy.pushUser", userPass[0]);
         }
 
         log.info("Opening store-and-forward repository: {} -> {}", name, cleanUpstreamUrl);

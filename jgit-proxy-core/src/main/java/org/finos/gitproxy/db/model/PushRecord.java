@@ -43,6 +43,9 @@ public class PushRecord {
     /** Ending commit SHA (new ref, the push range end). */
     private String commitTo;
 
+    /** First line of the head commit message, for quick display. */
+    private String message;
+
     /** Git commit author name. */
     private String author;
 
@@ -51,6 +54,11 @@ public class PushRecord {
 
     /** Authenticated user performing the push. */
     private String user;
+
+    /**
+     * Authenticated user's email. Populated when user management is available; null until then.
+     */
+    private String userEmail;
 
     /** HTTP method used. */
     private String method;

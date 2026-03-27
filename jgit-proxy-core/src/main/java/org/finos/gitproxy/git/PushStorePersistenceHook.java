@@ -152,20 +152,29 @@ public class PushStorePersistenceHook {
 
             try {
                 pushStore.findById(pushId).ifPresent(initial -> {
-                    PushRecord record = copyBase(initial);
-
                     boolean allOk = commands.stream()
                             .allMatch(cmd -> cmd.getResult() == ReceiveCommand.Result.OK);
-                    boolean anyFailed = commands.stream()
+                    boolean anyValidationRejected = commands.stream()
+                            .anyMatch(cmd -> cmd.getResult() == ReceiveCommand.Result.REJECTED_OTHER_REASON);
+                    boolean anyTransportFailed = commands.stream()
                             .anyMatch(cmd -> cmd.getResult() != ReceiveCommand.Result.OK
-                                    && cmd.getResult() != ReceiveCommand.Result.NOT_ATTEMPTED);
+                                    && cmd.getResult() != ReceiveCommand.Result.NOT_ATTEMPTED
+                                    && cmd.getResult() != ReceiveCommand.Result.REJECTED_OTHER_REASON);
 
+                    if (anyValidationRejected) {
+                        // Already recorded as BLOCKED by validationResultHook — skip
+                        log.debug("Skipping post-receive record: push was blocked by validation");
+                        return;
+                    }
+
+                    PushRecord record = copyBase(initial);
                     if (allOk) {
                         record.setStatus(PushStatus.FORWARDED);
-                    } else if (anyFailed) {
+                    } else if (anyTransportFailed) {
                         record.setStatus(PushStatus.ERROR);
                         commands.stream()
-                                .filter(cmd -> cmd.getResult() != ReceiveCommand.Result.OK)
+                                .filter(cmd -> cmd.getResult() != ReceiveCommand.Result.OK
+                                        && cmd.getResult() != ReceiveCommand.Result.NOT_ATTEMPTED)
                                 .findFirst()
                                 .ifPresent(cmd -> record.setErrorMessage(
                                         cmd.getRefName() + ": " + cmd.getResult() + " - " + cmd.getMessage()));
@@ -194,9 +203,11 @@ public class PushStorePersistenceHook {
                 .branch(source.getBranch())
                 .commitFrom(source.getCommitFrom())
                 .commitTo(source.getCommitTo())
+                .message(source.getMessage())
                 .author(source.getAuthor())
                 .authorEmail(source.getAuthorEmail())
                 .user(source.getUser())
+                .userEmail(source.getUserEmail())
                 .method(source.getMethod())
                 .commits(source.getCommits())
                 .build();
@@ -210,6 +221,12 @@ public class PushStorePersistenceHook {
                 .status(PushStatus.RECEIVED)
                 .url(providerUri)
                 .project(provider.getUri().getHost());
+
+        // Extract push user from repo config (set by StoreAndForwardReceivePackFactory)
+        String pushUser = repo.getConfig().getString("gitproxy", null, "pushUser");
+        if (pushUser != null) {
+            builder.user(pushUser);
+        }
 
         // Extract upstream URL and repo name from repo config (set by StoreAndForwardRepositoryResolver)
         String upstreamUrl = repo.getConfig().getString("gitproxy", null, "upstreamUrl");
@@ -249,16 +266,25 @@ public class PushStorePersistenceHook {
                         builder.author(tip.getAuthor().getName());
                         builder.authorEmail(tip.getAuthor().getEmail());
                     }
+                    if (tip.getMessage() != null) {
+                        builder.message(tip.getMessage().lines().findFirst().orElse(null));
+                    }
                 } else {
                     List<Commit> range =
                             CommitInspectionService.getCommitRange(repo, cmd.getOldId().name(), toCommit);
                     for (Commit c : range) {
                         commits.add(PushRecordMapper.mapCommit(pushId, c));
                     }
-                    // Use the latest commit's author
-                    if (!range.isEmpty() && range.get(0).getAuthor() != null) {
-                        builder.author(range.get(0).getAuthor().getName());
-                        builder.authorEmail(range.get(0).getAuthor().getEmail());
+                    // Use the latest commit's author and headline message
+                    if (!range.isEmpty()) {
+                        Commit head = range.get(0);
+                        if (head.getAuthor() != null) {
+                            builder.author(head.getAuthor().getName());
+                            builder.authorEmail(head.getAuthor().getEmail());
+                        }
+                        if (head.getMessage() != null) {
+                            builder.message(head.getMessage().lines().findFirst().orElse(null));
+                        }
                     }
                 }
             } catch (Exception e) {
