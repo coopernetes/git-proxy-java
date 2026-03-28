@@ -1,8 +1,50 @@
 services:
-  # PostgreSQL - production-grade relational database
+
+  # ── jgit-proxy ────────────────────────────────────────────────────────────
+  jgit-proxy:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount the provider + database config for this Compose setup.
+      # Swap for docker/git-proxy-postgres.yml or docker/git-proxy-mongo.yml
+      # when starting with the postgres or mongo profiles (see below).
+      - ./docker/git-proxy-local.yml:/app/conf/git-proxy-local.yml:ro
+    depends_on:
+      gitea:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/api/pushes || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  # ── Gitea (local git server) ───────────────────────────────────────────────
+  gitea:
+    image: docker.io/gitea/gitea:1.22
+    ports:
+      - "3000:3000"
+    environment:
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__security__SECRET_KEY: "change-me-in-production"
+      GITEA__server__HTTP_PORT: "3000"
+      GITEA__database__DB_TYPE: "sqlite3"
+      GITEA__log__LEVEL: "Warn"
+      GITEA__repository__DEFAULT_BRANCH: "main"
+    volumes:
+      - gitea-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # ── PostgreSQL (optional — start with: docker compose --profile postgres up) ─
   postgres:
-    image: postgres:17-alpine
-    container_name: gitproxy-postgres
+    image: docker.io/postgres:17-alpine
+    profiles: [postgres]
     environment:
       POSTGRES_DB: gitproxy
       POSTGRES_USER: gitproxy
@@ -11,11 +53,16 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitproxy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-  # MongoDB - document database (compatible with git-proxy Node.js data model)
+  # ── MongoDB (optional — start with: docker compose --profile mongo up) ─────
   mongo:
-    image: mongo:7
-    container_name: gitproxy-mongo
+    image: docker.io/mongo:7
+    profiles: [mongo]
     environment:
       MONGO_INITDB_ROOT_USERNAME: gitproxy
       MONGO_INITDB_ROOT_PASSWORD: gitproxy
@@ -24,11 +71,17 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
-  # Mongo Express - web UI for MongoDB
+  # ── Database web UIs (optional) ───────────────────────────────────────────
   mongo-express:
-    image: mongo-express:1
-    container_name: gitproxy-mongo-express
+    image: docker.io/mongo-express:1
+    profiles: [mongo]
     depends_on:
       - mongo
     environment:
@@ -39,15 +92,15 @@ services:
     ports:
       - "8081:8081"
 
-  # Adminer - lightweight web UI for SQL databases (Postgres, H2 file, SQLite)
   adminer:
-    image: adminer:4
-    container_name: gitproxy-adminer
+    image: docker.io/adminer:4
+    profiles: [postgres]
     depends_on:
       - postgres
     ports:
       - "8082:8080"
 
 volumes:
+  gitea-data:
   postgres-data:
   mongo-data:
