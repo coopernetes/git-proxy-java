@@ -10,7 +10,6 @@ import java.util.Set;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.finos.gitproxy.git.GitClient;
-import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitProxyProvider;
 

@@ -70,14 +70,14 @@ public class GpgSignatureFilter extends AbstractGitProxyFilter {
 
             if (config.isRequireSignedCommits() && (signature == null || signature.isEmpty())) {
                 log.warn("Commit {} is not signed but signatures are required", commit.getSha());
-                String shortSha = commit.getSha().substring(0, Math.min(7, commit.getSha().length()));
+                String shortSha =
+                        commit.getSha().substring(0, Math.min(7, commit.getSha().length()));
                 String title = NO_ENTRY.emoji() + "  Push Blocked — Unsigned Commit";
                 String message = CROSS_MARK.emoji() + "  Commit " + shortSha + " is not signed.\n"
                         + "\n"
                         + KEY.emoji() + "  All commits must be signed with a GPG key.\n"
                         + "   git config commit.gpgsign true";
-                blockAndSendError(
-                        request, response, "Unsigned commit", GitClient.format(title, message, RED, null));
+                blockAndSendError(request, response, "Unsigned commit", GitClient.format(title, message, RED, null));
                 return;
             }
 
@@ -85,7 +85,8 @@ public class GpgSignatureFilter extends AbstractGitProxyFilter {
                 boolean isValid = verifySignature(commit);
                 if (!isValid) {
                     log.warn("Commit {} has an invalid signature", commit.getSha());
-                    String shortSha = commit.getSha().substring(0, Math.min(7, commit.getSha().length()));
+                    String shortSha = commit.getSha()
+                            .substring(0, Math.min(7, commit.getSha().length()));
                     String title = NO_ENTRY.emoji() + "  Push Blocked — Invalid Signature";
                     String message = CROSS_MARK.emoji() + "  Commit " + shortSha
                             + " has an invalid or untrusted\n"
@@ -93,10 +94,7 @@ public class GpgSignatureFilter extends AbstractGitProxyFilter {
                             + "\n"
                             + KEY.emoji() + "  Ensure commits are signed with a trusted key.";
                     blockAndSendError(
-                            request,
-                            response,
-                            "Invalid GPG signature",
-                            GitClient.format(title, message, RED, null));
+                            request, response, "Invalid GPG signature", GitClient.format(title, message, RED, null));
                     return;
                 }
             }

@@ -7,9 +7,7 @@ import java.util.UUID;
 import lombok.Builder;
 import lombok.Data;
 
-/**
- * A single validation/processing step within a push. Captures what happened during each hook or filter execution.
- */
+/** A single validation/processing step within a push. Captures what happened during each hook or filter execution. */
 @Data
 @Builder
 public class PushStep {

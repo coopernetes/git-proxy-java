@@ -38,17 +38,24 @@ public class SlowApprovalPreReceiveHook implements PreReceiveHook {
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
         OutputStream msgOut = rp.getMessageOutputStream();
 
-        sendAndFlush(rp, msgOut, CYAN + "[git-proxy] " + KEY.emoji() + "  Push received, submitting for approval..." + RESET);
-        sendAndFlush(rp, msgOut, YELLOW + "[git-proxy] " + WARNING.emoji()
-                + String.format("  Waiting for external approval (%ds timeout)...", TOTAL_SECONDS)
-                + RESET);
+        sendAndFlush(
+                rp,
+                msgOut,
+                CYAN + "[git-proxy] " + KEY.emoji() + "  Push received, submitting for approval..." + RESET);
+        sendAndFlush(
+                rp,
+                msgOut,
+                YELLOW + "[git-proxy] " + WARNING.emoji()
+                        + String.format("  Waiting for external approval (%ds timeout)...", TOTAL_SECONDS)
+                        + RESET);
 
         for (int elapsed = 0; elapsed < TOTAL_SECONDS; elapsed += INTERVAL_SECONDS) {
             try {
                 Thread.sleep(INTERVAL_SECONDS * 1000L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                sendAndFlush(rp, msgOut, RED + "[git-proxy] " + CROSS_MARK.emoji() + "  Approval check interrupted" + RESET);
+                sendAndFlush(
+                        rp, msgOut, RED + "[git-proxy] " + CROSS_MARK.emoji() + "  Approval check interrupted" + RESET);
                 pushContext.addStep(PushStep.builder()
                         .stepName("approval")
                         .status(StepStatus.FAIL)
@@ -60,8 +67,11 @@ public class SlowApprovalPreReceiveHook implements PreReceiveHook {
 
             int remaining = TOTAL_SECONDS - elapsed - INTERVAL_SECONDS;
             if (remaining > 0) {
-                sendAndFlush(rp, msgOut, YELLOW + "[git-proxy] " + WARNING.emoji()
-                        + String.format("  Still waiting for approval... (%ds remaining)", remaining) + RESET);
+                sendAndFlush(
+                        rp,
+                        msgOut,
+                        YELLOW + "[git-proxy] " + WARNING.emoji()
+                                + String.format("  Still waiting for approval... (%ds remaining)", remaining) + RESET);
             }
         }
 

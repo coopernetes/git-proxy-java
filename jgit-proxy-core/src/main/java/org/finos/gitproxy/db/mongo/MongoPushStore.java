@@ -6,7 +6,6 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -156,12 +155,16 @@ public class MongoPushStore implements PushStore {
                 .append("autoRejected", r.isAutoRejected());
 
         if (r.getSteps() != null && !r.getSteps().isEmpty()) {
-            doc.append("steps", r.getSteps().stream().map(MongoPushStore::stepToDocument).toList());
+            doc.append(
+                    "steps",
+                    r.getSteps().stream().map(MongoPushStore::stepToDocument).toList());
         }
         if (r.getCommits() != null && !r.getCommits().isEmpty()) {
-            doc.append("commits", r.getCommits().stream()
-                    .map(MongoPushStore::commitToDocument)
-                    .toList());
+            doc.append(
+                    "commits",
+                    r.getCommits().stream()
+                            .map(MongoPushStore::commitToDocument)
+                            .toList());
         }
         if (r.getAttestation() != null) {
             doc.append("attestation", attestationToDocument(r.getAttestation()));
@@ -197,12 +200,16 @@ public class MongoPushStore implements PushStore {
 
         List<Document> stepDocs = doc.getList("steps", Document.class);
         if (stepDocs != null) {
-            builder.steps(stepDocs.stream().map(MongoPushStore::stepFromDocument).collect(ArrayList::new, List::add, List::addAll));
+            builder.steps(stepDocs.stream()
+                    .map(MongoPushStore::stepFromDocument)
+                    .collect(ArrayList::new, List::add, List::addAll));
         }
 
         List<Document> commitDocs = doc.getList("commits", Document.class);
         if (commitDocs != null) {
-            builder.commits(commitDocs.stream().map(MongoPushStore::commitFromDocument).collect(ArrayList::new, List::add, List::addAll));
+            builder.commits(commitDocs.stream()
+                    .map(MongoPushStore::commitFromDocument)
+                    .collect(ArrayList::new, List::add, List::addAll));
         }
 
         Document attDoc = doc.get("attestation", Document.class);

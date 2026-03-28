@@ -68,16 +68,11 @@ public class DiffGenerationHook implements PreReceiveHook {
     }
 
     private void generatePushDiff(
-            ReceivePack rp,
-            Repository repo,
-            String refName,
-            String commitFrom,
-            String commitTo,
-            boolean isNewBranch) {
+            ReceivePack rp, Repository repo, String refName, String commitFrom, String commitTo, boolean isNewBranch) {
         try {
             String baseLabel = isNewBranch ? "(empty tree)" : commitFrom.substring(0, 7);
-            rp.sendMessage(CYAN + "[git-proxy] " + LINK.emoji() + "  Generating push diff "
-                    + baseLabel + ".." + commitTo.substring(0, 7) + RESET);
+            rp.sendMessage(CYAN + "[git-proxy] " + LINK.emoji() + "  Generating push diff " + baseLabel + ".."
+                    + commitTo.substring(0, 7) + RESET);
 
             String diff = CommitInspectionService.getFormattedDiff(repo, commitFrom, commitTo);
             int lines = diff.isEmpty() ? 0 : (int) diff.lines().count();
@@ -97,17 +92,16 @@ public class DiffGenerationHook implements PreReceiveHook {
             pushContext.addStep(step);
         } catch (IOException e) {
             log.error("Failed to generate push diff for {}", refName, e);
-            rp.sendMessage(YELLOW + "[git-proxy]   " + WARNING.emoji()
-                    + "  Could not generate push diff: " + e.getMessage() + RESET);
+            rp.sendMessage(YELLOW + "[git-proxy]   " + WARNING.emoji() + "  Could not generate push diff: "
+                    + e.getMessage() + RESET);
         }
     }
 
     /**
-     * Generate a diff of the pushed commit(s) relative to the repository's default branch. This helps reviewers see
-     * the full scope of changes even when the push is part of a larger feature branch.
+     * Generate a diff of the pushed commit(s) relative to the repository's default branch. This helps reviewers see the
+     * full scope of changes even when the push is part of a larger feature branch.
      */
-    private void generateDefaultBranchDiff(
-            ReceivePack rp, Repository repo, String pushRef, String commitTo) {
+    private void generateDefaultBranchDiff(ReceivePack rp, Repository repo, String pushRef, String commitTo) {
         try {
             String defaultBranch = resolveDefaultBranch(repo);
             if (defaultBranch == null) {
