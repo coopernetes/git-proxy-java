@@ -82,8 +82,29 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.3'
     testCompileOnly 'org.projectlombok:lombok:1.18.44'
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.44'
+
+    // Testcontainers for e2e tests
+    testImplementation 'org.testcontainers:testcontainers:1.20.4'
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+
+    // H2 available at test runtime so the in-process proxy can use it
+    testRuntimeOnly 'com.h2database:h2:2.4.240'
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'e2e'
+    }
+}
+
+tasks.register('e2eTest', Test) {
+    group = 'verification'
+    description = 'Runs end-to-end tests that require a running container runtime'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'e2e'
+    }
+    // Container startup can be slow
+    timeout = java.time.Duration.ofMinutes(10)
 }
