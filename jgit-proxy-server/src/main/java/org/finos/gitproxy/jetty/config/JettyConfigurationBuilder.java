@@ -120,17 +120,20 @@ public class JettyConfigurationBuilder {
             case "h2-mem" -> PushStoreFactory.h2InMemory(getString(dbConfig, "name", "gitproxy"));
             case "h2-file" -> PushStoreFactory.h2File(getString(dbConfig, "path", "./.data/gitproxy"));
             case "sqlite" -> PushStoreFactory.sqlite(getString(dbConfig, "path", "./.data/gitproxy.db"));
-            case "postgres" -> PushStoreFactory.postgres(
-                    getString(dbConfig, "host", "localhost"),
-                    getInt(dbConfig, "port", 5432),
-                    getString(dbConfig, "name", "gitproxy"),
-                    getString(dbConfig, "username", "gitproxy"),
-                    getString(dbConfig, "password", "gitproxy"));
-            case "mongo" -> PushStoreFactory.mongo(
-                    getString(dbConfig, "url", "mongodb://gitproxy:gitproxy@localhost:27017"),
-                    getString(dbConfig, "name", "gitproxy"));
-            default -> throw new IllegalArgumentException(
-                    "Unknown database type: " + type + ". Supported: memory, h2-mem, h2-file, sqlite, postgres, mongo");
+            case "postgres" ->
+                PushStoreFactory.postgres(
+                        getString(dbConfig, "host", "localhost"),
+                        getInt(dbConfig, "port", 5432),
+                        getString(dbConfig, "name", "gitproxy"),
+                        getString(dbConfig, "username", "gitproxy"),
+                        getString(dbConfig, "password", "gitproxy"));
+            case "mongo" ->
+                PushStoreFactory.mongo(
+                        getString(dbConfig, "url", "mongodb://gitproxy:gitproxy@localhost:27017"),
+                        getString(dbConfig, "name", "gitproxy"));
+            default ->
+                throw new IllegalArgumentException("Unknown database type: " + type
+                        + ". Supported: memory, h2-mem, h2-file, sqlite, postgres, mongo");
         };
     }
 

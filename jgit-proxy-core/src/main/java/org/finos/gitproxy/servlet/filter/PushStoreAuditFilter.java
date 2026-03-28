@@ -12,7 +12,6 @@ import org.finos.gitproxy.db.PushRecordMapper;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.git.GitRequestDetails;
-import org.finos.gitproxy.git.HttpOperation;
 
 /**
  * A plain servlet {@link Filter} that persists push records to the {@link PushStore}. Unlike other GitProxyFilters,

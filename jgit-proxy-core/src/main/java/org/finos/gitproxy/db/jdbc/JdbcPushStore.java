@@ -53,8 +53,7 @@ public class JdbcPushStore implements PushStore {
 
     @Override
     public void save(PushRecord record) {
-        String insertSql =
-                """
+        String insertSql = """
                 INSERT INTO push_records (id, timestamp, url, upstream_url, project, repo_name, branch,
                     commit_from, commit_to, message, author, author_email, committer, committer_email,
                     push_user, user_email, method, status, error_message, blocked_message, auto_approved, auto_rejected)
@@ -202,8 +201,7 @@ public class JdbcPushStore implements PushStore {
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
             try {
-                try (PreparedStatement ps =
-                        conn.prepareStatement("UPDATE push_records SET status = ? WHERE id = ?")) {
+                try (PreparedStatement ps = conn.prepareStatement("UPDATE push_records SET status = ? WHERE id = ?")) {
                     ps.setString(1, status.name());
                     ps.setString(2, id);
                     int updated = ps.executeUpdate();
@@ -269,36 +267,35 @@ public class JdbcPushStore implements PushStore {
     }
 
     private void bindPushRecord(PreparedStatement ps, PushRecord r) throws SQLException {
-        ps.setString(1,   r.getId());             // id
+        ps.setString(1, r.getId()); // id
         ps.setTimestamp(2, Timestamp.from(r.getTimestamp())); // timestamp
-        ps.setString(3,   r.getUrl());             // url
-        ps.setString(4,   r.getUpstreamUrl());     // upstream_url
-        ps.setString(5,   r.getProject());         // project
-        ps.setString(6,   r.getRepoName());        // repo_name
-        ps.setString(7,   r.getBranch());          // branch
-        ps.setString(8,   r.getCommitFrom());      // commit_from
-        ps.setString(9,   r.getCommitTo());        // commit_to
-        ps.setString(10,  r.getMessage());         // message
-        ps.setString(11,  r.getAuthor());          // author
-        ps.setString(12,  r.getAuthorEmail());     // author_email
-        ps.setString(13,  r.getCommitter());       // committer
-        ps.setString(14,  r.getCommitterEmail());  // committer_email
-        ps.setString(15,  r.getUser());            // push_user
-        ps.setString(16,  r.getUserEmail());       // user_email
-        ps.setString(17,  r.getMethod());          // method
-        ps.setString(18,  r.getStatus().name());   // status
-        ps.setString(19,  r.getErrorMessage());    // error_message
-        ps.setString(20,  r.getBlockedMessage());  // blocked_message
-        ps.setBoolean(21, r.isAutoApproved());     // auto_approved
-        ps.setBoolean(22, r.isAutoRejected());     // auto_rejected
+        ps.setString(3, r.getUrl()); // url
+        ps.setString(4, r.getUpstreamUrl()); // upstream_url
+        ps.setString(5, r.getProject()); // project
+        ps.setString(6, r.getRepoName()); // repo_name
+        ps.setString(7, r.getBranch()); // branch
+        ps.setString(8, r.getCommitFrom()); // commit_from
+        ps.setString(9, r.getCommitTo()); // commit_to
+        ps.setString(10, r.getMessage()); // message
+        ps.setString(11, r.getAuthor()); // author
+        ps.setString(12, r.getAuthorEmail()); // author_email
+        ps.setString(13, r.getCommitter()); // committer
+        ps.setString(14, r.getCommitterEmail()); // committer_email
+        ps.setString(15, r.getUser()); // push_user
+        ps.setString(16, r.getUserEmail()); // user_email
+        ps.setString(17, r.getMethod()); // method
+        ps.setString(18, r.getStatus().name()); // status
+        ps.setString(19, r.getErrorMessage()); // error_message
+        ps.setString(20, r.getBlockedMessage()); // blocked_message
+        ps.setBoolean(21, r.isAutoApproved()); // auto_approved
+        ps.setBoolean(22, r.isAutoRejected()); // auto_rejected
     }
 
     // --- Steps ---
 
     private void saveSteps(Connection conn, String pushId, List<PushStep> steps) throws SQLException {
         if (steps == null || steps.isEmpty()) return;
-        String sql =
-                """
+        String sql = """
                 INSERT INTO push_steps (id, push_id, step_name, step_order, status, content,
                     error_message, blocked_message, logs, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -350,8 +347,7 @@ public class JdbcPushStore implements PushStore {
 
     private void saveCommits(Connection conn, String pushId, List<PushCommit> commits) throws SQLException {
         if (commits == null || commits.isEmpty()) return;
-        String sql =
-                """
+        String sql = """
                 INSERT INTO push_commits (push_id, sha, parent_sha, author_name, author_email,
                     committer_name, committer_email, message, commit_date, signature)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -401,8 +397,7 @@ public class JdbcPushStore implements PushStore {
     // --- Attestation ---
 
     private void saveAttestation(Connection conn, String pushId, Attestation att) throws SQLException {
-        String sql =
-                """
+        String sql = """
                 INSERT INTO push_attestations (push_id, type, reviewer_username, reviewer_email,
                     reason, automated, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -466,5 +461,4 @@ public class JdbcPushStore implements PushStore {
             throw new RuntimeException("Failed to load schema", e);
         }
     }
-
 }

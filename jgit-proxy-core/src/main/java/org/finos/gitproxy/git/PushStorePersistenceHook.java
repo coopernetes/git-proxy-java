@@ -47,9 +47,7 @@ public class PushStorePersistenceHook {
         this.pushContext = pushContext;
     }
 
-    /**
-     * Returns a {@link PreReceiveHook} that creates the initial push record. Should be the first hook in the chain.
-     */
+    /** Returns a {@link PreReceiveHook} that creates the initial push record. Should be the first hook in the chain. */
     public PreReceiveHook preReceiveHook() {
         return (ReceivePack rp, Collection<ReceiveCommand> commands) -> {
             String pushId = UUID.randomUUID().toString();
@@ -70,8 +68,8 @@ public class PushStorePersistenceHook {
      * Returns a {@link PreReceiveHook} that captures the validation results after all validation hooks have run. Should
      * be placed after all validation hooks but before the forwarding post-receive hook.
      *
-     * <p>Creates a new event-log record for the validation outcome, linked to the original push via the same
-     * upstream URL and commit range.
+     * <p>Creates a new event-log record for the validation outcome, linked to the original push via the same upstream
+     * URL and commit range.
      */
     public PreReceiveHook validationResultHook(ValidationContext validationContext) {
         return (ReceivePack rp, Collection<ReceiveCommand> commands) -> {
@@ -100,8 +98,7 @@ public class PushStorePersistenceHook {
                                     .build());
                         }
                         record.setStatus(PushStatus.BLOCKED);
-                        record.setBlockedMessage(
-                                validationContext.getIssues().size() + " validation issue(s) found");
+                        record.setBlockedMessage(validationContext.getIssues().size() + " validation issue(s) found");
                     } else {
                         record.setStatus(PushStatus.APPROVED);
                     }
@@ -117,21 +114,19 @@ public class PushStorePersistenceHook {
                     record.setSteps(steps);
 
                     // Check if any commands were rejected by earlier hooks
-                    boolean anyRejected = commands.stream()
-                            .anyMatch(cmd -> cmd.getResult() != ReceiveCommand.Result.NOT_ATTEMPTED);
+                    boolean anyRejected =
+                            commands.stream().anyMatch(cmd -> cmd.getResult() != ReceiveCommand.Result.NOT_ATTEMPTED);
                     if (anyRejected) {
                         record.setStatus(PushStatus.BLOCKED);
                         commands.stream()
                                 .filter(cmd -> cmd.getResult() != ReceiveCommand.Result.NOT_ATTEMPTED
                                         && cmd.getResult() != ReceiveCommand.Result.OK)
                                 .findFirst()
-                                .ifPresent(cmd -> record.setBlockedMessage(
-                                        cmd.getResult() + ": " + cmd.getMessage()));
+                                .ifPresent(cmd -> record.setBlockedMessage(cmd.getResult() + ": " + cmd.getMessage()));
                     }
 
                     pushStore.save(record);
-                    log.debug(
-                            "Saved validation result record: id={}, status={}", record.getId(), record.getStatus());
+                    log.debug("Saved validation result record: id={}, status={}", record.getId(), record.getStatus());
                 });
             } catch (Exception e) {
                 log.error("Failed to save validation result record", e);
@@ -152,8 +147,7 @@ public class PushStorePersistenceHook {
 
             try {
                 pushStore.findById(pushId).ifPresent(initial -> {
-                    boolean allOk = commands.stream()
-                            .allMatch(cmd -> cmd.getResult() == ReceiveCommand.Result.OK);
+                    boolean allOk = commands.stream().allMatch(cmd -> cmd.getResult() == ReceiveCommand.Result.OK);
                     boolean anyValidationRejected = commands.stream()
                             .anyMatch(cmd -> cmd.getResult() == ReceiveCommand.Result.REJECTED_OTHER_REASON);
                     boolean anyTransportFailed = commands.stream()
@@ -190,9 +184,8 @@ public class PushStorePersistenceHook {
     }
 
     /**
-     * Create a new record that copies the base fields (repo, branch, commits, author) from an existing record but
-     * with a fresh ID and timestamp. Used for event-log style persistence where each state transition is a separate
-     * row.
+     * Create a new record that copies the base fields (repo, branch, commits, author) from an existing record but with
+     * a fresh ID and timestamp. Used for event-log style persistence where each state transition is a separate row.
      */
     private PushRecord copyBase(PushRecord source) {
         return PushRecord.builder()
@@ -276,8 +269,8 @@ public class PushStorePersistenceHook {
                         builder.message(tip.getMessage().lines().findFirst().orElse(null));
                     }
                 } else {
-                    List<Commit> range =
-                            CommitInspectionService.getCommitRange(repo, cmd.getOldId().name(), toCommit);
+                    List<Commit> range = CommitInspectionService.getCommitRange(
+                            repo, cmd.getOldId().name(), toCommit);
                     for (Commit c : range) {
                         commits.add(PushRecordMapper.mapCommit(pushId, c));
                     }
@@ -293,7 +286,8 @@ public class PushStorePersistenceHook {
                             builder.committerEmail(head.getCommitter().getEmail());
                         }
                         if (head.getMessage() != null) {
-                            builder.message(head.getMessage().lines().findFirst().orElse(null));
+                            builder.message(
+                                    head.getMessage().lines().findFirst().orElse(null));
                         }
                     }
                 }

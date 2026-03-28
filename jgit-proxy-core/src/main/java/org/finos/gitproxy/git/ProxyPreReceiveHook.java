@@ -81,8 +81,9 @@ public class ProxyPreReceiveHook implements PreReceiveHook {
         // For new branches (old is zero ID), we can't do a range — just inspect the tip
         if (ObjectId.zeroId().equals(cmd.getOldId())) {
             Commit tipCommit = CommitInspectionService.getCommitDetails(repo, toCommit);
-            String tipLine = "New branch - tip commit by " + tipCommit.getAuthor().getName()
-                    + " <" + tipCommit.getAuthor().getEmail() + ">";
+            String tipLine =
+                    "New branch - tip commit by " + tipCommit.getAuthor().getName() + " <"
+                            + tipCommit.getAuthor().getEmail() + ">";
             rp.sendMessage(CYAN + "[git-proxy]   " + tipLine + RESET);
             logs.add(tipLine);
             return;
@@ -94,8 +95,8 @@ public class ProxyPreReceiveHook implements PreReceiveHook {
         for (Commit commit : commits) {
             String shortSha = commit.getSha().substring(0, 7);
             String firstLine = commit.getMessage().lines().findFirst().orElse("(empty)");
-            String line = shortSha + " " + commit.getAuthor().getName()
-                    + " <" + commit.getAuthor().getEmail() + "> " + firstLine;
+            String line = shortSha + " " + commit.getAuthor().getName() + " <"
+                    + commit.getAuthor().getEmail() + "> " + firstLine;
             rp.sendMessage(MAGENTA + "[git-proxy]     " + line + RESET);
             logs.add(line);
         }

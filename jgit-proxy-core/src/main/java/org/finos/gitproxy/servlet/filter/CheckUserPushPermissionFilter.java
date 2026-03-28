@@ -48,9 +48,7 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
         if (userEmail == null || userEmail.isEmpty()) {
             log.warn("User email not found in commit author");
             String title = NO_ENTRY.emoji() + "  Push Blocked — Unknown User";
-            String message = "Could not identify the pushing user.\n"
-                    + "\n"
-                    + "Contact an administrator for support.";
+            String message = "Could not identify the pushing user.\n" + "\n" + "Contact an administrator for support.";
             blockAndSendError(request, response, "User not found", GitClient.format(title, message, RED, null));
             return;
         }
@@ -62,8 +60,7 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
             String message = CROSS_MARK.emoji() + "  " + userEmail + " is not registered.\n"
                     + "\n"
                     + "Contact an administrator for support.";
-            blockAndSendError(
-                    request, response, "User does not exist", GitClient.format(title, message, RED, null));
+            blockAndSendError(request, response, "User does not exist", GitClient.format(title, message, RED, null));
             return;
         }
 
@@ -76,10 +73,9 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
         if (!isAuthorized) {
             log.warn("User {} is not authorized to push to repository {}", userEmail, repositoryUrl);
             String title = NO_ENTRY.emoji() + "  Push Blocked — Unauthorized";
-            String message = CROSS_MARK.emoji() + "  " + userEmail + " is not allowed to push to:\n"
-                    + "   " + LINK.emoji() + "  " + repositoryUrl;
-            blockAndSendError(
-                    request, response, "User not authorized", GitClient.format(title, message, RED, null));
+            String message = CROSS_MARK.emoji() + "  " + userEmail + " is not allowed to push to:\n" + "   "
+                    + LINK.emoji() + "  " + repositoryUrl;
+            blockAndSendError(request, response, "User not authorized", GitClient.format(title, message, RED, null));
             return;
         }
 

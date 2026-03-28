@@ -61,9 +61,7 @@ public class PushRecord {
     /** Authenticated user performing the push. */
     private String user;
 
-    /**
-     * Authenticated user's email. Populated when user management is available; null until then.
-     */
+    /** Authenticated user's email. Populated when user management is available; null until then. */
     private String userEmail;
 
     /** HTTP method used. */

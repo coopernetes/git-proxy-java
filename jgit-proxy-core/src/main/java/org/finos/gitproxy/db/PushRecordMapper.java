@@ -45,7 +45,8 @@ public final class PushRecordMapper {
             }
             // Construct the upstream URL from provider URI + repo slug
             String providerUri = details.getProvider().getUri().toString();
-            String slug = details.getRepository() != null ? details.getRepository().getSlug() : null;
+            String slug =
+                    details.getRepository() != null ? details.getRepository().getSlug() : null;
             if (slug != null) {
                 String upstreamUrl = providerUri.endsWith("/") ? providerUri + slug : providerUri + "/" + slug;
                 builder.upstreamUrl(upstreamUrl);
