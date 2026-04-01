@@ -1,68 +1,161 @@
 [![CI](https://github.com/coopernetes/jgit-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/coopernetes/jgit-proxy/actions/workflows/ci.yml)
 [![CVE Scanning](https://github.com/coopernetes/jgit-proxy/actions/workflows/cve.yml/badge.svg)](https://github.com/coopernetes/jgit-proxy/actions/workflows/cve.yml)
 
-# git-proxy in Java
-This is a simple implementation of a git proxy in Java. This is a possible successor to [finos/git-proxy](https://github.com/finos/git-proxy) which is written in Node.
+# jgit-proxy
 
-## Project Structure
+A Java-based git proxy implementing the same compliance and security controls as [finos/git-proxy](https://github.com/finos/git-proxy). Designed for OSS contribution gateways (employees in regulated industries contributing code to public upstream repos) and private-to-private code exchange (M&A scenarios between two or more git providers). Built on [JGit](https://github.com/eclipse-jgit/jgit), [Jetty](https://github.com/jetty/jetty.project) and [Spring](https://spring.io/).
 
-This project is a multi-module Gradle project:
+## Getting Started
 
-### jgit-proxy-core
-Shared library containing all proxy logic:
-- Servlet filters for the transparent proxy path (`/proxy/...`)
-- Store-and-forward push pipeline using JGit ReceivePack hooks (`/push/...`)
-- Provider interfaces and implementations (GitHub, GitLab, Bitbucket)
-- Push audit store abstraction with JDBC and MongoDB backends
-- Git protocol utilities and commit inspection
+### Prerequisites
 
-### jgit-proxy-jetty
-Standalone Jetty server — the primary runnable module. No Spring dependency.
+- Java 21+
+- Gradle (wrapper included)
+
+### Clone and build
 
 ```shell
-./gradlew :jgit-proxy-jetty:run
-./gradlew :jgit-proxy-jetty:stop
+git clone https://github.com/coopernetes/jgit-proxy.git
+cd jgit-proxy
+./gradlew build
 ```
 
-### jgit-proxy-spring
-Placeholder for a future Spring Boot variant.
+### Run the proxy server
+
+The standalone proxy server (no dashboard, no management API) listens on port 8080 by default:
+
+```shell
+./gradlew :jgit-proxy-server:run
+```
+
+Logs are written to `jgit-proxy-server/logs/application.log`. Stop with:
+
+```shell
+./gradlew :jgit-proxy-server:stop
+```
+
+### Run the dashboard application
+
+The dashboard module adds a Spring MVC web UI and REST API for reviewing and approving blocked pushes:
+
+```shell
+./gradlew :jgit-proxy-dashboard:run
+```
+
+Open `http://localhost:8080/` in a browser to access the approval dashboard. Stop with:
+
+```shell
+./gradlew :jgit-proxy-dashboard:stop
+```
+
+### Configure the proxy
+
+Configuration is YAML-based. Copy `git-proxy.yml` from `jgit-proxy-server/src/main/resources/` and create `git-proxy-local.yml` in the same directory (or `/app/conf/` for Docker). The local file takes priority over the bundled defaults.
+
+Minimal example — allow pushes to a specific GitHub repo:
+
+```yaml
+server:
+  port: 8080
+
+database:
+  type: h2-mem   # default; data lost on restart
+
+git-proxy:
+  providers:
+    github:
+      enabled: true
+
+  filters:
+    whitelists:
+      - enabled: true
+        order: 1100
+        operations: [FETCH, PUSH]
+        providers: [github]
+        slugs:
+          - owner/repo
+```
+
+Environment variable overrides use the `GITPROXY_` prefix:
+- `GITPROXY_SERVER_PORT=9090`
+- `GITPROXY_PROVIDERS_GITHUB_ENABLED=false`
 
 ## Proxy Modes
 
+### URLs
+
+jgit-proxy is capable of proxying arbitrary & multiple upstream Git repositories over HTTPS. For each upstream provider (for example, https://github.com & https://gitlab.com), a distinct URL is mapped for proxying by hostname. The remainder of the URL is the specific git repository you wish to connect to. For example:
+
+- Original repository: https://github.com/finos/git-proxy
+- Proxy: http[s]://{jgit-proxy-server}/{proxy,push*}/github.com/finos/git-proxy
+
+This makes it simple for a developer to simply add a new [git remote](https://git-scm.com/docs/git-remote) and start pushing code through jgit-proxy.
+
+```
+git clone https://github.com/finos/git-proxy && cd git-proxy
+git remote add proxy http://localhost:8080/push/github.com/finos/git-proxy
+```
+
+> \*Note: the base URL determines which proxying mode is in use. See below for details.
+
 ### Transparent proxy (`/proxy/<host>/...`)
-HTTP request is forwarded to the upstream Git server. Servlet filters validate commits inline and reject the push before it reaches the upstream. Client receives a git sideband error message.
+
+HTTP requests are forwarded to the upstream Git server via Jetty's `ProxyServlet`. A servlet filter chain validates commits inline and rejects the push with a git client error before it reaches the upstream. It is designed for simple proxying usage where immediate feedback is preferred and clients re-push upon resolving any validation failures.
 
 ```shell
 git clone http://localhost:8080/proxy/github.com/owner/repo.git
 git push http://localhost:8080/proxy/github.com/owner/repo.git
 ```
 
-### Store-and-forward push (`/push/<host>/...`)
-Push objects are received locally using JGit's `ReceivePack`. A hook chain validates the commits and streams real-time feedback via git sideband before forwarding to the upstream. Each state transition is persisted as an event-log entry.
+### Store-and-forward (`/push/<host>/...`)
+
+Push objects are received locally using JGit's `ReceivePack`. A hook chain validates commits and streams real-time progress via git sideband (with real-time feedback and a nicer UX in the terminal with emoji & ANSI color support) before forwarding to the upstream. Each state transition is persisted as an event-log entry in the configured database.
 
 ```shell
 git clone http://localhost:8080/push/github.com/owner/repo.git
 git push http://localhost:8080/push/github.com/owner/repo.git
 ```
 
+## Validation Features
+
+Both proxy modes enforce the same set of configurable validation rules:
+
+| Feature | Status |
+|---------|--------|
+| Repository allowlist (owner/slug) | Implemented |
+| Author email domain allow/block list | Implemented |
+| Commit message validation (literal + regex) | Implemented |
+| Diff generation | Implemented |
+| Diff content scanning | Implemented |
+| Aggregate failure reporting (all errors at once) | Implemented |
+| GPG/SSH commit signature verification | Implemented |
+| Approval gate with full lifecycle (RECEIVED → APPROVED → FORWARDED) | Implemented |
+| Real-time sideband progress with ANSI color | Implemented |
+
+## Configuration
+
+This is currently a work in progress. Similar to git-proxy, it's intended that jgit-proxy's validation & filtering functionality is fully configurable to match each organization's requirements. While certain functions are not configurable (such as parsing git payloads, enforcing git clients & setting request attributes), all the "security business logic" is intended to be fully customizable. 
+
+It is part of the roadmap that these features can be externalized in multiple ways such as integrating with external APIs for approval flows, configurable and pluggable sources for permitted users/repositories/providers and other core features.
+
+You can find the [current documentation here](jgit-proxy-server/CONFIGURATION.md) but just know it is still under active development.
+
 ## Push Audit Database
 
-All pushes through the store-and-forward path are recorded as an event log. Each state transition (RECEIVED → APPROVED → FORWARDED, or BLOCKED/ERROR) is written as a separate row, enabling full push history and reporting.
+All pushes through the store-and-forward path are recorded as an event log. Each state transition (RECEIVED → APPROVED → FORWARDED, or BLOCKED/ERROR) is written as a separate row, enabling full push history and audit reporting.
 
 ### Supported backends
 
 | Type | Config value | Notes |
 |------|-------------|-------|
-| In-memory (simple) | `memory` | No SQL schema, data lost on restart |
+| In-memory | `memory` | No SQL schema, data lost on restart |
 | H2 in-memory | `h2-mem` | SQL schema, data lost on restart. Default. |
 | H2 file | `h2-file` | Persistent, zero external dependencies |
 | SQLite | `sqlite` | Persistent, zero external dependencies |
 | PostgreSQL | `postgres` | Production-grade |
-| MongoDB | `mongo` | Compatible with git-proxy Node.js data model |
+| MongoDB | `mongo` | Compatible with finos/git-proxy data model |
 
 ### Database configuration
-
-Set in `git-proxy.yml` (or override in `git-proxy-local.yml`):
 
 ```yaml
 # H2 in-memory (default)
@@ -102,76 +195,59 @@ docker compose up -d postgres   # port 5432, Adminer on 8082
 docker compose up -d mongo      # port 27017, Mongo Express on 8081
 ```
 
-## Configuration
+## Project Structure
 
-### Jetty Module
-YAML-based configuration loaded from `git-proxy.yml` and `git-proxy-local.yml` (local file takes priority):
+This is a multi-module Gradle project:
 
-```yaml
-server:
-  port: 8080
+| Module | Purpose |
+|--------|---------|
+| `jgit-proxy-core` | Shared library: filter chain, JGit hooks, push store, provider model, approval abstraction |
+| `jgit-proxy-server` | Standalone proxy-only server — no dashboard, no Spring |
+| `jgit-proxy-dashboard` | Dashboard + REST API — Spring MVC, approval UI, depends on `jgit-proxy-server` |
 
-database:
-  type: h2-mem
+## Roadmap
 
-git-proxy:
-  providers:
-    github:
-      enabled: true
-    gitlab:
-      enabled: true
-    bitbucket:
-      enabled: true
+The following gists track the project's direction and open design questions:
 
-  filters:
-    whitelists:
-      - enabled: true
-        order: 1100
-        operations: [FETCH, PUSH]
-        providers: [github]
-        slugs:
-          - owner/repo
-```
-
-Environment variable overrides use the `GITPROXY_` prefix:
-- `GITPROXY_SERVER_PORT=9090`
-- `GITPROXY_PROVIDERS_GITHUB_ENABLED=false`
-
-See [`jgit-proxy-jetty/CONFIGURATION.md`](jgit-proxy-jetty/CONFIGURATION.md) for full configuration reference.
+| Document | Description |
+|----------|-------------|
+| [Project vision & design](https://gist.github.com/coopernetes/d02d48efa759282ff8187da0d5dcae64) | High-level goals and priority tracks: sideband streaming UX, checkpoint-based resumption, lifecycle hooks, DAG pipeline execution, SCM OAuth integration, SSH support |
+| [Implementation progress](https://gist.github.com/coopernetes/3a6c83690164a8a60a10524ef24e35eb) | Feature-by-feature comparison against finos/git-proxy with current status (implemented / in-progress / gap) |
+| [Framework rationale](https://gist.github.com/coopernetes/626541b83a148f4ae21ae2c62c57edea) | Why Java/Jetty + JGit over Node.js/Express: native git protocol handling, in-process pack inspection, sideband streaming |
+| [JGit server-side abstractions](https://gist.github.com/coopernetes/96ce03ca5795ca9dc78367f064c20596) | Reference guide for `RepositoryResolver`, `ReceivePackFactory`, and pre/post-receive hooks — the building blocks of the store-and-forward pipeline |
 
 ## Development
 
-### Building
-```shell
-./gradlew build
-./gradlew :jgit-proxy-jetty:build
-```
+### Build
 
-### Running
 ```shell
-./gradlew :jgit-proxy-jetty:run    # starts server (PID tracked for stop)
-./gradlew :jgit-proxy-jetty:stop   # graceful stop via PID file
+./gradlew build              # compile + unit tests
+./gradlew spotlessApply      # fix formatting (palantir-java-format)
 ```
 
 ### Integration tests
 
-Test scripts in the repo root exercise both proxy modes end-to-end. They require a running server and a `~/.github-pat` file with a GitHub personal access token.
+Test scripts in the repo root exercise both proxy modes end-to-end against a running server. They require a `~/.github-pat` file with a GitHub personal access token.
 
 ```shell
 # Store-and-forward mode
 bash test-push-pass.sh   # pushes that should succeed
-bash test-push-fail.sh   # pushes that should be rejected by validation
+bash test-push-fail.sh   # pushes that should be rejected
 
 # Transparent proxy mode
 bash test-proxy-pass.sh
 bash test-proxy-fail.sh
 ```
 
-## Demo
+### E2E tests (Docker/Podman required)
 
-![demo 1](./static/jgit-proxy-demo.gif)
+```shell
+./gradlew e2eTest
+```
 
-![demo 2](./static/jgit-proxy-demo2.gif)
+### Docker Compose
 
-Running the server
-![demo 3](./static/jgit-proxy-demo3.gif)
+```shell
+docker compose up -d          # jgit-proxy + Gitea (h2-mem database)
+bash docker/setup.sh          # one-time: create admin user + test repo in Gitea
+```
