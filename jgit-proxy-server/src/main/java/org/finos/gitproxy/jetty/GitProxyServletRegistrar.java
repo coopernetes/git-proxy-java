@@ -147,6 +147,14 @@ public final class GitProxyServletRegistrar {
         pushPermissionFilterHolder.setAsyncSupported(true);
         context.addFilter(pushPermissionFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));
 
+        var emptyBranchFilterHolder = new FilterHolder(new CheckEmptyBranchFilter());
+        emptyBranchFilterHolder.setAsyncSupported(true);
+        context.addFilter(emptyBranchFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));
+
+        var hiddenCommitsFilterHolder = new FilterHolder(new CheckHiddenCommitsFilter(provider, repositoryCache));
+        hiddenCommitsFilterHolder.setAsyncSupported(true);
+        context.addFilter(hiddenCommitsFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));
+
         var authorEmailsFilterHolder = new FilterHolder(new CheckAuthorEmailsFilter(commitConfig));
         authorEmailsFilterHolder.setAsyncSupported(true);
         context.addFilter(authorEmailsFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));

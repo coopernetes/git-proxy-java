@@ -88,23 +88,27 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         // Hook chain — order matters:
         //
         // 0. PushStorePersistenceHook.preReceive  — record RECEIVED (no steps yet)
-        // 1. AuthorEmailValidationHook             — validates emails; records "checkAuthorEmails" step
-        // 2. CommitMessageValidationHook           — validates messages; records "checkCommitMessages" step
-        // 3. ProxyPreReceiveHook                   — commit inspection; records "inspection" step
-        // 4. DiffGenerationHook                    — generates diffs; records "diff" / "diff:default-branch" steps
-        // 5. DiffScanningHook                      — scans diff added-lines for blocked content; records "scanDiff"
+        // 1. CheckEmptyBranchHook                  — reject if no commits introduced (short-circuit)
+        // 2. CheckHiddenCommitsHook                — reject if pack contains commits outside push range (short-circuit)
+        // 3. AuthorEmailValidationHook             — validates emails; records "checkAuthorEmails" step
+        // 4. CommitMessageValidationHook           — validates messages; records "checkCommitMessages" step
+        // 5. ProxyPreReceiveHook                   — commit inspection; records "inspection" step
+        // 6. DiffGenerationHook                    — generates diffs; records "diff" / "diff:default-branch" steps
+        // 7. DiffScanningHook                      — scans diff added-lines for blocked content; records "scanDiff"
         // step
-        // 6. PushStorePersistenceHook.validationResult — saves APPROVED or BLOCKED record with all steps so far
-        // 7. ApprovalPreReceiveHook                — blocks until reviewer approves/rejects or timeout
+        // 8. PushStorePersistenceHook.validationResult — saves APPROVED or BLOCKED record with all steps so far
+        // 9. ApprovalPreReceiveHook                — blocks until reviewer approves/rejects or timeout
         //
         // Post-receive (only runs when pre-receive doesn't stop the chain):
-        // 8. ForwardingPostReceiveHook             — forwards to upstream; records "forward" step
-        // 9. PushStorePersistenceHook.postReceive  — saves FORWARDED or ERROR record with forwarding step
+        // 10. ForwardingPostReceiveHook            — forwards to upstream; records "forward" step
+        // 11. PushStorePersistenceHook.postReceive — saves FORWARDED or ERROR record with forwarding step
 
         PreReceiveHook[] preHooks;
         if (persistenceHook != null) {
             preHooks = new PreReceiveHook[] {
                 persistenceHook.preReceiveHook(),
+                new CheckEmptyBranchHook(),
+                new CheckHiddenCommitsHook(),
                 new AuthorEmailValidationHook(commitConfig, validationContext, pushContext),
                 new CommitMessageValidationHook(commitConfig, validationContext, pushContext),
                 new ProxyPreReceiveHook(pushContext),
@@ -115,6 +119,8 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             };
         } else {
             preHooks = new PreReceiveHook[] {
+                new CheckEmptyBranchHook(),
+                new CheckHiddenCommitsHook(),
                 new AuthorEmailValidationHook(commitConfig, validationContext, pushContext),
                 new CommitMessageValidationHook(commitConfig, validationContext, pushContext),
                 new ProxyPreReceiveHook(pushContext),

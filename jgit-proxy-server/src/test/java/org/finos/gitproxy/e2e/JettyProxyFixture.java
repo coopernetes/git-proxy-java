@@ -95,6 +95,8 @@ class JettyProxyFixture implements AutoCloseable {
         addFilter(context, proxyMapping, new ParseGitRequestFilter(provider, PROXY_PREFIX));
         addFilter(context, proxyMapping, new EnrichPushCommitsFilter(provider, proxyCache, PROXY_PREFIX));
         addFilter(context, proxyMapping, new AllowApprovedPushFilter(pushStore, serviceUrl));
+        addFilter(context, proxyMapping, new CheckEmptyBranchFilter());
+        addFilter(context, proxyMapping, new CheckHiddenCommitsFilter(provider, proxyCache));
         addFilter(context, proxyMapping, new CheckAuthorEmailsFilter(commitConfig));
         addFilter(context, proxyMapping, new CheckCommitMessagesFilter(commitConfig));
         addFilter(context, proxyMapping, new ScanDiffFilter(provider, commitConfig, proxyCache));
