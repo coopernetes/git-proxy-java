@@ -55,6 +55,14 @@ class GitHelper {
     }
 
     /**
+     * Creates a new local branch at the current HEAD and checks it out. No new commits are made, so the branch tip
+     * is identical to the source branch — useful for testing empty-branch rejection.
+     */
+    void createAndCheckoutBranch(Path repoDir, String branchName) throws IOException, InterruptedException {
+        git(repoDir, "checkout", "-b", branchName);
+    }
+
+    /**
      * Attempts to push {@code repoDir} to its {@code origin} remote.
      *
      * @return {@code true} if the push exited 0, {@code false} otherwise.

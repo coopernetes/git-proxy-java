@@ -236,4 +236,35 @@ class ProxyModeE2ETest {
                 "chore: rotate token=ghp_abc123def456 in CI config");
         assertFalse(result.succeeded(), "push with token= in message should be rejected");
     }
+
+    // ---- checkEmptyBranch (mirrors checkEmptyBranch.ts) ----
+
+    @Test
+    @Order(50)
+    void emptyBranch_rejected() throws Exception {
+        // The Gitea repo is auto-initialised with a README, so main already has a commit.
+        // Cloning and creating a new branch at HEAD (no new commits) means the branch tip
+        // is already reachable from main — getCommitRange returns empty → rejected outright.
+        GitHelper git = helper();
+        Path repo = git.clone(repoUrl(), "proxy-empty-branch");
+        git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.VALID_AUTHOR_EMAIL);
+        git.createAndCheckoutBranch(repo, "proxy-empty-test-branch");
+
+        var result = git.pushWithResult(repo);
+        assertFalse(result.succeeded(), "push of branch with no new commits should be rejected");
+        assertTrue(
+                result.output().contains("Empty Branch"),
+                "rejection should identify the empty branch condition. Output:\n" + result.output());
+        assertTrue(
+                result.output().contains("commit before pushing"),
+                "rejection message should mention making a commit. Output:\n" + result.output());
+    }
+
+    // ---- checkHiddenCommits (mirrors checkHiddenCommits.ts) ----
+    //
+    // The "hidden commits" failure case (pack containing commits outside the push range) cannot
+    // be reproduced with a standard git client: git only includes objects reachable from the
+    // pushed tip in the pack, and those are always a subset of the introduced commit range.
+    // The check is a defensive measure against maliciously crafted packs; it is covered by the
+    // passing tests above (which confirm the filter does not disrupt normal pushes).
 }
