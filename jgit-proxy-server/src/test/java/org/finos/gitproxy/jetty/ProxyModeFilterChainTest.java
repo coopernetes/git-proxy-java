@@ -165,7 +165,8 @@ class ProxyModeFilterChainTest {
 
         runChain(config, mockPushRequest(details), fakeResponse.mock);
 
-        assertEquals(GitRequestDetails.GitResult.ALLOWED, details.getResult());
+        // PENDING: validation passed but PushFinalizerFilter (not in this test chain) would set ALLOWED
+        assertEquals(GitRequestDetails.GitResult.PENDING, details.getResult());
         assertFalse(fakeResponse.committed.get());
     }
 
@@ -235,7 +236,8 @@ class ProxyModeFilterChainTest {
 
         runChain(config, mockPushRequest(details), fakeResponse.mock);
 
-        assertEquals(GitRequestDetails.GitResult.ALLOWED, details.getResult());
+        // PENDING: validation passed but PushFinalizerFilter (not in this test chain) would set ALLOWED
+        assertEquals(GitRequestDetails.GitResult.PENDING, details.getResult());
         assertFalse(fakeResponse.committed.get());
     }
 
@@ -248,7 +250,9 @@ class ProxyModeFilterChainTest {
 
         runChain(config, mockPushRequest(details), fakeResponse.mock);
 
-        assertEquals(GitRequestDetails.GitResult.ALLOWED, details.getResult());
+        // PENDING: validation passed but PushFinalizerFilter (not in this test chain) would set ALLOWED
+        assertEquals(GitRequestDetails.GitResult.PENDING, details.getResult());
+        assertFalse(fakeResponse.committed.get());
     }
 
     @Test

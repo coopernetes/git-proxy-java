@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -59,9 +61,8 @@ public class CheckHiddenCommitsHook implements PreReceiveHook {
                     + " and pushed to the remote.\n"
                     + "Please get approval on the commits, push them and try again.";
 
-            rp.sendMessage(
-                    RED + "[git-proxy] " + NO_ENTRY.emoji() + "  Push blocked — hidden commits detected" + RESET);
-            rp.sendMessage(YELLOW + "[git-proxy]   " + WARNING.emoji() + "  " + msg + RESET);
+            rp.sendMessage(color(RED, "[git-proxy] " + sym(NO_ENTRY) + "  Push blocked — hidden commits detected"));
+            rp.sendMessage(color(YELLOW, "[git-proxy]   " + sym(WARNING) + "  " + msg));
 
             for (ReceiveCommand cmd : commands) {
                 if (cmd.getResult() == ReceiveCommand.Result.NOT_ATTEMPTED) {

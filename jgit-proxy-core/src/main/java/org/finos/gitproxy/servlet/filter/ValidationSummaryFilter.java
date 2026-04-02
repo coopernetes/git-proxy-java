@@ -2,6 +2,9 @@ package org.finos.gitproxy.servlet.filter;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.buildValidationSummary;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 import static org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR;
 import static org.finos.gitproxy.servlet.GitProxyServlet.SERVICE_URL_ATTR;
 
@@ -57,15 +60,10 @@ public class ValidationSummaryFilter extends AbstractGitProxyFilter {
         log.warn("Blocking push pending review — {} validation check(s) failed", count);
 
         String divider = "\n────────────────────────────────────────\n";
-        String combined = RED.getValue()
-                + "\n"
-                + NO_ENTRY.emoji()
-                + "  Push Blocked — Pending Review ("
-                + count
-                + " check(s) failed)"
-                + divider
-                + String.join(divider, messages)
-                + RESET;
+        String summary = buildValidationSummary(details.getSteps());
+        String header = color(RED, sym(NO_ENTRY) + "  Push Blocked — " + count + " check(s) failed");
+        String body = messages.stream().map(m -> color(RED, m)).collect(Collectors.joining(divider));
+        String combined = summary + divider + header + divider + body;
 
         setResult(request, GitRequestDetails.GitResult.REJECTED, count + " validation check(s) failed");
         String serviceUrl = (String) request.getAttribute(SERVICE_URL_ATTR);

@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -39,23 +41,21 @@ public class SlowApprovalPreReceiveHook implements PreReceiveHook {
         OutputStream msgOut = rp.getMessageOutputStream();
 
         sendAndFlush(
-                rp,
-                msgOut,
-                CYAN + "[git-proxy] " + KEY.emoji() + "  Push received, submitting for approval..." + RESET);
+                rp, msgOut, color(CYAN, "[git-proxy] " + sym(KEY) + "  Push received, submitting for approval..."));
         sendAndFlush(
                 rp,
                 msgOut,
-                YELLOW + "[git-proxy] " + WARNING.emoji()
-                        + String.format("  Waiting for external approval (%ds timeout)...", TOTAL_SECONDS)
-                        + RESET);
+                color(
+                        YELLOW,
+                        "[git-proxy] " + sym(WARNING)
+                                + String.format("  Waiting for external approval (%ds timeout)...", TOTAL_SECONDS)));
 
         for (int elapsed = 0; elapsed < TOTAL_SECONDS; elapsed += INTERVAL_SECONDS) {
             try {
                 Thread.sleep(INTERVAL_SECONDS * 1000L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                sendAndFlush(
-                        rp, msgOut, RED + "[git-proxy] " + CROSS_MARK.emoji() + "  Approval check interrupted" + RESET);
+                sendAndFlush(rp, msgOut, color(RED, "[git-proxy] " + sym(CROSS_MARK) + "  Approval check interrupted"));
                 pushContext.addStep(PushStep.builder()
                         .stepName("approval")
                         .status(StepStatus.FAIL)
@@ -70,12 +70,14 @@ public class SlowApprovalPreReceiveHook implements PreReceiveHook {
                 sendAndFlush(
                         rp,
                         msgOut,
-                        YELLOW + "[git-proxy] " + WARNING.emoji()
-                                + String.format("  Still waiting for approval... (%ds remaining)", remaining) + RESET);
+                        color(
+                                YELLOW,
+                                "[git-proxy] " + sym(WARNING)
+                                        + String.format("  Still waiting for approval... (%ds remaining)", remaining)));
             }
         }
 
-        sendAndFlush(rp, msgOut, GREEN + "[git-proxy] " + HEAVY_CHECK_MARK.emoji() + "  Approval granted" + RESET);
+        sendAndFlush(rp, msgOut, color(GREEN, "[git-proxy] " + sym(HEAVY_CHECK_MARK) + "  Approval granted"));
         pushContext.addStep(PushStep.builder()
                 .stepName("approval")
                 .status(StepStatus.PASS)

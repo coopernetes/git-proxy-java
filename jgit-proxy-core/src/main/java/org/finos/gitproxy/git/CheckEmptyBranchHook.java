@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.util.Collection;
 import java.util.List;
@@ -46,7 +48,7 @@ public class CheckEmptyBranchHook implements PreReceiveHook {
                     msg = "Push blocked: Commit data not found. Please contact an administrator for support.";
                 }
 
-                rp.sendMessage(RED + "[git-proxy] " + NO_ENTRY.emoji() + "  " + msg + RESET);
+                rp.sendMessage(color(RED, "[git-proxy] " + sym(NO_ENTRY) + "  " + msg));
                 cmd.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON, msg);
                 // Chain stops once a command is rejected; remaining commands will be skipped
                 return;
