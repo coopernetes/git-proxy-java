@@ -1,7 +1,11 @@
 package org.finos.gitproxy.git;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.finos.gitproxy.db.model.PushStep;
+import org.finos.gitproxy.db.model.StepStatus;
 
 public class GitClient {
 
@@ -204,5 +208,57 @@ public class GitClient {
             content = content.replace(color.getValue(), "");
         }
         return content;
+    }
+
+    /** Returns {@code true} unless the {@code NO_COLOR} environment variable is set (any value). */
+    public static boolean isColorEnabled() {
+        return System.getenv("NO_COLOR") == null;
+    }
+
+    /** Returns {@code true} unless {@code GITPROXY_NO_EMOJI} is set. */
+    public static boolean isEmojiEnabled() {
+        return System.getenv("GITPROXY_NO_EMOJI") == null;
+    }
+
+    /**
+     * Wraps {@code text} in an ANSI color + reset sequence when color is enabled; otherwise returns the text unchanged.
+     */
+    public static String color(AnsiColor c, String text) {
+        if (!isColorEnabled()) return text;
+        return c.getValue() + text + AnsiColor.RESET.getValue();
+    }
+
+    /** Returns the emoji variant of {@code s} when emoji is enabled, or the plain text variant otherwise. */
+    public static String sym(SymbolCodes s) {
+        return isEmojiEnabled() ? s.emoji() : s.plain();
+    }
+
+    /**
+     * Builds a one-line-per-filter validation summary string for the transparent proxy pipeline. Only shows steps in
+     * the content-filter order range (1000–4999) — infrastructure and finalizer steps are omitted. Returns an empty
+     * string if there are no relevant steps.
+     */
+    public static String buildValidationSummary(List<PushStep> steps) {
+        List<PushStep> relevant = steps.stream()
+                .filter(s -> s.getStepOrder() >= 1000 && s.getStepOrder() < 5000)
+                .collect(Collectors.toList());
+        if (relevant.isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(color(AnsiColor.CYAN, "[git-proxy] Validation Summary")).append("\n");
+        for (PushStep step : relevant) {
+            if (step.getStatus() == StepStatus.PASS) {
+                sb.append(color(
+                                AnsiColor.GREEN,
+                                "  " + sym(SymbolCodes.HEAVY_CHECK_MARK) + "  " + step.getStepName() + " — passed"))
+                        .append("\n");
+            } else if (step.getStatus() == StepStatus.FAIL) {
+                sb.append(color(
+                                AnsiColor.RED,
+                                "  " + sym(SymbolCodes.CROSS_MARK) + "  " + step.getStepName() + " — failed"))
+                        .append("\n");
+            }
+        }
+        return sb.toString();
     }
 }

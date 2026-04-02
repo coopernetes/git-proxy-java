@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,7 +35,7 @@ public class ProxyPreReceiveHook implements PreReceiveHook {
 
     @Override
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
-        rp.sendMessage(CYAN + "[git-proxy] " + LINK.emoji() + "  Validating push..." + RESET);
+        rp.sendMessage(color(CYAN, "[git-proxy] " + sym(LINK) + "  Validating push..."));
 
         Repository repo = rp.getRepository();
         List<String> logs = new ArrayList<>();
@@ -44,12 +46,11 @@ public class ProxyPreReceiveHook implements PreReceiveHook {
             String newId = cmd.getNewId().abbreviate(7).name();
 
             rp.sendMessage(
-                    BLUE + "[git-proxy]   " + cmd.getType() + " " + refName + " " + oldId + " -> " + newId + RESET);
+                    color(BLUE, "[git-proxy]   " + cmd.getType() + " " + refName + " " + oldId + " -> " + newId));
             logs.add(cmd.getType() + " " + refName + " " + oldId + " -> " + newId);
 
             if (cmd.getType() == ReceiveCommand.Type.DELETE) {
-                rp.sendMessage(
-                        YELLOW + "[git-proxy]   " + WARNING.emoji() + "  Ref deletion, skipping inspection" + RESET);
+                rp.sendMessage(color(YELLOW, "[git-proxy]   " + sym(WARNING) + "  Ref deletion, skipping inspection"));
                 logs.add("Skipped inspection: ref deletion");
                 continue;
             }
@@ -58,13 +59,13 @@ public class ProxyPreReceiveHook implements PreReceiveHook {
                 inspectCommits(rp, repo, cmd, logs);
             } catch (Exception e) {
                 log.error("Failed to inspect commits for {}", refName, e);
-                rp.sendMessage(RED + "[git-proxy]   " + CROSS_MARK.emoji() + "  Commit inspection failed: "
-                        + e.getMessage() + RESET);
+                rp.sendMessage(color(
+                        RED, "[git-proxy]   " + sym(CROSS_MARK) + "  Commit inspection failed: " + e.getMessage()));
                 logs.add("ERROR inspecting " + refName + ": " + e.getMessage());
             }
         }
 
-        rp.sendMessage(GREEN + "[git-proxy] " + HEAVY_CHECK_MARK.emoji() + "  Validation complete" + RESET);
+        rp.sendMessage(color(GREEN, "[git-proxy] " + sym(HEAVY_CHECK_MARK) + "  Validation complete"));
 
         pushContext.addStep(PushStep.builder()
                 .stepName("inspection")
@@ -84,20 +85,20 @@ public class ProxyPreReceiveHook implements PreReceiveHook {
             String tipLine =
                     "New branch - tip commit by " + tipCommit.getAuthor().getName() + " <"
                             + tipCommit.getAuthor().getEmail() + ">";
-            rp.sendMessage(CYAN + "[git-proxy]   " + tipLine + RESET);
+            rp.sendMessage(color(CYAN, "[git-proxy]   " + tipLine));
             logs.add(tipLine);
             return;
         }
 
         List<Commit> commits = CommitInspectionService.getCommitRange(repo, fromCommit, toCommit);
-        rp.sendMessage(CYAN + "[git-proxy]   " + commits.size() + " commit(s) in push" + RESET);
+        rp.sendMessage(color(CYAN, "[git-proxy]   " + commits.size() + " commit(s) in push"));
 
         for (Commit commit : commits) {
             String shortSha = commit.getSha().substring(0, 7);
             String firstLine = commit.getMessage().lines().findFirst().orElse("(empty)");
             String line = shortSha + " " + commit.getAuthor().getName() + " <"
                     + commit.getAuthor().getEmail() + "> " + firstLine;
-            rp.sendMessage(MAGENTA + "[git-proxy]     " + line + RESET);
+            rp.sendMessage(color(MAGENTA, "[git-proxy]     " + line));
             logs.add(line);
         }
     }

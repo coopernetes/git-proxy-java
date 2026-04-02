@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -76,7 +78,7 @@ public class ApprovalPreReceiveHook implements PreReceiveHook {
             sendAndFlush(
                     rp,
                     msgOut,
-                    GREEN + "[git-proxy] " + HEAVY_CHECK_MARK.emoji() + "  Push already approved — forwarding" + RESET);
+                    color(GREEN, "[git-proxy] " + sym(HEAVY_CHECK_MARK) + "  Push already approved — forwarding"));
             return;
         }
 
@@ -85,17 +87,16 @@ public class ApprovalPreReceiveHook implements PreReceiveHook {
             sendAndFlush(
                     rp,
                     msgOut,
-                    YELLOW + "[git-proxy] " + WARNING.emoji() + "  Push requires review. Waiting for approval..."
-                            + RESET);
-            sendAndFlush(rp, msgOut, CYAN + "[git-proxy] " + KEY.emoji() + "  Push ID: " + validationRecordId + RESET);
+                    color(YELLOW, "[git-proxy] " + sym(WARNING) + "  Push requires review. Waiting for approval..."));
+            sendAndFlush(rp, msgOut, color(CYAN, "[git-proxy] " + sym(KEY) + "  Push ID: " + validationRecordId));
             if (serviceUrl != null) {
                 sendAndFlush(
                         rp,
                         msgOut,
-                        CYAN + "[git-proxy]    Review at: " + serviceUrl + "/#/push/" + validationRecordId + RESET);
+                        color(CYAN, "[git-proxy]    Review at: " + serviceUrl + "/#/push/" + validationRecordId));
             }
             if (record.getBlockedMessage() != null) {
-                sendAndFlush(rp, msgOut, YELLOW + "[git-proxy]    Reason: " + record.getBlockedMessage() + RESET);
+                sendAndFlush(rp, msgOut, color(YELLOW, "[git-proxy]    Reason: " + record.getBlockedMessage()));
             }
 
             ApprovalResult result =
@@ -106,29 +107,28 @@ public class ApprovalPreReceiveHook implements PreReceiveHook {
                     sendAndFlush(
                             rp,
                             msgOut,
-                            GREEN + "[git-proxy] " + HEAVY_CHECK_MARK.emoji() + "  Push approved by reviewer" + RESET);
+                            color(GREEN, "[git-proxy] " + sym(HEAVY_CHECK_MARK) + "  Push approved by reviewer"));
                 case REJECTED -> {
                     var updated = pushStore.findById(validationRecordId).orElse(null);
                     String reason = updated != null && updated.getAttestation() != null
                             ? updated.getAttestation().getReason()
                             : "Push rejected by reviewer";
                     sendAndFlush(
-                            rp,
-                            msgOut,
-                            RED + "[git-proxy] " + CROSS_MARK.emoji() + "  Push rejected: " + reason + RESET);
+                            rp, msgOut, color(RED, "[git-proxy] " + sym(CROSS_MARK) + "  Push rejected: " + reason));
                     rejectAll(commands, reason);
                 }
                 case CANCELED -> {
-                    sendAndFlush(rp, msgOut, YELLOW + "[git-proxy] " + WARNING.emoji() + "  Push canceled" + RESET);
+                    sendAndFlush(rp, msgOut, color(YELLOW, "[git-proxy] " + sym(WARNING) + "  Push canceled"));
                     rejectAll(commands, "Push canceled");
                 }
                 case TIMED_OUT -> {
                     sendAndFlush(
                             rp,
                             msgOut,
-                            RED + "[git-proxy] " + CROSS_MARK.emoji()
-                                    + "  Approval timed out after " + timeout.toMinutes()
-                                    + " minutes" + RESET);
+                            color(
+                                    RED,
+                                    "[git-proxy] " + sym(CROSS_MARK) + "  Approval timed out after "
+                                            + timeout.toMinutes() + " minutes"));
                     rejectAll(commands, "Approval timed out");
                 }
             }

@@ -24,10 +24,10 @@ The Node.js original lives at `/home/tom/repos/git-proxy`. Refer to it for the A
 ## Build & test
 
 ```bash
+./gradlew spotlessApply      # fix formatting (palantir-java-format) — run this before build
 ./gradlew build              # compile + unit tests (no containers)
 ./gradlew test               # unit tests only (e2e excluded)
 ./gradlew e2eTest            # e2e tests — requires Docker/Podman
-./gradlew spotlessApply      # fix formatting (palantir-java-format)
 ```
 
 Unit tests live under each module's `src/test/`. E2e tests are in `jgit-proxy-server/src/test/java/org/finos/gitproxy/e2e/` and tagged `@Tag("e2e")`.

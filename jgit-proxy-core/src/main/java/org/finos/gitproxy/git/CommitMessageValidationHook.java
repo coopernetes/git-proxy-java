@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,7 +34,7 @@ public class CommitMessageValidationHook implements PreReceiveHook {
 
     @Override
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
-        rp.sendMessage(CYAN + "[git-proxy] " + LINK.emoji() + "  Checking commit messages..." + RESET);
+        rp.sendMessage(color(CYAN, "[git-proxy] " + sym(LINK) + "  Checking commit messages..."));
 
         Repository repo = rp.getRepository();
         List<String> logs = new ArrayList<>();
@@ -54,21 +56,21 @@ public class CommitMessageValidationHook implements PreReceiveHook {
                     if (reason != null) {
                         validationContext.addIssue(
                                 "CommitMessage", shortSha + " — blocked: " + reason, "Message: " + firstLine);
-                        rp.sendMessage(RED + "[git-proxy]   " + CROSS_MARK.emoji() + "  " + shortSha + " " + firstLine
-                                + RESET);
-                        rp.sendMessage(RED + "[git-proxy]     " + reason + RESET);
+                        rp.sendMessage(
+                                color(RED, "[git-proxy]   " + sym(CROSS_MARK) + "  " + shortSha + " " + firstLine));
+                        rp.sendMessage(color(RED, "[git-proxy]     " + reason));
                         logs.add("FAIL: " + shortSha + " — " + reason + " [" + firstLine + "]");
                         anyFailed = true;
                     } else {
-                        rp.sendMessage(GREEN + "[git-proxy]   " + HEAVY_CHECK_MARK.emoji() + "  " + shortSha + " "
-                                + firstLine + RESET);
+                        rp.sendMessage(color(
+                                GREEN, "[git-proxy]   " + sym(HEAVY_CHECK_MARK) + "  " + shortSha + " " + firstLine));
                         logs.add("PASS: " + shortSha + " — " + firstLine);
                     }
                 }
             } catch (Exception e) {
                 log.error("Failed to validate commit messages for {}", cmd.getRefName(), e);
-                rp.sendMessage(YELLOW + "[git-proxy]   " + WARNING.emoji() + "  Could not validate messages: "
-                        + e.getMessage() + RESET);
+                rp.sendMessage(color(
+                        YELLOW, "[git-proxy]   " + sym(WARNING) + "  Could not validate messages: " + e.getMessage()));
                 logs.add("ERROR: " + cmd.getRefName() + " — " + e.getMessage());
             }
         }

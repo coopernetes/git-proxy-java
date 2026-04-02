@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,7 +37,7 @@ public class AuthorEmailValidationHook implements PreReceiveHook {
 
     @Override
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
-        rp.sendMessage(CYAN + "[git-proxy] " + KEY.emoji() + "  Checking author emails..." + RESET);
+        rp.sendMessage(color(CYAN, "[git-proxy] " + sym(KEY) + "  Checking author emails..."));
 
         Repository repo = rp.getRepository();
         List<String> logs = new ArrayList<>();
@@ -55,19 +57,18 @@ public class AuthorEmailValidationHook implements PreReceiveHook {
                     if (!isEmailAllowed(email)) {
                         String detail = describeRejection(email);
                         validationContext.addIssue("AuthorEmail", "Illegal author email: " + email, detail);
-                        rp.sendMessage(
-                                RED + "[git-proxy]   " + CROSS_MARK.emoji() + "  " + email + " — " + detail + RESET);
+                        rp.sendMessage(color(RED, "[git-proxy]   " + sym(CROSS_MARK) + "  " + email + " — " + detail));
                         logs.add("FAIL: " + email + " — " + detail);
                         anyFailed = true;
                     } else {
-                        rp.sendMessage(GREEN + "[git-proxy]   " + HEAVY_CHECK_MARK.emoji() + "  " + email + RESET);
+                        rp.sendMessage(color(GREEN, "[git-proxy]   " + sym(HEAVY_CHECK_MARK) + "  " + email));
                         logs.add("PASS: " + email);
                     }
                 }
             } catch (Exception e) {
                 log.error("Failed to validate author emails for {}", cmd.getRefName(), e);
-                rp.sendMessage(YELLOW + "[git-proxy]   " + WARNING.emoji() + "  Could not validate emails: "
-                        + e.getMessage() + RESET);
+                rp.sendMessage(color(
+                        YELLOW, "[git-proxy]   " + sym(WARNING) + "  Could not validate emails: " + e.getMessage()));
                 logs.add("ERROR: " + cmd.getRefName() + " — " + e.getMessage());
             }
         }

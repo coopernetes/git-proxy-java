@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClient.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,28 +28,27 @@ public class ValidationVerifierHook implements PreReceiveHook {
     @Override
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
         if (!validationContext.hasIssues()) {
-            rp.sendMessage(GREEN + "[git-proxy] " + HEAVY_CHECK_MARK.emoji() + "  All checks passed" + RESET);
+            rp.sendMessage(color(GREEN, "[git-proxy] " + sym(HEAVY_CHECK_MARK) + "  All checks passed"));
             return;
         }
 
         List<ValidationContext.ValidationIssue> issues = validationContext.getIssues();
 
         rp.sendMessage("");
-        rp.sendMessage(RED + "[git-proxy] " + NO_ENTRY.emoji() + "  Push rejected — " + issues.size()
-                + " issue(s) found:" + RESET);
+        rp.sendMessage(
+                color(RED, "[git-proxy] " + sym(NO_ENTRY) + "  Push rejected — " + issues.size() + " issue(s) found:"));
         rp.sendMessage("");
 
         for (int i = 0; i < issues.size(); i++) {
             var issue = issues.get(i);
-            rp.sendMessage(
-                    RED + "[git-proxy]   " + (i + 1) + ". [" + issue.hookName() + "] " + issue.summary() + RESET);
+            rp.sendMessage(color(RED, "[git-proxy]   " + (i + 1) + ". [" + issue.hookName() + "] " + issue.summary()));
             if (issue.detail() != null && !issue.detail().isEmpty()) {
-                rp.sendMessage(YELLOW + "[git-proxy]      " + issue.detail() + RESET);
+                rp.sendMessage(color(YELLOW, "[git-proxy]      " + issue.detail()));
             }
         }
 
         rp.sendMessage("");
-        rp.sendMessage(YELLOW + "[git-proxy] " + WARNING.emoji() + "  Fix all issues and push again" + RESET);
+        rp.sendMessage(color(YELLOW, "[git-proxy] " + sym(WARNING) + "  Fix all issues and push again"));
 
         // Reject all commands
         String rejectMessage = issues.size() + " validation issue(s) — see above";

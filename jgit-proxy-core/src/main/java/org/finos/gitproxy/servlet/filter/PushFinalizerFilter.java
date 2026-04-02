@@ -1,6 +1,10 @@
 package org.finos.gitproxy.servlet.filter;
 
+import static org.finos.gitproxy.git.GitClient.AnsiColor.CYAN;
 import static org.finos.gitproxy.git.GitClient.SymbolCodes.LINK;
+import static org.finos.gitproxy.git.GitClient.buildValidationSummary;
+import static org.finos.gitproxy.git.GitClient.color;
+import static org.finos.gitproxy.git.GitClient.sym;
 import static org.finos.gitproxy.servlet.GitProxyServlet.*;
 
 import jakarta.servlet.*;
@@ -90,7 +94,10 @@ public class PushFinalizerFilter extends AbstractGitProxyFilter {
         // First push that passed validation — block pending review
         details.setResult(GitRequestDetails.GitResult.BLOCKED);
         String pushId = details.getId().toString();
-        String fullMessage = LINK.emoji() + "  View pending push at: " + serviceUrl + "/#/push/" + pushId;
+        String summary = buildValidationSummary(details.getSteps());
+        String divider = "\n────────────────────────────────────────\n";
+        String link = color(CYAN, sym(LINK) + "  View pending push at: " + serviceUrl + "/#/push/" + pushId);
+        String fullMessage = summary + divider + link;
         sendGitError(request, response, fullMessage);
     }
 }
