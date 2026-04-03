@@ -163,21 +163,35 @@ public class JettyConfigurationBuilder {
                 .block(buildBlockConfig(getMap(getMap(commitMap, "diff"), "block")))
                 .build();
 
+        // secret-scanning.*
+        Map<String, Object> secretScanningMap = getMap(commitMap, "secret-scanning");
+        CommitConfig.SecretScanningConfig secretScanningConfig = CommitConfig.SecretScanningConfig.builder()
+                .enabled(getBoolean(secretScanningMap, "enabled", false))
+                .autoInstall(getBoolean(secretScanningMap, "auto-install", true))
+                .installDir(getString(secretScanningMap, "install-dir", null))
+                .version(getString(secretScanningMap, "version", null))
+                .scannerPath(getString(secretScanningMap, "scanner-path", null))
+                .configFile(getString(secretScanningMap, "config-file", null))
+                .timeoutSeconds(getLong(secretScanningMap, "timeout-seconds", 30L))
+                .build();
+
         CommitConfig config = CommitConfig.builder()
                 .author(authorConfig)
                 .message(messageConfig)
                 .diff(diffConfig)
+                .secretScanning(secretScanningConfig)
                 .build();
 
         log.info(
                 "Loaded commit config: domain.allow={}, local.block={}, message.literals={}, message.patterns={},"
-                        + " diff.literals={}, diff.patterns={}",
+                        + " diff.literals={}, diff.patterns={}, secretScanning.enabled={}",
                 domainAllow != null ? domainAllow : "(none)",
                 localBlock != null ? localBlock : "(none)",
                 config.getMessage().getBlock().getLiterals().size(),
                 config.getMessage().getBlock().getPatterns().size(),
                 config.getDiff().getBlock().getLiterals().size(),
-                config.getDiff().getBlock().getPatterns().size());
+                config.getDiff().getBlock().getPatterns().size(),
+                secretScanningConfig.isEnabled());
 
         return config;
     }
@@ -310,6 +324,14 @@ public class JettyConfigurationBuilder {
         Object value = map.get(key);
         if (value instanceof String) {
             return (String) value;
+        }
+        return defaultValue;
+    }
+
+    private static long getLong(Map<String, Object> map, String key, long defaultValue) {
+        Object value = map.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
         }
         return defaultValue;
     }

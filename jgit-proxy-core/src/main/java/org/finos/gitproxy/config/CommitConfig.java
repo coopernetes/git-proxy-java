@@ -108,6 +108,65 @@ public class CommitConfig {
         private BlockConfig block = BlockConfig.builder().build();
     }
 
+    /** Configuration for secret scanning via gitleaks. */
+    @Builder.Default
+    private SecretScanningConfig secretScanning = SecretScanningConfig.builder().build();
+
+    /** Configuration for secret scanning via an external scanner (gitleaks). */
+    @Data
+    @Builder
+    public static class SecretScanningConfig {
+
+        /** Enable or disable secret scanning. Disabled by default. */
+        @Builder.Default
+        private boolean enabled = false;
+
+        /**
+         * When {@code true} (the default when scanning is enabled), gitleaks is downloaded automatically on first use
+         * if it cannot be found via {@code scannerPath}, on the system PATH, or bundled in the JAR. The binary is
+         * cached in {@code installDir} across restarts. Set to {@code false} to require an explicit installation.
+         */
+        @Builder.Default
+        private boolean autoInstall = true;
+
+        /**
+         * Directory where gitleaks is cached when auto-installed. Defaults to {@code ~/.cache/jgit-proxy/gitleaks}. The
+         * directory is created automatically if it does not exist.
+         */
+        private String installDir;
+
+        /**
+         * Version of gitleaks to download when auto-installing. Defaults to the version tested with this release of
+         * jgit-proxy. Override to pin a specific version.
+         */
+        private String version;
+
+        /**
+         * Explicit path to a gitleaks binary. Bypasses all other resolution (PATH, JAR, auto-install). Useful for macOS
+         * / Windows developer machines or controlled deployments that manage gitleaks externally.
+         */
+        private String scannerPath;
+
+        /**
+         * Path to a gitleaks TOML configuration file. When {@code null} or blank, gitleaks uses its built-in detection
+         * rules. Set this to layer in org-specific patterns on top of the defaults. Example:
+         *
+         * <pre>
+         * title = "my-org"
+         * [extend]
+         * useDefault = true
+         * [[rules]]
+         * id = "my-org-api-key"
+         * regex = '''MY_ORG_[0-9A-Z]{32}'''
+         * </pre>
+         */
+        private String configFile;
+
+        /** Maximum seconds to wait for the gitleaks process before aborting (fail-open). */
+        @Builder.Default
+        private long timeoutSeconds = 30;
+    }
+
     /**
      * Create a default configuration with no restrictions.
      *

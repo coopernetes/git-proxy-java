@@ -5,6 +5,9 @@ plugins {
 group = 'org.finos.gitproxy'
 version = '0.0.1-SNAPSHOT'
 
+// Gitleaks version bundled into the JAR for hermetic secret scanning
+ext.gitleaksVersion = '8.21.2'
+
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
@@ -106,3 +109,94 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// ---------------------------------------------------------------------------
+// Hermetic gitleaks bundling
+// ---------------------------------------------------------------------------
+// Detects the current build platform (OS + arch) at Gradle configuration time
+// and downloads the matching gitleaks binary, storing it as the plain name
+// "gitleaks" under build/generated-resources/gitleaks/ so it is packed into
+// the JAR as the classpath resource "gitleaks/gitleaks".
+//
+// At runtime, GitleaksRunner extracts it to a JVM temp directory (cleaned up
+// on JVM shutdown) and invokes it directly — no host installation required.
+//
+// If the build platform is not recognised (e.g. Windows), the download is
+// skipped and a warning is printed.  In that case set
+// commit.secretScanning.scanner-path in git-proxy-local.yml to point at a
+// locally installed gitleaks binary.
+// ---------------------------------------------------------------------------
+
+// Resource root: files here appear at the root of the classpath in the JAR.
+// The gitleaks binary lands at build/generated-resources/gitleaks
+// and is packed into the JAR as the classpath resource "gitleaks".
+def gitleaksResourceDir = layout.buildDirectory.dir("generated-resources")
+
+sourceSets.main.resources.srcDir(gitleaksResourceDir)
+
+// Detect build-time OS and CPU architecture to select the right gitleaks tarball
+def buildOs   = System.properties['os.name'].toLowerCase()
+def buildArch = System.properties['os.arch'].toLowerCase()
+
+def gitleaksTarSuffix = {
+    String osKey   = buildOs.contains('linux') ? 'linux'
+                   : (buildOs.contains('mac') || buildOs.contains('darwin')) ? 'darwin'
+                   : null
+    String archKey = (buildArch.contains('amd64') || buildArch.contains('x86_64')) ? 'x64'
+                   : (buildArch.contains('aarch64') || buildArch.contains('arm64')) ? 'arm64'
+                   : null
+    (osKey && archKey) ? "${osKey}_${archKey}" : null
+}()
+
+tasks.register('downloadGitleaks') {
+    group = 'build setup'
+    description = "Downloads the gitleaks ${gitleaksVersion} binary for the current build platform."
+
+    // Output: build/generated-resources/gitleaks → JAR classpath: gitleaks
+    def outputFile = gitleaksResourceDir.map { it.file("gitleaks") }
+    outputs.file(outputFile)
+
+    doLast {
+        if (!gitleaksTarSuffix) {
+            logger.warn(
+                "Unsupported build platform (os='${buildOs}', arch='${buildArch}') — " +
+                "skipping bundled gitleaks download. Set commit.secretScanning.scanner-path " +
+                "in git-proxy-local.yml to use a locally installed gitleaks binary.")
+            return
+        }
+
+        def out = outputFile.get().asFile
+        if (out.exists()) {
+            logger.lifecycle("gitleaks ${gitleaksVersion} (${gitleaksTarSuffix}) already bundled, skipping.")
+            return
+        }
+        out.parentFile.mkdirs()
+
+        def tarName = "gitleaks_${gitleaksVersion}_${gitleaksTarSuffix}.tar.gz"
+        def tarUrl  = "https://github.com/gitleaks/gitleaks/releases/download/v${gitleaksVersion}/${tarName}"
+        def tmpDir  = layout.buildDirectory.dir("tmp/gitleaks").get().asFile
+        tmpDir.mkdirs()
+        def tarFile = new File(tmpDir, tarName)
+
+        logger.lifecycle("Downloading gitleaks ${gitleaksVersion} (${gitleaksTarSuffix})...")
+        new URL(tarUrl).withInputStream { is -> tarFile.bytes = is.bytes }
+
+        // Extract just the gitleaks binary; Ant places it as out.parent/gitleaks == out
+        ant.untar(src: tarFile.absolutePath, dest: out.parent, compression: 'gzip') {
+            patternset { include(name: 'gitleaks') }
+        }
+
+        if (!out.exists()) {
+            throw new GradleException("gitleaks binary not found in ${tarName} after extraction")
+        }
+        out.setExecutable(true)
+        logger.lifecycle("Bundled gitleaks at ${out} (${out.length()} bytes)")
+    }
+}
+
+// The JAR always ships with the bundled gitleaks binary (DEFAULT_VERSION).
+// At runtime, GitleaksRunner uses it unless:
+//   - commit.secretScanning.scanner-path is set (explicit override), or
+//   - commit.secretScanning.version is set to a different version and auto-install is true
+//     (downloads and caches the requested version on first use).
+processResources.dependsOn('downloadGitleaks')
