@@ -24,12 +24,12 @@ import org.finos.gitproxy.git.HttpOperation;
  *   <li>If the push passed all validation (result is still {@link GitRequestDetails.GitResult#PENDING}), marks it as
  *       {@link GitRequestDetails.GitResult#BLOCKED} (pending review) and sends a git error with a link to the
  *       dashboard.
- *   <li>If validation already rejected the push ({@code REJECTED} or {@code ERROR}), does nothing — the response was
+ *   <li>If validation already rejected the push ({@code REJECTED} or {@code ERROR}), does nothing - the response was
  *       already committed by {@link ValidationSummaryFilter}.
  * </ul>
  *
  * <p>This filter deliberately overrides {@link #doFilter} to bypass the {@code preApproved} short-circuit in
- * {@link GitProxyFilter} — it must always run to set the final result status regardless of approval state.
+ * {@link GitProxyFilter} - it must always run to set the final result status regardless of approval state.
  *
  * <p>Runs at order 5000, after all content validation filters and {@link ValidationSummaryFilter}.
  */
@@ -73,25 +73,25 @@ public class PushFinalizerFilter extends AbstractGitProxyFilter {
             return;
         }
 
-        // Ref deletions are always allowed through — no approval needed
+        // Ref deletions are always allowed through - no approval needed
         if (details.isRefDeletion()) {
             details.setResult(GitRequestDetails.GitResult.ALLOWED);
             return;
         }
 
-        // If validation already rejected or errored, the response is committed — nothing to do
+        // If validation already rejected or errored, the response is committed - nothing to do
         if (details.getResult() == GitRequestDetails.GitResult.REJECTED
                 || details.getResult() == GitRequestDetails.GitResult.ERROR) {
             return;
         }
 
-        // Re-push of an approved push — allow it through
+        // Re-push of an approved push - allow it through
         if (Boolean.TRUE.equals(request.getAttribute(PRE_APPROVED_ATTR))) {
             details.setResult(GitRequestDetails.GitResult.ALLOWED);
             return;
         }
 
-        // First push that passed validation — block pending review
+        // First push that passed validation - block pending review
         details.setResult(GitRequestDetails.GitResult.BLOCKED);
         String pushId = details.getId().toString();
         String summary = buildValidationSummary(details.getSteps());

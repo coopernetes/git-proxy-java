@@ -21,9 +21,9 @@ import org.finos.gitproxy.db.model.StepStatus;
  * Pre-receive hook that rejects pushes where no commits can be found in the pushed range. Two cases are distinguished:
  *
  * <ul>
- *   <li><b>New branch with no new commits</b> — the branch tip resolves to an existing commit already reachable from
+ *   <li><b>New branch with no new commits</b> - the branch tip resolves to an existing commit already reachable from
  *       another ref; the developer pushed an empty branch pointer with no new work.
- *   <li><b>Existing branch with no new commits</b> — commit data could not be resolved; this usually indicates a proxy
+ *   <li><b>Existing branch with no new commits</b> - commit data could not be resolved; this usually indicates a proxy
  *       configuration or repository state problem.
  * </ul>
  *

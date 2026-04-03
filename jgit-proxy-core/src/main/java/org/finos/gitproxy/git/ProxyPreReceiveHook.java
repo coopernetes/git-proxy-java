@@ -65,7 +65,7 @@ public class ProxyPreReceiveHook implements PreReceiveHook {
         String fromCommit = cmd.getOldId().name();
         String toCommit = cmd.getNewId().name();
 
-        // For new branches (old is zero ID), we can't do a range — just inspect the tip
+        // For new branches (old is zero ID), we can't do a range - just inspect the tip
         if (ObjectId.zeroId().equals(cmd.getOldId())) {
             Commit tipCommit = CommitInspectionService.getCommitDetails(repo, toCommit);
             String tipLine =

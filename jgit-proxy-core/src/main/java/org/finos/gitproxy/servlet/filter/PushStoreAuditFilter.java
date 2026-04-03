@@ -15,7 +15,7 @@ import org.finos.gitproxy.git.GitRequestDetails;
 
 /**
  * A plain servlet {@link Filter} that persists push records to the {@link PushStore}. Unlike other GitProxyFilters,
- * this wraps the entire filter chain using try-finally so it always runs — even when a validation filter commits the
+ * this wraps the entire filter chain using try-finally so it always runs - even when a validation filter commits the
  * response early (e.g., via {@code sendGitError}).
  *
  * <p>This filter should be registered BEFORE all other filters so its {@code finally} block executes after them.

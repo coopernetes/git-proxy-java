@@ -57,11 +57,11 @@ public class ValidationSummaryFilter extends AbstractGitProxyFilter {
                 .collect(Collectors.toList());
 
         int count = messages.size();
-        log.warn("Blocking push pending review — {} validation check(s) failed", count);
+        log.warn("Blocking push pending review - {} validation check(s) failed", count);
 
         String divider = "────────────────────────────────────────";
         String summary = buildValidationSummary(details.getSteps());
-        String header = color(RED, sym(NO_ENTRY) + "  Push Blocked — " + count + " validation issue(s)");
+        String header = color(RED, sym(NO_ENTRY) + "  Push Blocked - " + count + " validation issue(s)");
         String body = String.join("\n", messages);
         String combined = summary + divider + "\n" + header + "\n" + body;
 

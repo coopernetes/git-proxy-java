@@ -56,7 +56,7 @@ class ValidationVerifierHookTest {
 
     @Test
     void noIssues_commandsNotRejected() {
-        ValidationContext ctx = new ValidationContext(); // empty — no issues
+        ValidationContext ctx = new ValidationContext(); // empty - no issues
         ValidationVerifierHook hook = new ValidationVerifierHook(ctx);
         ReceivePack rp = makeReceivePack();
         ReceiveCommand cmd = createCommand();
@@ -115,7 +115,7 @@ class ValidationVerifierHookTest {
 
         hook.onPreReceive(rp, List.of(alreadyRejected));
 
-        // The hook only processes NOT_ATTEMPTED commands — already-rejected stays as-is
+        // The hook only processes NOT_ATTEMPTED commands - already-rejected stays as-is
         assertEquals(
                 ReceiveCommand.Result.REJECTED_MISSING_OBJECT,
                 alreadyRejected.getResult(),

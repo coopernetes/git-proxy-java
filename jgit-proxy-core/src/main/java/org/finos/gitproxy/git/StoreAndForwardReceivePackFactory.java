@@ -103,26 +103,26 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             persistenceHook.setServiceUrl(serviceUrl);
         }
 
-        // Hook chain — order matters:
+        // Hook chain - order matters:
         //
-        // 0. PushStorePersistenceHook.preReceive      — record RECEIVED (no steps yet)
-        // 1. RepositoryWhitelistHook         (1000)   — record whitelist PASS (resolver already validated)
-        // 2. CheckUserPushPermissionHook     (2000)   — validates push user authorization
-        // 3. CheckEmptyBranchHook            (2050)   — reject if no commits introduced (short-circuit)
-        // 4. CheckHiddenCommitsHook          (2060)   — reject if pack contains commits outside push range
-        // 5. AuthorEmailValidationHook       (2100)   — validates emails; records "checkAuthorEmails" step
-        // 6. CommitMessageValidationHook     (2200)   — validates messages; records "checkCommitMessages" step
-        // 7. ProxyPreReceiveHook                      — commit inspection; records "inspection" step
-        // 8. DiffGenerationHook                       — generates diffs; records "diff" / "diff:default-branch" steps
-        // 9. DiffScanningHook                (2300)   — scans diff added-lines for blocked content; records "scanDiff"
-        // 10. GpgSignatureHook               (2400)   — checks GPG signatures; records "GpgSignatureHook" step
-        // 11. SecretScanningHook             (2500)   — pipes diff to gitleaks; records "scanSecrets" step
-        // 12. PushStorePersistenceHook.validationResult — saves APPROVED or BLOCKED record with all steps so far
-        // 13. ApprovalPreReceiveHook                  — blocks until reviewer approves/rejects or timeout
+        // 0. PushStorePersistenceHook.preReceive      - record RECEIVED (no steps yet)
+        // 1. RepositoryWhitelistHook         (1000)   - record whitelist PASS (resolver already validated)
+        // 2. CheckUserPushPermissionHook     (2000)   - validates push user authorization
+        // 3. CheckEmptyBranchHook            (2050)   - reject if no commits introduced (short-circuit)
+        // 4. CheckHiddenCommitsHook          (2060)   - reject if pack contains commits outside push range
+        // 5. AuthorEmailValidationHook       (2100)   - validates emails; records "checkAuthorEmails" step
+        // 6. CommitMessageValidationHook     (2200)   - validates messages; records "checkCommitMessages" step
+        // 7. ProxyPreReceiveHook                      - commit inspection; records "inspection" step
+        // 8. DiffGenerationHook                       - generates diffs; records "diff" / "diff:default-branch" steps
+        // 9. DiffScanningHook                (2300)   - scans diff added-lines for blocked content; records "scanDiff"
+        // 10. GpgSignatureHook               (2400)   - checks GPG signatures; records "GpgSignatureHook" step
+        // 11. SecretScanningHook             (2500)   - pipes diff to gitleaks; records "scanSecrets" step
+        // 12. PushStorePersistenceHook.validationResult - saves APPROVED or BLOCKED record with all steps so far
+        // 13. ApprovalPreReceiveHook                  - blocks until reviewer approves/rejects or timeout
         //
         // Post-receive (only runs when pre-receive doesn't stop the chain):
-        // 14. ForwardingPostReceiveHook               — forwards to upstream; records "forward" step
-        // 15. PushStorePersistenceHook.postReceive    — saves FORWARDED or ERROR record with forwarding step
+        // 14. ForwardingPostReceiveHook               - forwards to upstream; records "forward" step
+        // 15. PushStorePersistenceHook.postReceive    - saves FORWARDED or ERROR record with forwarding step
 
         var permissionHook = new CheckUserPushPermissionHook(
                 userAuthorizationService != null
@@ -185,7 +185,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             for (PreReceiveHook hook : hooks) {
                 hook.onPreReceive(rp, commands);
                 // Flush sideband after each hook so messages stream to the client in real time
-                // (JGit's sendMessage() doesn't flush — without this, all output batches up)
+                // (JGit's sendMessage() doesn't flush - without this, all output batches up)
                 try {
                     rp.getMessageOutputStream().flush();
                 } catch (IOException e) {

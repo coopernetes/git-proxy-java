@@ -18,12 +18,12 @@ import org.finos.gitproxy.provider.GitProxyProvider;
  * Standalone Jetty server application for the JGit proxy. Registers two servlets per provider:
  *
  * <ul>
- *   <li><b>GitServlet</b> on {@code /push/...} — store-and-forward mode using JGit's native ReceivePack/UploadPack
+ *   <li><b>GitServlet</b> on {@code /push/...} - store-and-forward mode using JGit's native ReceivePack/UploadPack
  *       stack with sideband validation feedback
- *   <li><b>GitProxyServlet</b> on {@code /proxy/...} — transparent HTTP proxy bypass
+ *   <li><b>GitProxyServlet</b> on {@code /proxy/...} - transparent HTTP proxy bypass
  * </ul>
  *
- * <p>This entry point runs the proxy only — no dashboard, no REST API. For the full stack including the approval
+ * <p>This entry point runs the proxy only - no dashboard, no REST API. For the full stack including the approval
  * workflow UI, use {@code GitProxyWithDashboardApplication} from the {@code jgit-proxy-api} module.
  *
  * <p>Configuration is loaded from {@code git-proxy.yml} and {@code git-proxy-local.yml}, overridable with
@@ -33,7 +33,7 @@ import org.finos.gitproxy.provider.GitProxyProvider;
 public class GitProxyJettyApplication {
 
     public static void main(String[] args) throws Exception {
-        log.info("Starting JGit Proxy (proxy only — no dashboard)...");
+        log.info("Starting JGit Proxy (proxy only - no dashboard)...");
         writePidFile();
 
         var configLoader = new JettyConfigurationLoader();

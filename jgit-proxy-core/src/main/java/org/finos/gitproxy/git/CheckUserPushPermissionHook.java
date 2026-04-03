@@ -49,24 +49,24 @@ public class CheckUserPushPermissionHook implements PreReceiveHook {
         if (!userAuthorizationService.userExists(pushUser)) {
             log.warn("Push user {} does not exist", pushUser);
             String detail = GitClientUtils.format(
-                    sym(NO_ENTRY) + "  Push Blocked — User Not Registered",
+                    sym(NO_ENTRY) + "  Push Blocked - User Not Registered",
                     sym(CROSS_MARK) + "  " + pushUser + " is not registered.\n\nContact an administrator for support.",
                     RED,
                     null);
             validationContext.addIssue("CheckUserPushPermissionHook", "User does not exist: " + pushUser, detail);
-            rp.sendMessage(color(RED, "  " + sym(CROSS_MARK) + "  " + pushUser + " — not registered"));
+            rp.sendMessage(color(RED, "  " + sym(CROSS_MARK) + "  " + pushUser + " - not registered"));
             return;
         }
 
         if (!userAuthorizationService.isUserAuthorizedToPush(pushUser, null)) {
             log.warn("Push user {} is not authorized", pushUser);
             String detail = GitClientUtils.format(
-                    sym(NO_ENTRY) + "  Push Blocked — Unauthorized",
+                    sym(NO_ENTRY) + "  Push Blocked - Unauthorized",
                     sym(CROSS_MARK) + "  " + pushUser + " is not authorized to push to this repository.",
                     RED,
                     null);
             validationContext.addIssue("CheckUserPushPermissionHook", "User not authorized: " + pushUser, detail);
-            rp.sendMessage(color(RED, "  " + sym(CROSS_MARK) + "  " + pushUser + " — not authorized"));
+            rp.sendMessage(color(RED, "  " + sym(CROSS_MARK) + "  " + pushUser + " - not authorized"));
             return;
         }
 

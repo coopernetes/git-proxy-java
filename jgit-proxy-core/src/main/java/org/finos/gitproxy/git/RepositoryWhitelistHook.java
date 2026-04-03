@@ -11,7 +11,7 @@ import org.finos.gitproxy.db.model.StepStatus;
 
 /**
  * Pre-receive hook that records the repository whitelist check result. In store-and-forward mode, the repository is
- * validated by {@link StoreAndForwardRepositoryResolver} before the hook chain runs — if we reach this hook, the
+ * validated by {@link StoreAndForwardRepositoryResolver} before the hook chain runs - if we reach this hook, the
  * repository is already whitelisted. This hook records that result so the dashboard shows parity with proxy mode's
  * {@code WhitelistAggregateFilter} step.
  */

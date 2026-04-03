@@ -1,5 +1,7 @@
 package org.finos.gitproxy.servlet.filter;
 
+import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClientUtils.sym;
 import static org.finos.gitproxy.servlet.filter.WhitelistByUrlFilter.WHITELISTED_BY_ATTRIBUTE;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -85,8 +87,7 @@ public class WhitelistAggregateFilter extends AbstractProviderAwareGitProxyFilte
         } else {
             var operation = determineOperation(request);
             String action = operation == HttpOperation.PUSH ? "Push" : "Fetch";
-            String title =
-                    GitClientUtils.SymbolCodes.NO_ENTRY.emoji() + "  " + action + " Blocked — Repository Not Allowed";
+            String title = sym(NO_ENTRY) + "  " + action + " Blocked - Repository Not Allowed";
             String verb = operation == HttpOperation.PUSH ? "Pushes to" : "Fetches from";
             String message = verb + " this repository are not permitted.\n"
                     + "\n"

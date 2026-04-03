@@ -2,6 +2,7 @@ package org.finos.gitproxy.servlet.filter;
 
 import static org.finos.gitproxy.git.GitClientUtils.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClientUtils.sym;
 import static org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,7 +67,7 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
 
         if (userEmail == null || userEmail.isEmpty()) {
             log.warn("User email not found in commit author");
-            String title = NO_ENTRY.emoji() + "  Push Blocked — Unknown User";
+            String title = sym(NO_ENTRY) + "  Push Blocked - Unknown User";
             String message = "Could not identify the pushing user.\n" + "\n" + "Contact an administrator for support.";
             rejectAndSendError(request, response, "User not found", GitClientUtils.format(title, message, RED, null));
             return;
@@ -75,8 +76,8 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
         // Check if user exists
         if (!userAuthorizationService.userExists(userEmail)) {
             log.warn("User {} does not exist in the system", userEmail);
-            String title = NO_ENTRY.emoji() + "  Push Blocked — User Not Registered";
-            String message = CROSS_MARK.emoji() + "  " + userEmail + " is not registered.\n"
+            String title = sym(NO_ENTRY) + "  Push Blocked - User Not Registered";
+            String message = sym(CROSS_MARK) + "  " + userEmail + " is not registered.\n"
                     + "\n"
                     + "Contact an administrator for support.";
             rejectAndSendError(
@@ -92,9 +93,9 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
 
         if (!isAuthorized) {
             log.warn("User {} is not authorized to push to repository {}", userEmail, repositoryUrl);
-            String title = NO_ENTRY.emoji() + "  Push Blocked — Unauthorized";
-            String message = CROSS_MARK.emoji() + "  " + userEmail + " is not allowed to push to:\n" + "   "
-                    + LINK.emoji() + "  " + repositoryUrl;
+            String title = sym(NO_ENTRY) + "  Push Blocked - Unauthorized";
+            String message = sym(CROSS_MARK) + "  " + userEmail + " is not allowed to push to:\n" + "   " + sym(LINK)
+                    + "  " + repositoryUrl;
             rejectAndSendError(
                     request, response, "User not authorized", GitClientUtils.format(title, message, RED, null));
             return;

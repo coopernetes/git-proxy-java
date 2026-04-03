@@ -14,7 +14,7 @@ import org.finos.gitproxy.config.CommitConfig;
  * <p>Only added lines (those prefixed with {@code +} in the unified diff, excluding the {@code +++} header) are
  * scanned. Deletions and context lines are ignored.
  *
- * <p>This check never fails-open — it always returns {@code Optional.of(...)}, with an empty list when no violations
+ * <p>This check never fails-open - it always returns {@code Optional.of(...)}, with an empty list when no violations
  * are found.
  */
 @RequiredArgsConstructor

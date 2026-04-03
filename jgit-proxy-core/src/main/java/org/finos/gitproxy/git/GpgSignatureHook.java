@@ -46,7 +46,7 @@ public class GpgSignatureHook implements PreReceiveHook {
             try {
                 List<Violation> violations = check.check(getCommits(repo, cmd));
                 for (Violation v : violations) {
-                    rp.sendMessage(color(RED, "" + sym(CROSS_MARK) + "  " + v.subject() + " — " + v.reason()));
+                    rp.sendMessage(color(RED, "" + sym(CROSS_MARK) + "  " + v.subject() + " - " + v.reason()));
                     validationContext.addIssue("GpgSignatureHook", v.reason(), v.formattedDetail());
                     allViolations.add(v);
                 }

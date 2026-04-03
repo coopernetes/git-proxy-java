@@ -78,7 +78,7 @@ class UiApprovalGatewayTest {
 
     @Test
     void returnsTimedOut_whenPushIdNotFound() {
-        // Non-existent record — should time out immediately since no record ever becomes terminal
+        // Non-existent record - should time out immediately since no record ever becomes terminal
         ApprovalResult result = gateway.waitForApproval("no-such-id", msg -> {}, Duration.ofMillis(50));
 
         assertEquals(ApprovalResult.TIMED_OUT, result);
@@ -158,7 +158,7 @@ class UiApprovalGatewayTest {
         PushRecord r = blockedRecord();
         List<String> messages = new ArrayList<>();
 
-        // Short timeout with multiple poll intervals — should capture at least one progress message
+        // Short timeout with multiple poll intervals - should capture at least one progress message
         gateway.waitForApproval(r.getId(), messages::add, Duration.ofMillis(60));
 
         // After timeout, at least one heartbeat was sent

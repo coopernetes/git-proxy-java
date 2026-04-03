@@ -2,6 +2,7 @@ package org.finos.gitproxy.servlet.filter;
 
 import static org.finos.gitproxy.git.GitClientUtils.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClientUtils.sym;
 import static org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -71,7 +72,7 @@ public class ScanDiffFilter extends AbstractProviderAwareGitProxyFilter {
             org.eclipse.jgit.lib.Repository repository = requestDetails.getLocalRepository();
             if (repository == null) {
                 log.warn(
-                        "localRepository not set on request — EnrichPushCommitsFilter may not have run; skipping diff scan");
+                        "localRepository not set on request - EnrichPushCommitsFilter may not have run; skipping diff scan");
                 return;
             }
 
@@ -93,12 +94,15 @@ public class ScanDiffFilter extends AbstractProviderAwareGitProxyFilter {
 
             if (!violations.isEmpty()) {
                 log.warn("Diff scan found {} violation(s)", violations.size());
-                String title = NO_ENTRY.emoji() + "  Push Blocked — Diff Contains Blocked Content";
+                String title = sym(NO_ENTRY) + "  Push Blocked - Diff Contains Blocked Content";
                 String violationList = violations.stream()
-                        .map(v -> CROSS_MARK.emoji() + "  " + v.reason())
+                        .map(v -> sym(CROSS_MARK) + "  " + v.reason())
                         .collect(Collectors.joining("\n"));
                 String message = "Diff content contains blocked patterns:\n\n" + violationList;
-                recordIssue(request, "Diff contains blocked content", GitClientUtils.format(title, message, RED, null));
+                recordIssue(
+                        request,
+                        "Diff contains blocked content",
+                        GitClientUtils.color(RED, GitClientUtils.format(title, message, RED, null)));
             } else {
                 log.debug("Diff scan passed for {}..{}", fromCommit, toCommit);
                 recordStep(request, StepStatus.PASS, null, null);

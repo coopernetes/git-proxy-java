@@ -25,7 +25,7 @@ import org.finos.gitproxy.git.HttpOperation;
  *       short-circuit remaining validation filters.
  * </ol>
  *
- * <p>Must be registered at order 499 — after {@code ParseGitRequestFilter} (which populates {@link GitRequestDetails})
+ * <p>Must be registered at order 499 - after {@code ParseGitRequestFilter} (which populates {@link GitRequestDetails})
  * but before content validation filters (order 2000+).
  */
 @Slf4j
@@ -74,7 +74,7 @@ public class AllowApprovedPushFilter extends AbstractGitProxyFilter {
 
         if (!approved.isEmpty()) {
             log.info(
-                    "Push {} (commitTo={}) was previously approved — allowing re-push through",
+                    "Push {} (commitTo={}) was previously approved - allowing re-push through",
                     approved.get(0).getId(),
                     commitTo);
             request.setAttribute(PRE_APPROVED_ATTR, Boolean.TRUE);

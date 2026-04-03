@@ -218,7 +218,7 @@ class FilterChainIntegrationTest {
         // Email filter BLOCKED step is present
         assertTrue(details.getSteps().stream()
                 .anyMatch(s -> s.getStepName().equals("checkAuthorEmails") && s.getStatus() == StepStatus.FAIL));
-        // Message filter MUST have run (aggregate validation — all filters continue after recordIssue)
+        // Message filter MUST have run (aggregate validation - all filters continue after recordIssue)
         assertTrue(
                 details.getSteps().stream().anyMatch(s -> s.getStepName().equals("checkCommitMessages")),
                 "Message filter must still run even after email filter recorded an issue");

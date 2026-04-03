@@ -2,6 +2,7 @@ package org.finos.gitproxy.servlet.filter;
 
 import static org.finos.gitproxy.git.GitClientUtils.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClientUtils.sym;
 import static org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,9 +18,9 @@ import org.finos.gitproxy.git.HttpOperation;
  * Filter that rejects pushes where no commits could be found in the pushed range. Two cases are distinguished:
  *
  * <ul>
- *   <li><b>Empty branch</b> — a new branch is being created but its tip is already reachable from an existing ref; no
+ *   <li><b>Empty branch</b> - a new branch is being created but its tip is already reachable from an existing ref; no
  *       new commits were introduced.
- *   <li><b>Commit data not found</b> — a non-new-branch push produced no commit data; indicates a proxy or repository
+ *   <li><b>Commit data not found</b> - a non-new-branch push produced no commit data; indicates a proxy or repository
  *       state problem.
  * </ul>
  *
@@ -61,14 +62,14 @@ public class CheckEmptyBranchFilter extends AbstractGitProxyFilter {
         String title;
         String message;
         if (isNewBranch) {
-            title = NO_ENTRY.emoji() + "  Push Blocked — Empty Branch";
+            title = sym(NO_ENTRY) + "  Push Blocked - Empty Branch";
             message = "Please make a commit before pushing a new branch.";
         } else {
-            title = NO_ENTRY.emoji() + "  Push Blocked — Commit Data Not Found";
+            title = sym(NO_ENTRY) + "  Push Blocked - Commit Data Not Found";
             message = "Commit data not found. Please contact an administrator for support.";
         }
 
-        log.warn("checkEmptyBranch: rejecting push — {}", message);
+        log.warn("checkEmptyBranch: rejecting push - {}", message);
         rejectAndSendError(request, response, title, GitClientUtils.format(title, message, RED, null));
     }
 }

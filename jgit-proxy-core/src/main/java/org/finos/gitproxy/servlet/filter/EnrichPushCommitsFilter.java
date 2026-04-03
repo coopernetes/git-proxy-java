@@ -30,8 +30,8 @@ import org.finos.gitproxy.servlet.RequestBodyWrapper;
  *   <li>Use {@link CommitInspectionService} to walk the commit range with full details
  * </ol>
  *
- * <p>This gives downstream filters (author email, commit message, etc.) access to full commit metadata — author,
- * message, signature — rather than just the basic SHA/ref from the packet line header.
+ * <p>This gives downstream filters (author email, commit message, etc.) access to full commit metadata - author,
+ * message, signature - rather than just the basic SHA/ref from the packet line header.
  */
 @Slf4j
 public class EnrichPushCommitsFilter extends AbstractProviderAwareGitProxyFilter {
@@ -75,7 +75,7 @@ public class EnrichPushCommitsFilter extends AbstractProviderAwareGitProxyFilter
             requestDetails.setLocalRepository(repository);
 
             // Step 2: Unpack the inflight push's pack data into the local clone.
-            // The pushed objects don't exist upstream yet — this is the equivalent of
+            // The pushed objects don't exist upstream yet - this is the equivalent of
             // git-proxy's writePack processor that pipes the request body into git receive-pack.
             unpackPushData(request, repository);
 
@@ -144,7 +144,7 @@ public class EnrichPushCommitsFilter extends AbstractProviderAwareGitProxyFilter
                 return bodyWrapper.getBody();
             }
         }
-        log.warn("Request is not a RequestBodyWrapper — cannot extract cached body");
+        log.warn("Request is not a RequestBodyWrapper - cannot extract cached body");
         return null;
     }
 

@@ -197,7 +197,7 @@ class StoreForwardModeE2ETest {
     void emptyBranch_blocked() throws Exception {
         // The Gitea repo is auto-initialised with a README, so main already has a commit.
         // Cloning and creating a new branch at HEAD (no new commits) means the branch tip
-        // is already reachable from main — getCommitRange returns empty → rejected.
+        // is already reachable from main - getCommitRange returns empty → rejected.
         GitHelper git = new GitHelper(tempDir);
         Path repo = git.clone(repoUrl(), "sf-empty-branch");
         git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.VALID_AUTHOR_EMAIL);

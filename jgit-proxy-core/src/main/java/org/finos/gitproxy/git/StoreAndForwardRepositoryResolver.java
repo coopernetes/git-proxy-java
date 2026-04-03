@@ -18,7 +18,7 @@ import org.finos.gitproxy.provider.GitProxyProvider;
  * Repository resolver for store-and-forward mode. Syncs a local bare repo from the upstream provider on each open,
  * ensuring the local mirror is fresh for both fetch and push operations.
  *
- * <p><strong>Public repositories only.</strong> The local cache clones and fetches without credentials — no PATs or
+ * <p><strong>Public repositories only.</strong> The local cache clones and fetches without credentials - no PATs or
  * tokens are ever written to disk. If the upstream repository requires authentication (private repo), the clone will
  * fail and the client receives a clear error directing them to use the transparent proxy path instead.
  *
@@ -48,7 +48,7 @@ public class StoreAndForwardRepositoryResolver implements RepositoryResolver<Htt
         String cleanUpstreamUrl = provider.getUri() + "/" + cleanName + ".git";
 
         // Extract client credentials for the upstream push (in-memory only).
-        // These are NOT used for cloning — the cache always clones unauthenticated.
+        // These are NOT used for cloning - the cache always clones unauthenticated.
         String[] userPass = extractCredentials(req);
         if (userPass != null) {
             CredentialsProvider creds = new UsernamePasswordCredentialsProvider(userPass[0], userPass[1]);
@@ -104,7 +104,7 @@ public class StoreAndForwardRepositoryResolver implements RepositoryResolver<Htt
             }
         }
 
-        // Fall back to URL userinfo — git embeds user:pass in the request URL
+        // Fall back to URL userinfo - git embeds user:pass in the request URL
         String requestUrl = req.getRequestURL().toString();
         try {
             java.net.URI uri = java.net.URI.create(requestUrl);

@@ -76,7 +76,7 @@ class JdbcPushStoreIntegrationTest {
         assertTrue(store.findById("no-such-id").isEmpty());
     }
 
-    // The JDBC store is append-only — each save() INSERTs a new event record.
+    // The JDBC store is append-only - each save() INSERTs a new event record.
     // Status transitions (approve/reject/cancel) use UPDATE, not save().
     // There is no upsert/overwrite contract for JDBC unlike InMemoryPushStore.
 

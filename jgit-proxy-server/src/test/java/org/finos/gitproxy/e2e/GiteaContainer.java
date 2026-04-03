@@ -57,7 +57,7 @@ class GiteaContainer extends GenericContainer<GiteaContainer> {
      * started.
      *
      * <p>Uses {@code su-exec} (Alpine's privilege-dropper, always present in the Gitea image) to run as the {@code git}
-     * user — the Gitea binary refuses to start as root.
+     * user - the Gitea binary refuses to start as root.
      */
     void createAdminUser() throws IOException, InterruptedException {
         var result = execInContainer(

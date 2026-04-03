@@ -23,18 +23,18 @@ import org.finos.gitproxy.db.model.PushStep;
 import org.finos.gitproxy.db.model.StepStatus;
 
 /**
- * Pre-receive hook that detects "hidden" commits — objects received in the push pack that are not part of the
+ * Pre-receive hook that detects "hidden" commits - objects received in the push pack that are not part of the
  * explicitly introduced commit range. This catches the case where a branch was created from commits that have not yet
  * been approved and pushed to the remote, smuggling unapproved history through as pack filler.
  *
  * <p>Algorithm:
  *
  * <ol>
- *   <li><b>introduced</b> — commits reachable from each {@code newId} up to (not including) its {@code oldId}, across
+ *   <li><b>introduced</b> - commits reachable from each {@code newId} up to (not including) its {@code oldId}, across
  *       all pushed commands; computed via {@link CommitInspectionService#getCommitRange}.
- *   <li><b>allNew</b> — commits reachable from any pushed {@code newId} that are not reachable from any existing ref
+ *   <li><b>allNew</b> - commits reachable from any pushed {@code newId} that are not reachable from any existing ref
  *       (i.e., genuinely new to this repository); computed via {@link RevWalk}.
- *   <li><b>hidden</b> = {@code allNew} ∖ {@code introduced} — commits in the pack but outside the pushed range.
+ *   <li><b>hidden</b> = {@code allNew} ∖ {@code introduced} - commits in the pack but outside the pushed range.
  * </ol>
  *
  * <p>This hook short-circuits the chain immediately on failure (direct rejection, not via {@link ValidationContext}).
@@ -76,7 +76,7 @@ public class CheckHiddenCommitsHook implements PreReceiveHook {
                     + " and pushed to the remote.\n"
                     + "Please get approval on the commits, push them and try again.";
 
-            rp.sendMessage(color(RED, "" + sym(NO_ENTRY) + "  Push blocked — hidden commits detected"));
+            rp.sendMessage(color(RED, "" + sym(NO_ENTRY) + "  Push blocked - hidden commits detected"));
             rp.sendMessage(color(YELLOW, "  " + sym(WARNING) + "  " + msg));
 
             for (ReceiveCommand cmd : commands) {
@@ -125,7 +125,7 @@ public class CheckHiddenCommitsHook implements PreReceiveHook {
                 try {
                     walk.markUninteresting(walk.parseCommit(id));
                 } catch (Exception e) {
-                    // Not a commit (tag pointing to a blob/tree, etc.) — skip
+                    // Not a commit (tag pointing to a blob/tree, etc.) - skip
                 }
             }
 

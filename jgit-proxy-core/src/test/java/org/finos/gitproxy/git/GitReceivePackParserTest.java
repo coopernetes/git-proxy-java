@@ -35,7 +35,7 @@ class GitReceivePackParserTest {
         }
     }
 
-    // ---- parsePush — sample 01 ----
+    // ---- parsePush - sample 01 ----
 
     @Test
     void parsePush_sample01_extractsOldSha() throws IOException {
@@ -152,7 +152,7 @@ class GitReceivePackParserTest {
         assertTrue(info.getCommit().getDate().getEpochSecond() > 0, "Commit date epoch must be positive");
     }
 
-    // ---- parsePush — sample 02 ----
+    // ---- parsePush - sample 02 ----
 
     @Test
     void parsePush_sample02_extractsOldSha() throws IOException {

@@ -63,7 +63,7 @@ public class SecretScanningHook implements PreReceiveHook {
             Optional<List<GitleaksRunner.Finding>> result = runner.scanGit(repoDir, commitFrom, commitTo, config);
 
             if (result.isEmpty()) {
-                // Fail-open: scanner unavailable or errored — GitleaksRunner already logged the detail
+                // Fail-open: scanner unavailable or errored - GitleaksRunner already logged the detail
                 scannerUnavailable = true;
                 continue;
             }

@@ -45,7 +45,7 @@ class EnrichPushCommitsFilterTest {
     @TempDir
     Path cacheDir2;
 
-    // Minimal ServletInputStream backed by a byte array — mirrors ParseGitRequestFilterTest.
+    // Minimal ServletInputStream backed by a byte array - mirrors ParseGitRequestFilterTest.
     private static class MockServletInputStream extends ServletInputStream {
         private final ByteArrayInputStream is;
 
@@ -141,7 +141,7 @@ class EnrichPushCommitsFilterTest {
         when(mockCache.getOrClone(any())).thenReturn(cacheRepo);
 
         GitRequestDetails details = makeDetails(fromSha, toSha);
-        // Empty body — no PACK signature; unpackPushData short-circuits and objects are found from the pre-insert.
+        // Empty body - no PACK signature; unpackPushData short-circuits and objects are found from the pre-insert.
         RequestBodyWrapper request = wrapRequest(new byte[0], details);
         HttpServletResponse response = mock(HttpServletResponse.class);
 
@@ -179,14 +179,14 @@ class EnrichPushCommitsFilterTest {
             packWriter.writePack(NullProgressMonitor.INSTANCE, NullProgressMonitor.INSTANCE, packOut);
         }
 
-        // Empty bare cache — objects will be inserted by the filter via PackParser.
+        // Empty bare cache - objects will be inserted by the filter via PackParser.
         Repository cacheRepo =
                 Git.init().setBare(true).setDirectory(cacheDir2.toFile()).call().getRepository();
         LocalRepositoryCache mockCache = mock(LocalRepositoryCache.class);
         when(mockCache.getOrClone(any())).thenReturn(cacheRepo);
 
         GitRequestDetails details = makeDetails(fromSha, toSha);
-        // The pack bytes start with "PACK" — findPackSignature finds offset 0.
+        // The pack bytes start with "PACK" - findPackSignature finds offset 0.
         RequestBodyWrapper request = wrapRequest(packOut.toByteArray(), details);
         HttpServletResponse response = mock(HttpServletResponse.class);
 

@@ -27,7 +27,7 @@ import org.springframework.web.servlet.DispatcherServlet;
  * {@code jgit-proxy-server} instead.
  *
  * <p>Git servlets are registered at {@code /push/*} and {@code /proxy/*}. Spring's DispatcherServlet is registered at
- * {@code /*} — the more-specific git paths take precedence per the servlet spec, so Spring only handles {@code /api/*},
+ * {@code /*} - the more-specific git paths take precedence per the servlet spec, so Spring only handles {@code /api/*},
  * {@code /}, and static assets.
  */
 @Slf4j
@@ -71,7 +71,7 @@ public class GitProxyWithDashboardApplication {
                     context, provider, proxyCache, configBuilder, commitConfig, pushStore, serviceUrl);
         }
 
-        // Spring MVC DispatcherServlet at /* — git-specific paths take precedence per servlet spec
+        // Spring MVC DispatcherServlet at /* - git-specific paths take precedence per servlet spec
         registerSpringServlet(context, pushStore, providerConfig);
 
         server.setHandler(context);

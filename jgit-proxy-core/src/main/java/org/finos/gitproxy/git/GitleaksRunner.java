@@ -31,13 +31,13 @@ import org.finos.gitproxy.config.CommitConfig;
  * <p>Binary resolution order (first match wins):
  *
  * <ol>
- *   <li>{@code SecretScanningConfig.scannerPath} — explicit path, bypasses all other resolution
- *   <li>Version-pinned download — if {@code version} is set and {@code autoInstall} is {@code true}, downloads that
+ *   <li>{@code SecretScanningConfig.scannerPath} - explicit path, bypasses all other resolution
+ *   <li>Version-pinned download - if {@code version} is set and {@code autoInstall} is {@code true}, downloads that
  *       specific gitleaks release from GitHub and caches it in {@code installDir}; use this to pin a version different
  *       from the one bundled in the JAR
- *   <li>Bundled JAR binary — the gitleaks binary packaged into the JAR at build time ({@link #DEFAULT_VERSION}); always
+ *   <li>Bundled JAR binary - the gitleaks binary packaged into the JAR at build time ({@link #DEFAULT_VERSION}); always
  *       present in standard builds
- *   <li>System PATH — falls back to a {@code gitleaks} binary already installed on the host/container
+ *   <li>System PATH - falls back to a {@code gitleaks} binary already installed on the host/container
  * </ol>
  *
  * <p>If no binary is found, scanning is skipped and an empty {@link Optional} is returned (fail-open). Pushes are never
@@ -62,7 +62,7 @@ public class GitleaksRunner {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    /** Lazily extracted classpath binary — shared across all instances (deleted on JVM exit). */
+    /** Lazily extracted classpath binary - shared across all instances (deleted on JVM exit). */
     private static volatile Path extractedBinaryPath;
 
     private static final Object EXTRACT_LOCK = new Object();
@@ -86,7 +86,7 @@ public class GitleaksRunner {
 
         Path binaryPath = resolveBinaryPath(config);
         if (binaryPath == null) {
-            log.warn("gitleaks binary not available — secret scanning skipped (fail-open). "
+            log.warn("gitleaks binary not available - secret scanning skipped (fail-open). "
                     + "Set commit.secretScanning.auto-install: true or provide scanner-path.");
             return Optional.empty();
         }
@@ -120,7 +120,7 @@ public class GitleaksRunner {
                 process.destroyForcibly();
                 stdinWriter.interrupt();
                 log.warn(
-                        "gitleaks timed out after {}s — secret scanning skipped (fail-open)",
+                        "gitleaks timed out after {}s - secret scanning skipped (fail-open)",
                         config.getTimeoutSeconds());
                 return Optional.empty();
             }
@@ -135,12 +135,12 @@ public class GitleaksRunner {
                 log.debug("gitleaks: {} finding(s)", findings.size());
                 return Optional.of(findings);
             } else {
-                log.warn("gitleaks exited with code {} — secret scanning skipped (fail-open)", exitCode);
+                log.warn("gitleaks exited with code {} - secret scanning skipped (fail-open)", exitCode);
                 return Optional.empty();
             }
 
         } catch (Exception e) {
-            log.warn("Failed to run gitleaks — secret scanning skipped (fail-open): {}", e.getMessage(), e);
+            log.warn("Failed to run gitleaks - secret scanning skipped (fail-open): {}", e.getMessage(), e);
             return Optional.empty();
         } finally {
             if (reportFile != null) {
@@ -157,7 +157,7 @@ public class GitleaksRunner {
      *
      * <p>Unlike {@link #scan(String, CommitConfig.SecretScanningConfig)}, this mode runs gitleaks natively against the
      * git object graph, so path-based allowlists and per-file context in gitleaks rules are applied correctly. No
-     * post-hoc diff enrichment is needed — gitleaks populates {@code File}, {@code StartLine}, and {@code Commit} in
+     * post-hoc diff enrichment is needed - gitleaks populates {@code File}, {@code StartLine}, and {@code Commit} in
      * each finding directly.
      *
      * <p>For a new-branch push ({@code commitFrom} equals {@link GitClientUtils#ZERO_OID }), the scan covers all
@@ -175,7 +175,7 @@ public class GitleaksRunner {
             Path repoDir, String commitFrom, String commitTo, CommitConfig.SecretScanningConfig config) {
         Path binaryPath = resolveBinaryPath(config);
         if (binaryPath == null) {
-            log.warn("gitleaks binary not available — secret scanning skipped (fail-open). "
+            log.warn("gitleaks binary not available - secret scanning skipped (fail-open). "
                     + "Set commit.secretScanning.auto-install: true or provide scanner-path.");
             return Optional.empty();
         }
@@ -204,7 +204,7 @@ public class GitleaksRunner {
             if (!completed) {
                 process.destroyForcibly();
                 log.warn(
-                        "gitleaks timed out after {}s — secret scanning skipped (fail-open)",
+                        "gitleaks timed out after {}s - secret scanning skipped (fail-open)",
                         config.getTimeoutSeconds());
                 return Optional.empty();
             }
@@ -218,12 +218,12 @@ public class GitleaksRunner {
                 log.debug("gitleaks git: {} finding(s)", findings.size());
                 return Optional.of(findings);
             } else {
-                log.warn("gitleaks git exited with code {} — secret scanning skipped (fail-open)", exitCode);
+                log.warn("gitleaks git exited with code {} - secret scanning skipped (fail-open)", exitCode);
                 return Optional.empty();
             }
 
         } catch (Exception e) {
-            log.warn("Failed to run gitleaks git — secret scanning skipped (fail-open): {}", e.getMessage(), e);
+            log.warn("Failed to run gitleaks git - secret scanning skipped (fail-open): {}", e.getMessage(), e);
             return Optional.empty();
         } finally {
             if (reportFile != null) {
@@ -240,13 +240,13 @@ public class GitleaksRunner {
     // -------------------------------------------------------------------------
 
     private Path resolveBinaryPath(CommitConfig.SecretScanningConfig config) {
-        // 1. Explicit scanner-path — always wins
+        // 1. Explicit scanner-path - always wins
         if (config.getScannerPath() != null && !config.getScannerPath().isBlank()) {
             log.debug("gitleaks: using configured scanner-path={}", config.getScannerPath());
             return Path.of(config.getScannerPath());
         }
 
-        // 2. Version-pinned download — only when caller requests a specific version via auto-install
+        // 2. Version-pinned download - only when caller requests a specific version via auto-install
         if (config.isAutoInstall()
                 && config.getVersion() != null
                 && !config.getVersion().isBlank()) {
@@ -356,7 +356,7 @@ public class GitleaksRunner {
 
         } catch (Exception e) {
             log.warn(
-                    "Failed to auto-install gitleaks {} — secret scanning skipped (fail-open): {}",
+                    "Failed to auto-install gitleaks {} - secret scanning skipped (fail-open): {}",
                     version,
                     e.getMessage());
             return null;

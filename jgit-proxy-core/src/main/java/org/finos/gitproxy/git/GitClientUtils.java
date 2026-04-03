@@ -49,19 +49,19 @@ public class GitClientUtils {
     public enum SymbolCodes {
         // https://codepoints.net/U+26D4
         // https://emojipedia.org/no-entry#technical
-        NO_ENTRY("\u26D4"),
+        NO_ENTRY("\u26D4", "!!"),
 
         // https://codepoints.net/U+2705
         // https://emojipedia.org/check-mark-button#technical
-        HEAVY_CHECK_MARK("\u2705"),
+        HEAVY_CHECK_MARK("\u2705", "ok"),
 
         // https://codepoints.net/U+26A0
         // https://emojipedia.org/warning#technical
-        WARNING("\u26A0"),
+        WARNING("\u26A0", "!"),
 
         // https://codepoints.net/U+274C
         // https://emojipedia.org/cross-mark#technical
-        CROSS_MARK("\u274C"),
+        CROSS_MARK("\u274C", "x"),
 
         // Created using codepoints & the Character class due to the point values
         // falling outside the Unicode planes' range supported by Java's \\u escape
@@ -69,13 +69,16 @@ public class GitClientUtils {
 
         // https://codepoints.net/U+1F511
         // https://emojipedia.org/key#technical
-        KEY(Character.toString(0x1F511)),
+        KEY(Character.toString(0x1F511), "*"),
 
         // https://codepoints.net/U+1F517
         // https://emojipedia.org/link#technical
-        LINK(Character.toString(0x1F517));
+        LINK(Character.toString(0x1F517), "->");
 
         private final String value;
+
+        /** ASCII fallback used when {@code GITPROXY_NO_EMOJI} is set. */
+        private final String text;
 
         /**
          * Returns the emoji representation of the symbol by appending the Unicode variation selector character. This is
@@ -88,13 +91,13 @@ public class GitClientUtils {
         }
 
         /**
-         * Returns the plain text representation of the symbol by appending the Unicode variation selector character.
-         * This is used to ensure that the symbol is displayed as plain text in clients that don't support emojis.
+         * Returns the plain ASCII text representation of the symbol. Used when {@code GITPROXY_NO_EMOJI} is set to
+         * avoid terminals that ignore the Unicode text-variation selector (U+FE0E) still rendering emoji.
          *
          * @return the plain text representation of the symbol
          */
         public String plain() {
-            return value + "\uFE0E";
+            return text;
         }
 
         @Override
@@ -125,6 +128,7 @@ public class GitClientUtils {
      *     color
      */
     public static String format(String title, String message, AnsiColor color) {
+        if (!isColorEnabled()) color = null;
         return (color != null ? color : "") + format(title, message) + (color != null ? AnsiColor.RESET : "");
     }
 
@@ -139,6 +143,10 @@ public class GitClientUtils {
      *     color
      */
     public static String format(String title, String message, AnsiColor titleColor, AnsiColor messageColor) {
+        if (!isColorEnabled()) {
+            titleColor = null;
+            messageColor = null;
+        }
         String formattedTitle = (titleColor != null ? titleColor.getValue() : "") + formatTitle(title);
         String formattedMessage = (messageColor != null ? messageColor.getValue() : AnsiColor.RESET)
                 + formatMessage(message)
@@ -165,29 +173,6 @@ public class GitClientUtils {
             return format(title, message);
         } else {
             return format(title, message, color);
-        }
-    }
-
-    /**
-     * Returns a message with a title and a message to the git client. If the operation is a Fetch, it converts matching
-     * symbols from emoji to plain format and removes any color codes. If it's a Push, it doesn't modify the message or
-     * title.
-     *
-     * @param title the title to display
-     * @param message the message to display
-     * @param operation the git operation (Fetch or Push)
-     * @return the formatted message for the git client to display
-     */
-    public static String formatForOperation(
-            String title, String message, AnsiColor titleColor, AnsiColor messageColor, HttpOperation operation) {
-        if (operation == HttpOperation.FETCH) {
-            title = convertSymbolsToPlain(title);
-            title = stripColors(title);
-            message = convertSymbolsToPlain(message);
-            message = stripColors(message);
-            return format(title, message);
-        } else {
-            return format(title, message, titleColor, messageColor);
         }
     }
 

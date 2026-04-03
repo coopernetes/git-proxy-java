@@ -8,7 +8,7 @@ import org.eclipse.jgit.http.server.GitSmartHttpTools;
 
 /**
  * Servlet filter that challenges unauthenticated requests with HTTP 401 and {@code WWW-Authenticate: Basic}. Git
- * clients only send credentials after receiving a 401 challenge — without this, credentials embedded in the remote URL
+ * clients only send credentials after receiving a 401 challenge - without this, credentials embedded in the remote URL
  * (e.g. {@code http://user:token@proxy/...}) are never transmitted.
  *
  * <p>Only challenges on receive-pack requests (push). Fetch/clone operations are allowed without auth so that public

@@ -73,7 +73,7 @@ class CommitMessageCheckTest {
     @Test
     void blockedPattern_matches_returnsViolation() {
         CommitMessageCheck check = new CommitMessageCheck(configWithBlockedPattern("DO NOT MERGE"));
-        assertFalse(check.check(List.of(commitWithMessage("DO NOT MERGE — work in progress")))
+        assertFalse(check.check(List.of(commitWithMessage("DO NOT MERGE - work in progress")))
                 .isEmpty());
     }
 

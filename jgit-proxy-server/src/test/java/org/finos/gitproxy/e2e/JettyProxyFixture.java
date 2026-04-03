@@ -88,7 +88,7 @@ class JettyProxyFixture implements AutoCloseable {
         proxyHolder.setInitParameter("preserveHost", "false");
         context.addServlet(proxyHolder, proxyMapping);
 
-        // Proxy-mode filter chain — mirrors GitProxyServletRegistrar.registerFilters()
+        // Proxy-mode filter chain - mirrors GitProxyServletRegistrar.registerFilters()
         String serviceUrl = "http://localhost";
         addFilter(context, proxyMapping, new PushStoreAuditFilter(pushStore));
         addFilter(context, proxyMapping, new ForceGitClientFilter());

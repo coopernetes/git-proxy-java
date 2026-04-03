@@ -105,7 +105,7 @@ public interface GitProxyFilter extends Filter {
             return;
         }
 
-        // Skip content filters for ref deletions — there are no commits to validate
+        // Skip content filters for ref deletions - there are no commits to validate
         var detailsForDeletion = (GitRequestDetails) httpRequest.getAttribute(GIT_REQUEST_ATTR);
         if (detailsForDeletion != null && detailsForDeletion.isRefDeletion() && skipForRefDeletion()) {
             chain.doFilter(request, response);
@@ -165,7 +165,7 @@ public interface GitProxyFilter extends Filter {
                 progress.flush(); // one flush per line → one sideband packet → one "remote:" line
             }
         }
-        // CH_ERROR: causes git client to call die() — keep it short
+        // CH_ERROR: causes git client to call die() - keep it short
         try (OutputStream error =
                 new SideBandOutputStream(SideBandOutputStream.CH_ERROR, SideBandOutputStream.MAX_BUF, buf)) {
             error.write(Constants.encode("push rejected by git-proxy\n"));
