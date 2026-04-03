@@ -154,7 +154,7 @@ public class PushStorePersistenceHook {
                         rp.sendMessage("────────────────────────────────────────");
                         rp.sendMessage(color(
                                 RED,
-                                "" + sym(NO_ENTRY) + "  Push Blocked — "
+                                "" + sym(NO_ENTRY) + "  Push Blocked - "
                                         + validationContext.getIssues().size() + " validation issue(s)"));
                         for (var issue : validationContext.getIssues()) {
                             rp.sendMessage("  " + issue.detail());
@@ -168,8 +168,8 @@ public class PushStorePersistenceHook {
                                             + record.getId()));
                         }
 
-                        // Reject all commands immediately — no approval wait
-                        String rejectMsg = validationContext.getIssues().size() + " validation issue(s) — see above";
+                        // Reject all commands immediately - no approval wait
+                        String rejectMsg = validationContext.getIssues().size() + " validation issue(s) - see above";
                         for (ReceiveCommand cmd : commands) {
                             if (cmd.getResult() == ReceiveCommand.Result.NOT_ATTEMPTED) {
                                 cmd.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON, rejectMsg);
@@ -228,7 +228,7 @@ public class PushStorePersistenceHook {
             try {
                 pushStore.findById(pushId).ifPresent(initial -> {
                     // JGit only passes Result.OK commands to post-receive.
-                    // An empty list means all commands were rejected by pre-receive — nothing to record.
+                    // An empty list means all commands were rejected by pre-receive - nothing to record.
                     if (commands.isEmpty()) {
                         log.debug("Skipping post-receive record: no OK commands (push was rejected)");
                         return;

@@ -176,7 +176,7 @@ class AuthorEmailValidationHookTest {
 
         hook.onPreReceive(rp, List.of(deleteCmd));
 
-        // Hook should skip DELETE commands — no issues from a deletion
+        // Hook should skip DELETE commands - no issues from a deletion
         assertFalse(ctx.hasIssues(), "DELETE command must not trigger email validation");
     }
 
@@ -197,7 +197,7 @@ class AuthorEmailValidationHookTest {
     @Test
     void noConfig_anyEmailAllowed() throws Exception {
         Git git = Git.open(tempDir.toFile());
-        // Create commit with an unusual email — should pass with default config
+        // Create commit with an unusual email - should pass with default config
         ObjectId anyCommit = createCommit(git, "Free email commit", "User", "dev@unknown.io");
 
         ValidationContext ctx = new ValidationContext();

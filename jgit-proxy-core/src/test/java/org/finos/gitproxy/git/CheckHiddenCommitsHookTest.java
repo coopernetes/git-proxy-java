@@ -92,7 +92,7 @@ class CheckHiddenCommitsHookTest {
 
     @Test
     void newBranch_firstPush_noExistingRefs_passes() throws Exception {
-        // Fresh repo (no refs) — all commits in the new-branch push are introduced
+        // Fresh repo (no refs) - all commits in the new-branch push are introduced
         Git freshGit =
                 Git.init().setDirectory(tempDir.resolve("fresh").toFile()).call();
         Repository freshRepo = freshGit.getRepository();
@@ -109,7 +109,7 @@ class CheckHiddenCommitsHookTest {
                 .call();
 
         ReceivePack rp = new ReceivePack(freshRepo);
-        // Creating refs/heads/main for the first time — oldId is zeros
+        // Creating refs/heads/main for the first time - oldId is zeros
         ReceiveCommand cmd = new ReceiveCommand(ObjectId.zeroId(), first.getId(), "refs/heads/main");
         PushContext pushContext = new PushContext();
 
@@ -127,7 +127,7 @@ class CheckHiddenCommitsHookTest {
         ReceivePack rp = new ReceivePack(repo);
         ReceiveCommand cmd = new ReceiveCommand(c1.getId(), c2.getId(), "refs/heads/main", ReceiveCommand.Type.UPDATE);
 
-        // null pushContext path — hook should tolerate it (logs debug, skips addStep)
+        // null pushContext path - hook should tolerate it (logs debug, skips addStep)
         assertDoesNotThrow(() -> new CheckHiddenCommitsHook(null).onPreReceive(rp, List.of(cmd)));
     }
 }

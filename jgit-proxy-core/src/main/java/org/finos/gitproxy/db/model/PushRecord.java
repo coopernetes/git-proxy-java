@@ -52,7 +52,7 @@ public class PushRecord {
     /** Git commit author email. */
     private String authorEmail;
 
-    /** Git committer name (who last applied the commit — may differ from author). */
+    /** Git committer name (who last applied the commit - may differ from author). */
     private String committer;
 
     /** Git committer email. */

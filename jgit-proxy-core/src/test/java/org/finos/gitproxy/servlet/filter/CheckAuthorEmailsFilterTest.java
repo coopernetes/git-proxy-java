@@ -161,7 +161,7 @@ class CheckAuthorEmailsFilterTest {
         assertEquals(GitRequestDetails.GitResult.REJECTED, details.getResult());
         assertFalse(
                 fakeResponse.committed.get(),
-                "Response must NOT be committed — recordIssue defers to ValidationSummaryFilter");
+                "Response must NOT be committed - recordIssue defers to ValidationSummaryFilter");
     }
 
     @Test

@@ -35,7 +35,7 @@ public class ValidationVerifierHook implements PreReceiveHook {
         List<ValidationContext.ValidationIssue> issues = validationContext.getIssues();
 
         rp.sendMessage("");
-        rp.sendMessage(color(RED, "" + sym(NO_ENTRY) + "  Push rejected — " + issues.size() + " issue(s) found:"));
+        rp.sendMessage(color(RED, "" + sym(NO_ENTRY) + "  Push rejected - " + issues.size() + " issue(s) found:"));
         rp.sendMessage("");
 
         for (int i = 0; i < issues.size(); i++) {
@@ -50,7 +50,7 @@ public class ValidationVerifierHook implements PreReceiveHook {
         rp.sendMessage(color(YELLOW, "" + sym(WARNING) + "  Fix all issues and push again"));
 
         // Reject all commands
-        String rejectMessage = issues.size() + " validation issue(s) — see above";
+        String rejectMessage = issues.size() + " validation issue(s) - see above";
         for (ReceiveCommand cmd : commands) {
             if (cmd.getResult() == ReceiveCommand.Result.NOT_ATTEMPTED) {
                 cmd.setResult(ReceiveCommand.Result.REJECTED_OTHER_REASON, rejectMessage);

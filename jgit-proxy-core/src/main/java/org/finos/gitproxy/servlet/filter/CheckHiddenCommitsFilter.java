@@ -2,6 +2,7 @@ package org.finos.gitproxy.servlet.filter;
 
 import static org.finos.gitproxy.git.GitClientUtils.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClientUtils.sym;
 import static org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,15 +24,15 @@ import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitProxyProvider;
 
 /**
- * Filter that detects "hidden" commits — commits present in the push pack (and thus new to the upstream) that fall
+ * Filter that detects "hidden" commits - commits present in the push pack (and thus new to the upstream) that fall
  * outside the explicitly introduced commit range. This catches the case where a branch was built on top of unapproved
  * commits that weren't pushed to the upstream yet, smuggling them in as pack filler.
  *
  * <p>Algorithm:
  *
  * <ol>
- *   <li><b>introduced</b> — {@code requestDetails.getPushedCommits()} as populated by {@link EnrichPushCommitsFilter}.
- *   <li><b>allNew</b> — commits reachable from {@code commitTo} that are not reachable from any ref in the upstream
+ *   <li><b>introduced</b> - {@code requestDetails.getPushedCommits()} as populated by {@link EnrichPushCommitsFilter}.
+ *   <li><b>allNew</b> - commits reachable from {@code commitTo} that are not reachable from any ref in the upstream
  *       clone (i.e., genuinely new to the upstream); computed via {@link RevWalk} on the cached repository.
  *   <li><b>hidden</b> = {@code allNew} ∖ {@code introduced}.
  * </ol>
@@ -79,7 +80,7 @@ public class CheckHiddenCommitsFilter extends AbstractProviderAwareGitProxyFilte
             Repository repository = requestDetails.getLocalRepository();
             if (repository == null) {
                 log.warn(
-                        "localRepository not set on request — EnrichPushCommitsFilter may not have run; skipping hidden commits check");
+                        "localRepository not set on request - EnrichPushCommitsFilter may not have run; skipping hidden commits check");
                 return;
             }
 
@@ -95,7 +96,7 @@ public class CheckHiddenCommitsFilter extends AbstractProviderAwareGitProxyFilte
 
             log.warn("checkHiddenCommits: {} hidden commit(s) detected: {}", hidden.size(), hidden);
 
-            String title = NO_ENTRY.emoji() + "  Push Blocked — Hidden Commits Detected";
+            String title = sym(NO_ENTRY) + "  Push Blocked - Hidden Commits Detected";
             String message = "Unreferenced commits in pack (" + hidden.size() + "): "
                     + String.join(", ", hidden) + ".\n\n"
                     + "This usually happens when a branch was made from a commit that hasn't been approved"
@@ -131,7 +132,7 @@ public class CheckHiddenCommitsFilter extends AbstractProviderAwareGitProxyFilte
                 try {
                     walk.markUninteresting(walk.parseCommit(id));
                 } catch (Exception e) {
-                    // Not a commit (annotated tag pointing to a blob/tree, etc.) — skip
+                    // Not a commit (annotated tag pointing to a blob/tree, etc.) - skip
                 }
             }
 

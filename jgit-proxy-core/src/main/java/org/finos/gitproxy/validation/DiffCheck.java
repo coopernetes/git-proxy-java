@@ -9,7 +9,7 @@ import java.util.Optional;
  * <p>Implementations validate a unified diff string produced from the pushed commits. Like {@link CommitCheck}, they
  * have no knowledge of HTTP filters, JGit hooks, or transport concerns.
  *
- * <p>{@link Optional#empty()} signals fail-open (scanner unavailable, configuration error, etc.) — the push is allowed
+ * <p>{@link Optional#empty()} signals fail-open (scanner unavailable, configuration error, etc.) - the push is allowed
  * through and a warning is logged. {@code Optional.of(emptyList)} means the diff passed the check.
  *
  * <h2>Adding a new diff-level validation rule</h2>

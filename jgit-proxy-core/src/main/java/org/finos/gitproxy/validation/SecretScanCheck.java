@@ -15,7 +15,7 @@ import org.finos.gitproxy.git.GitleaksRunner;
  * Scans a unified diff for secrets using gitleaks. Implements {@link DiffCheck} so it can be used in both the
  * transparent-proxy filter chain and the store-and-forward pre-receive hook chain without duplication.
  *
- * <p>Returns {@link Optional#empty()} (fail-open) if the scanner is unavailable or execution fails — pushes are never
+ * <p>Returns {@link Optional#empty()} (fail-open) if the scanner is unavailable or execution fails - pushes are never
  * blocked because the scanner is misconfigured.
  */
 @Slf4j
@@ -32,19 +32,19 @@ public class SecretScanCheck implements DiffCheck {
     @Override
     public Optional<List<Violation>> check(String diff) {
         if (!config.isEnabled()) {
-            log.debug("Secret scanning disabled — skipping");
+            log.debug("Secret scanning disabled - skipping");
             return Optional.of(List.of());
         }
 
         if (diff == null || diff.isBlank()) {
-            log.debug("No diff available for secret scanning — skipping");
+            log.debug("No diff available for secret scanning - skipping");
             return Optional.of(List.of());
         }
 
         Optional<List<GitleaksRunner.Finding>> result = runner.scan(diff, config);
 
         if (result.isEmpty()) {
-            // Fail-open: scanner unavailable or errored — GitleaksRunner already logged the detail
+            // Fail-open: scanner unavailable or errored - GitleaksRunner already logged the detail
             return Optional.empty();
         }
 

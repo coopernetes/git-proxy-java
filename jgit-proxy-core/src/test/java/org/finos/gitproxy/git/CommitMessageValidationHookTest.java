@@ -106,7 +106,7 @@ class CommitMessageValidationHookTest {
     @Test
     void wipCaseInsensitive_addsIssue() throws Exception {
         Git git = Git.open(tempDir.toFile());
-        // lowercase "wip" — the literal check is case-insensitive
+        // lowercase "wip" - the literal check is case-insensitive
         ObjectId wipCommit = createCommit(git, "wip: something", "Dev", "dev@example.com");
 
         ValidationContext ctx = new ValidationContext();

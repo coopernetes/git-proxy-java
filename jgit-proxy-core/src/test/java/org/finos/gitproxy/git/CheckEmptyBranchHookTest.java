@@ -137,7 +137,7 @@ class CheckEmptyBranchHookTest {
         CheckEmptyBranchHook hook = new CheckEmptyBranchHook(new PushContext());
         hook.onPreReceive(rp, List.of(cmd));
 
-        // Result should remain the pre-set value — hook must not touch it
+        // Result should remain the pre-set value - hook must not touch it
         assertEquals(ReceiveCommand.Result.REJECTED_OTHER_REASON, cmd.getResult());
         assertEquals("pre-rejected", cmd.getMessage());
     }

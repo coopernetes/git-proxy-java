@@ -7,7 +7,7 @@ import org.finos.gitproxy.git.Commit;
  * A single, mode-independent commit validation rule.
  *
  * <p>Implementations contain only pure validation logic against a {@link List} of {@link Commit} objects. They have no
- * knowledge of HTTP filters, JGit hooks, sideband streams, or any other transport concern — those are the
+ * knowledge of HTTP filters, JGit hooks, sideband streams, or any other transport concern - those are the
  * responsibility of the adapter that invokes the check.
  *
  * <p>This separation means each rule is written once and reused by both the transparent-proxy filter chain and the

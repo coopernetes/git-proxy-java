@@ -166,7 +166,7 @@ class GpgSignatureFilterTest {
         filter.doHttpFilter(mockPushRequest(details), resp.mock);
 
         assertFalse(
-                resp.committed.get(), "Response must NOT be committed — recordIssue defers to ValidationSummaryFilter");
+                resp.committed.get(), "Response must NOT be committed - recordIssue defers to ValidationSummaryFilter");
         assertEquals(GitRequestDetails.GitResult.REJECTED, details.getResult());
     }
 
@@ -212,7 +212,7 @@ class GpgSignatureFilterTest {
         filter.doHttpFilter(mockPushRequest(details), resp.mock);
 
         assertFalse(
-                resp.committed.get(), "Response must NOT be committed — all commits are collected before reporting");
+                resp.committed.get(), "Response must NOT be committed - all commits are collected before reporting");
         assertEquals(
                 GitRequestDetails.GitResult.REJECTED,
                 details.getResult(),

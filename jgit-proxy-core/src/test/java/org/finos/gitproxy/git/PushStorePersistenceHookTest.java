@@ -137,7 +137,7 @@ class PushStorePersistenceHookTest {
         assertEquals(
                 ReceiveCommand.Result.NOT_ATTEMPTED,
                 cmd.getResult(),
-                "commands must not be rejected on a clean push (S&F doesn't reject here — it blocks in approval hook)");
+                "commands must not be rejected on a clean push (S&F doesn't reject here - it blocks in approval hook)");
     }
 
     // ---- validation-result hook: with issues → REJECTED ----

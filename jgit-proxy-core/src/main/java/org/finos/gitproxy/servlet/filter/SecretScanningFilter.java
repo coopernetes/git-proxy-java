@@ -57,21 +57,21 @@ public class SecretScanningFilter extends AbstractGitProxyFilter {
         }
 
         if (!config.isEnabled()) {
-            log.debug("Secret scanning disabled — skipping");
+            log.debug("Secret scanning disabled - skipping");
             return;
         }
 
         var repo = requestDetails.getLocalRepository();
         if (repo == null) {
             log.warn(
-                    "localRepository not set on request — EnrichPushCommitsFilter may not have run; skipping secret scan (fail-open)");
+                    "localRepository not set on request - EnrichPushCommitsFilter may not have run; skipping secret scan (fail-open)");
             return;
         }
 
         String commitFrom = requestDetails.getCommitFrom();
         String commitTo = requestDetails.getCommitTo();
         if (commitTo == null || commitTo.isBlank()) {
-            log.debug("No commitTo in request details — skipping secret scan");
+            log.debug("No commitTo in request details - skipping secret scan");
             return;
         }
 
@@ -79,13 +79,13 @@ public class SecretScanningFilter extends AbstractGitProxyFilter {
                 runner.scanGit(repo.getDirectory().toPath(), commitFrom, commitTo, config);
 
         if (result.isEmpty()) {
-            // Fail-open: scanner unavailable — GitleaksRunner already logged the detail
+            // Fail-open: scanner unavailable - GitleaksRunner already logged the detail
             return;
         }
 
         List<GitleaksRunner.Finding> findings = result.get();
         if (findings.isEmpty()) {
-            log.debug("Secret scan passed — no findings");
+            log.debug("Secret scan passed - no findings");
             return;
         }
 

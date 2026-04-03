@@ -111,7 +111,7 @@ class SmartHttpErrorFilterTest {
 
         filter.doFilter(req, resp, chain);
 
-        // 401 must pass through — git clients need it to prompt for credentials
+        // 401 must pass through - git clients need it to prompt for credentials
         verify(resp).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     }
 

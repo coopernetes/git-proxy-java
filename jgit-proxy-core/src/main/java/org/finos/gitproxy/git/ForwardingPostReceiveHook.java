@@ -2,6 +2,8 @@ package org.finos.gitproxy.git;
 
 import static org.finos.gitproxy.git.GitClientUtils.AnsiColor.*;
 import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
+import static org.finos.gitproxy.git.GitClientUtils.color;
+import static org.finos.gitproxy.git.GitClientUtils.sym;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,7 +39,7 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
                 .toList();
 
         if (accepted.isEmpty()) {
-            log.debug("No refs to forward — all commands rejected in pre-receive");
+            log.debug("No refs to forward - all commands rejected in pre-receive");
             pushContext.addStep(PushStep.builder()
                     .stepName("forward")
                     .status(StepStatus.PASS)
@@ -50,8 +52,7 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
         String upstreamUrl = repo.getConfig().getString("gitproxy", null, "upstreamUrl");
 
         if (upstreamUrl == null) {
-            rp.sendMessage(
-                    RED + "" + NO_ENTRY.emoji() + "  ERROR - no upstream URL configured, cannot forward" + RESET);
+            rp.sendMessage(color(RED, sym(NO_ENTRY) + "  ERROR - no upstream URL configured, cannot forward"));
             log.error("No gitproxy.upstreamUrl in repo config for {}", repo.getDirectory());
             pushContext.addStep(PushStep.builder()
                     .stepName("forward")
@@ -62,7 +63,7 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
             return;
         }
 
-        rp.sendMessage(CYAN + "" + LINK.emoji() + "  Forwarding to " + upstreamUrl + "..." + RESET);
+        rp.sendMessage(color(CYAN, sym(LINK) + "  Forwarding to " + upstreamUrl + "..."));
 
         List<String> logs = new ArrayList<>();
         logs.add("Forwarding to " + upstreamUrl);
@@ -73,7 +74,7 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
             URIish upstream = new URIish(upstreamUrl);
             forwardFailed = pushToUpstream(rp, repo, upstream, accepted, logs);
         } catch (Exception e) {
-            rp.sendMessage(RED + "" + CROSS_MARK.emoji() + "  ERROR forwarding to upstream: " + e.getMessage() + RESET);
+            rp.sendMessage(color(RED, sym(CROSS_MARK) + "  ERROR forwarding to upstream: " + e.getMessage()));
             log.error("Failed to push to upstream {}", upstreamUrl, e);
             logs.add("ERROR: " + e.getMessage());
             forwardFailed = true;
@@ -101,7 +102,7 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
 
             List<RemoteRefUpdate> updates = buildRefUpdates(repo, commands);
 
-            rp.sendMessage(CYAN + "  Pushing " + updates.size() + " ref(s) to upstream..." + RESET);
+            rp.sendMessage(color(CYAN, "  Pushing " + updates.size() + " ref(s) to upstream..."));
 
             PushResult result = transport.push(NullProgressMonitor.INSTANCE, updates);
 
@@ -113,13 +114,15 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
                     case OK:
                     case UP_TO_DATE:
                         rp.sendMessage(
-                                GREEN + "  " + HEAVY_CHECK_MARK.emoji() + "  " + remoteName + " -> " + status + RESET);
+                                color(GREEN, "  " + sym(HEAVY_CHECK_MARK) + "  " + remoteName + " -> " + status));
                         logs.add("PASS: " + remoteName + " -> " + status);
                         break;
                     default:
                         String message = update.getMessage();
-                        rp.sendMessage(RED + "  " + CROSS_MARK.emoji() + "  " + remoteName + " -> " + status
-                                + (message != null ? " (" + message + ")" : "") + RESET);
+                        rp.sendMessage(color(
+                                RED,
+                                "  " + sym(CROSS_MARK) + "  " + remoteName + " -> " + status
+                                        + (message != null ? " (" + message + ")" : "")));
                         log.warn("Upstream push ref {} status: {} {}", remoteName, status, message);
                         logs.add("FAIL: " + remoteName + " -> " + status
                                 + (message != null ? " (" + message + ")" : ""));
@@ -127,7 +130,7 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
                 }
             }
 
-            rp.sendMessage(GREEN + "" + HEAVY_CHECK_MARK.emoji() + "  Forwarding complete" + RESET);
+            rp.sendMessage(color(GREEN, sym(HEAVY_CHECK_MARK) + "  Forwarding complete"));
         }
         return anyFailed;
     }

@@ -20,7 +20,7 @@ public class GitRequestDetails {
     private RepoRef repoRef;
     /**
      * The local JGit repository for this push, populated by {@code EnrichPushCommitsFilter} after cloning/fetching the
-     * upstream. Available to all downstream filters — no need to inject {@code LocalRepositoryCache} separately.
+     * upstream. Available to all downstream filters - no need to inject {@code LocalRepositoryCache} separately.
      */
     private Repository localRepository;
 

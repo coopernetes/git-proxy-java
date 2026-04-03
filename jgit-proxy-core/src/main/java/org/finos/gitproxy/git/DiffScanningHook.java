@@ -18,7 +18,7 @@ import org.finos.gitproxy.validation.Violation;
  * Pre-receive hook that scans the diff content of incoming pushes for blocked literals and patterns. Runs after
  * {@link DiffGenerationHook} and re-uses the diff already stored in {@link PushContext} rather than regenerating it.
  *
- * <p>Only added lines (those prefixed with {@code +} in the unified diff) are scanned — deletions and context lines are
+ * <p>Only added lines (those prefixed with {@code +} in the unified diff) are scanned - deletions and context lines are
  * ignored. Violations are reported via sideband and recorded in the shared {@link ValidationContext}.
  */
 @Slf4j
@@ -39,7 +39,7 @@ public class DiffScanningHook implements PreReceiveHook {
                 .orElse(null);
 
         if (diff == null || diff.isBlank()) {
-            log.debug("No diff available for scanning — skipping");
+            log.debug("No diff available for scanning - skipping");
             return;
         }
 
@@ -53,7 +53,7 @@ public class DiffScanningHook implements PreReceiveHook {
 
             try {
                 if (diff.isEmpty()) {
-                    logs.add("SKIP: " + cmd.getRefName() + " — empty diff");
+                    logs.add("SKIP: " + cmd.getRefName() + " - empty diff");
                     continue;
                 }
 
@@ -73,7 +73,7 @@ public class DiffScanningHook implements PreReceiveHook {
 
             } catch (Exception e) {
                 log.error("Failed to scan diff for {}", cmd.getRefName(), e);
-                logs.add("ERROR: " + cmd.getRefName() + " — " + e.getMessage());
+                logs.add("ERROR: " + cmd.getRefName() + " - " + e.getMessage());
             }
         }
 

@@ -19,7 +19,7 @@ import org.junit.jupiter.api.*;
  * commit + push through a live Jetty proxy that forwards to a containerised Gitea instance.
  *
  * <p>Valid pushes are blocked pending review on first push. The test then approves the push via the push store and
- * verifies the re-push succeeds — matching the transparent proxy approval flow.
+ * verifies the re-push succeeds - matching the transparent proxy approval flow.
  *
  * <p>Infrastructure is started once per class (containers are expensive) and each test clones into its own temp
  * directory so there are no ordering dependencies.
@@ -91,7 +91,7 @@ class ProxyModeE2ETest {
         git.writeAndStage(repo, "test-file.txt", commitMessage + " - " + Instant.now());
         git.commit(repo, commitMessage);
 
-        // First push — should be blocked pending review
+        // First push - should be blocked pending review
         var firstPush = git.pushWithResult(repo);
         assertFalse(firstPush.succeeded(), "first push should be blocked pending review");
         assertTrue(firstPush.output().contains("/#/push/"), "should contain link to push record");
@@ -115,7 +115,7 @@ class ProxyModeE2ETest {
                                 .reason("Approved by e2e test")
                                 .build());
 
-        // Re-push — should succeed now
+        // Re-push - should succeed now
         var rePush = git.pushWithResult(repo);
         assertTrue(rePush.succeeded(), "re-push after approval should succeed. Output:\n" + rePush.output());
     }
@@ -142,7 +142,7 @@ class ProxyModeE2ETest {
         git.writeAndStage(repo, "test-b.txt", "pass test 2b - " + Instant.now());
         git.commit(repo, "refactor: clean up internal logic");
 
-        // First push — blocked
+        // First push - blocked
         var firstPush = git.pushWithResult(repo);
         assertFalse(firstPush.succeeded(), "first push should be blocked");
         String pushId = firstPush.extractPushId();
@@ -158,13 +158,13 @@ class ProxyModeE2ETest {
                                 .reason("Approved by e2e test")
                                 .build());
 
-        // Re-push — should succeed
+        // Re-push - should succeed
         var rePush = git.pushWithResult(repo);
         assertTrue(rePush.succeeded(), "re-push should succeed. Output:\n" + rePush.output());
     }
 
     // ---- failing tests (mirrors test-proxy-fail.sh) ----
-    // These pushes should be REJECTED by validation — they never enter the approval queue.
+    // These pushes should be REJECTED by validation - they never enter the approval queue.
 
     @Test
     @Order(10)
@@ -246,7 +246,7 @@ class ProxyModeE2ETest {
     void emptyBranch_rejected() throws Exception {
         // The Gitea repo is auto-initialised with a README, so main already has a commit.
         // Cloning and creating a new branch at HEAD (no new commits) means the branch tip
-        // is already reachable from main — getCommitRange returns empty → rejected outright.
+        // is already reachable from main - getCommitRange returns empty → rejected outright.
         GitHelper git = helper();
         Path repo = git.clone(repoUrl(), "proxy-empty-branch");
         git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.VALID_AUTHOR_EMAIL);

@@ -74,7 +74,7 @@ public class CommitInspectionService {
             if (fromId != null && !isNullCommit(fromCommit)) {
                 revCommits = git.log().addRange(fromId, toId).call();
             } else {
-                // New branch — exclude commits reachable from any existing ref so we only
+                // New branch - exclude commits reachable from any existing ref so we only
                 // validate commits that are genuinely new in this push.  The local cache is a
                 // bare clone, so existing branch tips live under refs/heads/ (not refs/remotes/).
                 var logCmd = git.log().add(toId);
@@ -200,7 +200,7 @@ public class CommitInspectionService {
 
             // logCmd returns newest-first; last entry is the oldest new commit
             RevCommit oldest = newCommits.get(newCommits.size() - 1);
-            if (oldest.getParentCount() == 0) return null; // root commit — empty tree is correct
+            if (oldest.getParentCount() == 0) return null; // root commit - empty tree is correct
 
             String parentSha = oldest.getParent(0).getName();
             return repository.resolve(parentSha + "^{tree}");

@@ -21,7 +21,7 @@ import org.finos.gitproxy.db.model.StepStatus;
  * risk ledger check). Blocks for 15 seconds total, sending a sideband progress message every 5 seconds to keep the
  * connection alive and provide user feedback.
  *
- * <p>This is the pattern that regulated environments would use for shelling out to approval systems — the sideband
+ * <p>This is the pattern that regulated environments would use for shelling out to approval systems - the sideband
  * messages keep the git client from timing out and let the user see what's happening.
  */
 @Slf4j

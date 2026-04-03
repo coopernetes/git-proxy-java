@@ -53,7 +53,7 @@ public class GpgSignatureCheck implements CommitCheck {
 
             if (config.isRequireSignedCommits() && (signature == null || signature.isEmpty())) {
                 String reason = "not signed";
-                String title = sym(NO_ENTRY) + "  Push Blocked — Unsigned Commit(s)";
+                String title = sym(NO_ENTRY) + "  Push Blocked - Unsigned Commit(s)";
                 String message = sym(CROSS_MARK) + "  " + shortSha + "\n\n"
                         + sym(KEY) + "  All commits must be signed with a GPG key.\n"
                         + "   git config commit.gpgsign true";
@@ -63,7 +63,7 @@ public class GpgSignatureCheck implements CommitCheck {
 
             if (signature != null && !signature.isEmpty() && !verifySignature(commit)) {
                 String reason = "invalid signature";
-                String title = sym(NO_ENTRY) + "  Push Blocked — Invalid Signature(s)";
+                String title = sym(NO_ENTRY) + "  Push Blocked - Invalid Signature(s)";
                 String message = sym(CROSS_MARK) + "  " + shortSha + "\n\n" + sym(KEY)
                         + "  Ensure commits are signed with a trusted key.";
                 violations.add(new Violation(shortSha, reason, GitClientUtils.format(title, message, RED, null)));

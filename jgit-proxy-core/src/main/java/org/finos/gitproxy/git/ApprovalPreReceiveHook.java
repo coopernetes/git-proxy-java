@@ -20,7 +20,7 @@ import org.finos.gitproxy.db.model.PushStatus;
 
 /**
  * Pre-receive hook that implements the approval gate. For clean pushes (no validation issues) it passes immediately.
- * For blocked pushes it delegates to an {@link ApprovalGateway} — which by default polls the push store waiting for a
+ * For blocked pushes it delegates to an {@link ApprovalGateway} - which by default polls the push store waiting for a
  * human reviewer to approve or reject via the UI/API.
  *
  * <p>This hook must run AFTER {@code PushStorePersistenceHook.validationResultHook()} so the validation record is
@@ -63,19 +63,19 @@ public class ApprovalPreReceiveHook implements PreReceiveHook {
         // Read the validation record ID stored by PushStorePersistenceHook.validationResultHook
         String validationRecordId = rp.getRepository().getConfig().getString("gitproxy", null, "validationRecordId");
         if (validationRecordId == null) {
-            log.warn("No validationRecordId in repo config — skipping approval gate");
+            log.warn("No validationRecordId in repo config - skipping approval gate");
             return;
         }
 
         var record = pushStore.findById(validationRecordId).orElse(null);
         if (record == null) {
-            log.warn("Validation record not found: {} — skipping approval gate", validationRecordId);
+            log.warn("Validation record not found: {} - skipping approval gate", validationRecordId);
             return;
         }
 
         // Safety net: already approved before this hook ran (race condition or re-push)
         if (record.getStatus() == PushStatus.APPROVED) {
-            sendAndFlush(rp, msgOut, color(GREEN, "" + sym(HEAVY_CHECK_MARK) + "  Push already approved — forwarding"));
+            sendAndFlush(rp, msgOut, color(GREEN, "" + sym(HEAVY_CHECK_MARK) + "  Push already approved - forwarding"));
             return;
         }
 
