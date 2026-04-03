@@ -20,7 +20,7 @@ java {
 repositories {
     mavenCentral()
     maven {
-        url 'https://repo.eclipse.org/content/groups/releases/'
+        url = 'https://repo.eclipse.org/content/groups/releases/'
     }
 }
 
@@ -105,6 +105,10 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.named('check') {
+    dependsOn jacocoTestReport
 }
 
 // ---------------------------------------------------------------------------

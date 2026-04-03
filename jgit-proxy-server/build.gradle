@@ -86,6 +86,9 @@ dependencies {
 
     // H2 available at test runtime so the in-process proxy can use it
     testRuntimeOnly 'com.h2database:h2:2.4.240'
+
+    // Include core coverage in the aggregated JaCoCo report
+    jacocoAggregation project(':jgit-proxy-core')
 }
 
 tasks.named('test') {
@@ -104,4 +107,8 @@ tasks.register('e2eTest', Test) {
     }
     // Container startup can be slow
     timeout = java.time.Duration.ofMinutes(10)
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('testCodeCoverageReport', JacocoReport)
 }
