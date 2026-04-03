@@ -75,6 +75,10 @@ dependencies {
     testCompileOnly 'org.projectlombok:lombok:1.18.44'
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.44'
     testRuntimeOnly 'com.h2database:h2:2.4.240'
+
+    // Include core + server coverage in the aggregated JaCoCo report
+    jacocoAggregation project(':jgit-proxy-core')
+    jacocoAggregation project(':jgit-proxy-server')
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -83,4 +87,8 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('testCodeCoverageReport', JacocoReport)
 }

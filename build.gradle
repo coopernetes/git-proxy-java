@@ -14,14 +14,13 @@ allprojects {
     repositories {
         mavenCentral()
         maven {
-            url 'https://repo.eclipse.org/content/groups/releases/'
+            url = 'https://repo.eclipse.org/content/groups/releases/'
         }
     }
     dependencyCheck {
         nvd.apiKey = System.getenv("NVD_API_KEY")
         failBuildOnCVSS = 5
         suppressionFile = rootProject.file('gradle-suppressions.xml').toString()
-
     }
 }
 
@@ -37,6 +36,7 @@ tasks.register('installGitHooks') {
 
 subprojects {
     apply plugin: 'com.diffplug.spotless'
+    apply plugin: 'jacoco-report-aggregation'
 
     spotless {
         java {
