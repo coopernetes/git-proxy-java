@@ -2,10 +2,7 @@ package org.finos.gitproxy.git;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.transport.PreReceiveHook;
@@ -14,6 +11,8 @@ import org.eclipse.jgit.transport.ReceivePack;
 import org.finos.gitproxy.config.CommitConfig;
 import org.finos.gitproxy.db.model.PushStep;
 import org.finos.gitproxy.db.model.StepStatus;
+import org.finos.gitproxy.validation.BlockedContentDiffCheck;
+import org.finos.gitproxy.validation.Violation;
 
 /**
  * Pre-receive hook that scans the diff content of incoming pushes for blocked literals and patterns. Runs after
@@ -58,12 +57,14 @@ public class DiffScanningHook implements PreReceiveHook {
                     continue;
                 }
 
-                List<String> violations = scanDiff(diff);
+                BlockedContentDiffCheck check =
+                        new BlockedContentDiffCheck(commitConfig.getDiff().getBlock());
+                List<Violation> violations = check.check(diff).orElse(List.of());
 
                 if (!violations.isEmpty()) {
-                    for (String violation : violations) {
-                        validationContext.addIssue("scanDiff", violation, "ref: " + cmd.getRefName());
-                        logs.add("FAIL: " + violation);
+                    for (Violation violation : violations) {
+                        validationContext.addIssue("scanDiff", violation.reason(), "ref: " + cmd.getRefName());
+                        logs.add("FAIL: " + violation.reason());
                     }
                     anyFailed = true;
                 } else {
@@ -84,58 +85,5 @@ public class DiffScanningHook implements PreReceiveHook {
                     .logs(logs)
                     .build());
         }
-    }
-
-    /**
-     * Scans the unified diff for blocked content, returning a deduplicated list of violation descriptions. Only added
-     * lines (prefixed with {@code +}, excluding the {@code +++} header) are checked.
-     */
-    List<String> scanDiff(String diff) {
-        Set<String> violations = new LinkedHashSet<>();
-        CommitConfig.BlockConfig block = commitConfig.getDiff().getBlock();
-
-        if (block.getLiterals().isEmpty() && block.getPatterns().isEmpty()) {
-            return List.of();
-        }
-
-        String currentFile = null;
-        for (String line : diff.lines().toList()) {
-            if (line.startsWith("diff --git ")) {
-                currentFile = extractFileName(line);
-            }
-
-            // Only scan added lines; skip the +++ header line
-            if (!line.startsWith("+") || line.startsWith("+++")) {
-                continue;
-            }
-            String content = line.substring(1);
-
-            for (String literal : block.getLiterals()) {
-                if (content.toLowerCase().contains(literal.toLowerCase())) {
-                    String location = currentFile != null ? " in " + currentFile : "";
-                    violations.add("diff contains blocked term: \"" + literal + "\"" + location);
-                }
-            }
-
-            for (Pattern pattern : block.getPatterns()) {
-                if (pattern.matcher(content).find()) {
-                    String location = currentFile != null ? " in " + currentFile : "";
-                    violations.add("diff matches blocked pattern: " + pattern.pattern() + location);
-                }
-            }
-        }
-
-        return new ArrayList<>(violations);
-    }
-
-    /** Extracts the {@code b/} path from a {@code diff --git a/... b/...} header line. */
-    private static String extractFileName(String diffHeader) {
-        // "diff --git a/path/to/file b/path/to/file"
-        String[] parts = diffHeader.split(" ");
-        if (parts.length >= 4) {
-            String bPath = parts[3];
-            return bPath.startsWith("b/") ? bPath.substring(2) : bPath;
-        }
-        return diffHeader;
     }
 }

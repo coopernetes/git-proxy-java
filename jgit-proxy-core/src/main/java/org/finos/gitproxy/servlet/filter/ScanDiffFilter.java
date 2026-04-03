@@ -7,11 +7,8 @@ import static org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.finos.gitproxy.config.CommitConfig;
@@ -23,6 +20,8 @@ import org.finos.gitproxy.git.GitClientUtils;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitProxyProvider;
+import org.finos.gitproxy.validation.BlockedContentDiffCheck;
+import org.finos.gitproxy.validation.Violation;
 
 /**
  * Filter that scans the diff content of incoming pushes for blocked literals and patterns. Runs in the transparent
@@ -89,25 +88,14 @@ public class ScanDiffFilter extends AbstractProviderAwareGitProxyFilter {
             requestDetails.getSteps().add(diffStep);
 
             CommitConfig.BlockConfig block = commitConfig.getDiff().getBlock();
-            if (block.getLiterals().isEmpty() && block.getPatterns().isEmpty()) {
-                log.debug("No diff block rules configured, skipping diff scan");
-                recordStep(request, StepStatus.PASS, null, null);
-                return;
-            }
-
-            if (diff.isEmpty()) {
-                log.debug("Empty diff, nothing to scan");
-                recordStep(request, StepStatus.PASS, null, null);
-                return;
-            }
-
-            List<String> violations = scanDiff(diff, block);
+            BlockedContentDiffCheck check = new BlockedContentDiffCheck(block);
+            List<Violation> violations = check.check(diff).orElse(List.of());
 
             if (!violations.isEmpty()) {
                 log.warn("Diff scan found {} violation(s)", violations.size());
                 String title = NO_ENTRY.emoji() + "  Push Blocked — Diff Contains Blocked Content";
                 String violationList = violations.stream()
-                        .map(v -> CROSS_MARK.emoji() + "  " + v)
+                        .map(v -> CROSS_MARK.emoji() + "  " + v.reason())
                         .collect(Collectors.joining("\n"));
                 String message = "Diff content contains blocked patterns:\n\n" + violationList;
                 recordIssue(request, "Diff contains blocked content", GitClientUtils.format(title, message, RED, null));
@@ -119,52 +107,5 @@ public class ScanDiffFilter extends AbstractProviderAwareGitProxyFilter {
         } catch (Exception e) {
             log.error("Failed to generate/scan diff for push {}..{}", fromCommit, toCommit, e);
         }
-    }
-
-    /**
-     * Scans the unified diff for blocked content. Only added lines are checked. Returns a deduplicated list of
-     * violation descriptions.
-     */
-    List<String> scanDiff(String diff, CommitConfig.BlockConfig block) {
-        Set<String> violations = new LinkedHashSet<>();
-        String currentFile = null;
-
-        for (String line : diff.lines().toList()) {
-            if (line.startsWith("diff --git ")) {
-                currentFile = extractFileName(line);
-            }
-
-            // Only scan added lines; skip the +++ file header
-            if (!line.startsWith("+") || line.startsWith("+++")) {
-                continue;
-            }
-            String content = line.substring(1);
-
-            for (String literal : block.getLiterals()) {
-                if (content.toLowerCase().contains(literal.toLowerCase())) {
-                    String location = currentFile != null ? " in " + currentFile : "";
-                    violations.add("blocked term: \"" + literal + "\"" + location);
-                }
-            }
-
-            for (Pattern pattern : block.getPatterns()) {
-                if (pattern.matcher(content).find()) {
-                    String location = currentFile != null ? " in " + currentFile : "";
-                    violations.add("blocked pattern: " + pattern.pattern() + location);
-                }
-            }
-        }
-
-        return new ArrayList<>(violations);
-    }
-
-    /** Extracts the {@code b/} path from a {@code diff --git a/... b/...} header line. */
-    private static String extractFileName(String diffHeader) {
-        String[] parts = diffHeader.split(" ");
-        if (parts.length >= 4) {
-            String bPath = parts[3];
-            return bPath.startsWith("b/") ? bPath.substring(2) : bPath;
-        }
-        return diffHeader;
     }
 }
