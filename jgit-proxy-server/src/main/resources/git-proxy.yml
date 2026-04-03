@@ -53,3 +53,19 @@ git-proxy:
         # Add entries here to block secrets, internal hostnames, etc. from being pushed.
         literals: []
         patterns: []
+
+    # Secret scanning via gitleaks (https://github.com/gitleaks/gitleaks).
+    # The JAR ships with a bundled gitleaks binary (DEFAULT_VERSION) so scanning works out of the box.
+    # Binary resolution order:
+    #   1. scanner-path — explicit path, bypasses everything else
+    #   2. version-pinned download — if version + auto-install: true, downloads that version on startup
+    #   3. bundled JAR binary — always present (DEFAULT_VERSION)
+    #   4. system PATH — gitleaks already installed on host/container
+    secret-scanning:
+      enabled: false
+      # version: 8.22.0        # pin a specific version; combined with auto-install: true, downloads it on startup
+      # auto-install: true     # allow downloading the version above (default: true); set false to use bundled or PATH only
+      # install-dir: ~/.cache/jgit-proxy/gitleaks  # where to cache downloaded versions
+      # scanner-path: /usr/local/bin/gitleaks       # skip all resolution, use this binary directly
+      # config-file: /app/conf/.gitleaks.toml       # custom rules; use [extend] useDefault=true to keep built-ins
+      # timeout-seconds: 30

@@ -167,6 +167,10 @@ public final class GitProxyServletRegistrar {
         scanDiffFilterHolder.setAsyncSupported(true);
         context.addFilter(scanDiffFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));
 
+        var secretScanningFilterHolder = new FilterHolder(new SecretScanningFilter(commitConfig.getSecretScanning()));
+        secretScanningFilterHolder.setAsyncSupported(true);
+        context.addFilter(secretScanningFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));
+
         var gpgFilterHolder = new FilterHolder(new GpgSignatureFilter(GpgConfig.defaultConfig()));
         gpgFilterHolder.setAsyncSupported(true);
         context.addFilter(gpgFilterHolder, urlPattern, EnumSet.of(DispatcherType.REQUEST));

@@ -96,12 +96,13 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         // 6. DiffGenerationHook                    — generates diffs; records "diff" / "diff:default-branch" steps
         // 7. DiffScanningHook                      — scans diff added-lines for blocked content; records "scanDiff"
         // step
-        // 8. PushStorePersistenceHook.validationResult — saves APPROVED or BLOCKED record with all steps so far
-        // 9. ApprovalPreReceiveHook                — blocks until reviewer approves/rejects or timeout
+        // 8. SecretScanningHook                    — pipes diff to gitleaks; records "scanSecrets" step
+        // 9. PushStorePersistenceHook.validationResult — saves APPROVED or BLOCKED record with all steps so far
+        // 10. ApprovalPreReceiveHook               — blocks until reviewer approves/rejects or timeout
         //
         // Post-receive (only runs when pre-receive doesn't stop the chain):
-        // 10. ForwardingPostReceiveHook            — forwards to upstream; records "forward" step
-        // 11. PushStorePersistenceHook.postReceive — saves FORWARDED or ERROR record with forwarding step
+        // 11. ForwardingPostReceiveHook            — forwards to upstream; records "forward" step
+        // 12. PushStorePersistenceHook.postReceive — saves FORWARDED or ERROR record with forwarding step
 
         PreReceiveHook[] preHooks;
         if (persistenceHook != null) {
@@ -114,6 +115,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                 new ProxyPreReceiveHook(pushContext),
                 new DiffGenerationHook(pushContext),
                 new DiffScanningHook(commitConfig, validationContext, pushContext),
+                new SecretScanningHook(commitConfig.getSecretScanning(), validationContext, pushContext),
                 persistenceHook.validationResultHook(validationContext),
                 new ApprovalPreReceiveHook(pushStore, approvalGateway, serviceUrl)
             };
@@ -125,7 +127,8 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                 new CommitMessageValidationHook(commitConfig, validationContext, pushContext),
                 new ProxyPreReceiveHook(pushContext),
                 new DiffGenerationHook(pushContext),
-                new DiffScanningHook(commitConfig, validationContext, pushContext)
+                new DiffScanningHook(commitConfig, validationContext, pushContext),
+                new SecretScanningHook(commitConfig.getSecretScanning(), validationContext, pushContext)
             };
         }
         rp.setPreReceiveHook(chainPreReceiveHooks(preHooks));
