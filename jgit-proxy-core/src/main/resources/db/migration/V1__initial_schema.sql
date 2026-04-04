@@ -1,5 +1,5 @@
--- Schema for push audit records.
--- Compatible with H2, PostgreSQL, and SQLite (with minor type mapping handled by JdbcPushStore).
+-- Initial schema for jgit-proxy.
+-- Compatible with H2, PostgreSQL, and SQLite.
 
 CREATE TABLE IF NOT EXISTS push_records (
     id              VARCHAR(36) PRIMARY KEY,

@@ -1,16 +1,11 @@
 package org.finos.gitproxy.db.jdbc;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.jdbc.mapper.AttestationRowMapper;
@@ -20,7 +15,6 @@ import org.finos.gitproxy.db.jdbc.mapper.PushStepRowMapper;
 import org.finos.gitproxy.db.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -35,7 +29,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class JdbcPushStore implements PushStore {
 
     private static final Logger log = LoggerFactory.getLogger(JdbcPushStore.class);
-    private static final String SCHEMA_RESOURCE = "/db/schema.sql";
 
     private final DataSource dataSource;
     private final NamedParameterJdbcTemplate jdbc;
@@ -49,15 +42,7 @@ public class JdbcPushStore implements PushStore {
 
     @Override
     public void initialize() {
-        String schema = loadSchema();
-        JdbcTemplate plain = new JdbcTemplate(dataSource);
-        for (String sql : schema.split(";")) {
-            String trimmed = sql.trim();
-            if (!trimmed.isEmpty()) {
-                plain.execute(trimmed);
-            }
-        }
-        log.info("Push store schema initialized");
+        DatabaseMigrator.migrate(dataSource);
     }
 
     @Override
@@ -319,18 +304,5 @@ public class JdbcPushStore implements PushStore {
                 .addValue("blockedMessage", r.getBlockedMessage())
                 .addValue("autoApproved", r.isAutoApproved())
                 .addValue("autoRejected", r.isAutoRejected());
-    }
-
-    private String loadSchema() {
-        try (var is = getClass().getResourceAsStream(SCHEMA_RESOURCE)) {
-            if (is == null) {
-                throw new RuntimeException("Schema resource not found: " + SCHEMA_RESOURCE);
-            }
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                return reader.lines().collect(Collectors.joining("\n"));
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load schema", e);
-        }
     }
 }

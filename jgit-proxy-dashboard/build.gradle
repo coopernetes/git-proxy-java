@@ -110,6 +110,9 @@ dependencies {
     runtimeOnly "org.postgresql:postgresql:${postgresVersion}"
     runtimeOnly "org.mongodb:mongodb-driver-sync:${mongoVersion}"
 
+    // Flyway database-specific modules (at runtime, alongside the drivers above)
+    runtimeOnly "org.flywaydb:flyway-database-postgresql:${flywayVersion}"
+
     // Gestalt config (needed to catch GestaltException from GitProxyConfigLoader)
     implementation "com.github.gestalt-config:gestalt-core:${gestaltVersion}"
 
