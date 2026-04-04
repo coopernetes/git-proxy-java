@@ -2,20 +2,19 @@
 # This file is mounted into the container at /app/conf/git-proxy-local.yml
 # and overrides the defaults in git-proxy.yml.
 
-git-proxy:
-  providers:
-    # Disable the default cloud providers; we only need the local Gitea instance.
-    github:
-      enabled: false
-    gitlab:
-      enabled: false
-    bitbucket:
-      enabled: false
+providers:
+  # Disable the default cloud providers; we only need the local Gitea instance.
+  github:
+    enabled: false
+  gitlab:
+    enabled: false
+  bitbucket:
+    enabled: false
 
-    # Local Gitea instance.
-    # Push (store-and-forward):  http://localhost:8080/push/gitea/<owner>/<repo>.git
-    # Proxy (transparent):       http://localhost:8080/proxy/gitea/<owner>/<repo>.git
-    gitea:
-      enabled: true
-      uri: http://gitea:3000
-      servlet-path: /gitea
+  # Local Gitea instance.
+  # Push (store-and-forward):  http://localhost:8080/push/gitea/<owner>/<repo>.git
+  # Proxy (transparent):       http://localhost:8080/proxy/gitea/<owner>/<repo>.git
+  gitea:
+    enabled: true
+    uri: http://gitea:3000
+    servlet-path: /gitea

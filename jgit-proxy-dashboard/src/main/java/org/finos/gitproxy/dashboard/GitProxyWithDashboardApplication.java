@@ -14,8 +14,8 @@ import org.finos.gitproxy.config.ProviderConfigurationSource;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.git.LocalRepositoryCache;
 import org.finos.gitproxy.jetty.GitProxyServletRegistrar;
+import org.finos.gitproxy.jetty.config.GitProxyConfigLoader;
 import org.finos.gitproxy.jetty.config.JettyConfigurationBuilder;
-import org.finos.gitproxy.jetty.config.JettyConfigurationLoader;
 import org.finos.gitproxy.provider.GitProxyProvider;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.DispatcherServlet;
@@ -38,8 +38,7 @@ public class GitProxyWithDashboardApplication {
         log.info("Starting JGit Proxy with Dashboard...");
         writePidFile();
 
-        var configLoader = new JettyConfigurationLoader();
-        var configBuilder = new JettyConfigurationBuilder(configLoader);
+        var configBuilder = new JettyConfigurationBuilder(GitProxyConfigLoader.load());
 
         var threadPool = new QueuedThreadPool();
         threadPool.setName("jgit-proxy-dashboard");

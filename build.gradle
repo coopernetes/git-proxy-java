@@ -38,6 +38,9 @@ ext {
     // YAML
     snakeyamlVersion = '2.2'
 
+    // Gestalt config
+    gestaltVersion = '0.37.2'
+
     // BouncyCastle
     bouncyCastleVersion = '1.83'
 
