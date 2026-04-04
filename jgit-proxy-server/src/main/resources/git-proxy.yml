@@ -10,6 +10,13 @@ server:
   # Sends a "." progress packet periodically to prevent idle-timeout disconnects during long validation steps
   # (e.g. secret scanning, approval polling). Set to 0 to disable.
   heartbeat-interval-seconds: 10
+  # Origins allowed to make cross-origin requests to the dashboard REST API.
+  # Required when the frontend is served from a different hostname than the backend (e.g. behind a load balancer).
+  # Default (empty): same-origin only. Override per-deployment in git-proxy-local.yml or via
+  # GITPROXY_SERVER_ALLOWEDORIGINS env var (comma-separated list treated as a single value — use the YAML key for
+  # multiple origins).
+  # allowed-origins:
+  #   - https://dashboard.example.com
 
 # Database configuration for push audit storage.
 # Supported types: memory, h2-mem, h2-file, sqlite, postgres, mongo

@@ -1,6 +1,21 @@
-/** Fetch wrapper that redirects to /login.html on 401. */
+/** Reads the XSRF-TOKEN cookie set by Spring Security's CookieCsrfTokenRepository. */
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+/** Fetch wrapper that redirects to /login.html on 401 and attaches the CSRF token on mutating requests. */
 async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
-  const res = await fetch(url, options)
+  const method = (options?.method ?? 'GET').toUpperCase()
+  const mutating = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)
+
+  const headers: Record<string, string> = { ...(options?.headers as Record<string, string>) }
+  if (mutating) {
+    const token = getCsrfToken()
+    if (token) headers['X-XSRF-TOKEN'] = token
+  }
+
+  const res = await fetch(url, { ...options, headers })
   if (res.status === 401) {
     window.location.href = '/login.html'
     return new Promise(() => {}) // suspend; page is navigating away
