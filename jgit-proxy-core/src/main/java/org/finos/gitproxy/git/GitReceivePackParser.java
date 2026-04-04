@@ -38,9 +38,12 @@ public class GitReceivePackParser {
         String newCommit = parts[1];
         String reference = parts[2].replace("\u0000", "").trim();
 
-        // For branch deletion (newCommit is all zeros), there's no pack data
+        // Skip pack parsing for deletions (no objects) and tag pushes (first object is a
+        // tag object or the pack is empty — neither produces a usable Commit; EnrichPushCommitsFilter
+        // recovers full commit data from the local clone).
         Commit commit = null;
-        if (!newCommit.equals(ZERO_OID) && packData != null && packData.length > 0) {
+        boolean isTag = reference.startsWith("refs/tags/");
+        if (!isTag && !newCommit.equals(ZERO_OID) && packData != null && packData.length > 0) {
             // Parse the commit content from pack data
             try {
                 commit = parsePackData(packData);
