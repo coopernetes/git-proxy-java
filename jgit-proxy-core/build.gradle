@@ -1,3 +1,11 @@
+buildscript {
+    configurations.all {
+        resolutionStrategy {
+            force 'com.fasterxml.jackson.core:jackson-core:2.21.1'
+        }
+    }
+}
+
 plugins {
     id 'java-library'
 }
@@ -27,7 +35,7 @@ repositories {
 ext {
     jgitVersion = '7.6.0.202603022253-r'
     apacheHttpVersion = '4.5.14'
-    jettyVersion = '12.1.0'
+    jettyVersion = '12.1.8'
     jakartaServletVersion = '6.1.0'
     slf4jVersion = '2.0.17'
     logbackVersion = '1.5.32'
@@ -36,6 +44,7 @@ ext {
     sqliteVersion = '3.51.3.0'
     postgresVersion = '42.7.10'
     mongoVersion = '5.6.4'
+    testContainersVersion = '2.0.4'
 }
 
 dependencies {
@@ -100,9 +109,9 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.14.3'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.3'
     testImplementation "org.mongodb:mongodb-driver-sync:${mongoVersion}"
-    testImplementation 'org.testcontainers:testcontainers:1.20.4'
-    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
-    testImplementation 'org.testcontainers:mongodb:1.20.4'
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:testcontainers-junit-jupiter:${testContainersVersion}"
+    testImplementation "org.testcontainers:testcontainers-mongodb:${testContainersVersion}"
     testCompileOnly 'org.projectlombok:lombok:1.18.44'
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.44'
 }
