@@ -83,7 +83,13 @@ tasks.register('copyFrontend', Copy) {
 }
 
 tasks.named('processResources') {
-    dependsOn tasks.named('copyFrontend')
+    // Skip the frontend build when running locally against the Vite dev server.
+    // Usage: ./gradlew :jgit-proxy-dashboard:run -PskipFrontend
+    // The Vite dev server (npm run dev) proxies /api/* to localhost:8080, so the Spring app
+    // doesn't need the built assets at all during development.
+    if (!project.hasProperty('skipFrontend')) {
+        dependsOn tasks.named('copyFrontend')
+    }
 }
 
 tasks.register('stop') {

@@ -2,6 +2,12 @@ logging:
   level:
     org.finos.gitproxy: DEBUG
 
+server:
+  # Allow the Vite dev server to make cross-origin requests to the backend.
+  # Vite defaults to port 5173; adjust if you've changed it.
+  allowed-origins:
+    - http://localhost:5173
+
 # Dev user for local testing. Use {noop} prefix for plaintext passwords (dev only).
 # For production, use {bcrypt} prefix: htpasswd -bnBC 12 "" yourpassword | tr -d ':\n'
 # then set password-hash: "{bcrypt}$2a$12$..."

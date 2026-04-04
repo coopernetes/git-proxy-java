@@ -5,6 +5,21 @@ interface NavProps {
   currentUser: CurrentUser | null
 }
 
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+async function logout() {
+  const token = getCsrfToken()
+  await fetch('/logout', {
+    method: 'POST',
+    headers: token ? { 'X-XSRF-TOKEN': token } : {},
+    credentials: 'same-origin',
+  })
+  window.location.href = '/login.html?logout'
+}
+
 export function Nav({ currentUser }: NavProps) {
   return (
     <header className="bg-slate-800 text-white px-6 py-4 flex items-center gap-4 shadow">
@@ -52,14 +67,12 @@ export function Nav({ currentUser }: NavProps) {
       {currentUser && (
         <div className="ml-auto flex items-center gap-3 text-sm text-slate-300">
           <span>{currentUser.username}</span>
-          <form method="post" action="/logout" className="m-0">
-            <button
-              type="submit"
-              className="px-2 py-1 rounded text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
-            >
-              Sign out
-            </button>
-          </form>
+          <button
+            onClick={logout}
+            className="px-2 py-1 rounded text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       )}
     </header>

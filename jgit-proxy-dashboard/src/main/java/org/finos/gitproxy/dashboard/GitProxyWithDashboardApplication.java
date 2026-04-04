@@ -48,7 +48,8 @@ public class GitProxyWithDashboardApplication {
         log.info("Starting JGit Proxy with Dashboard...");
         writePidFile();
 
-        var configBuilder = new JettyConfigurationBuilder(GitProxyConfigLoader.load());
+        var gitProxyConfig = GitProxyConfigLoader.load();
+        var configBuilder = new JettyConfigurationBuilder(gitProxyConfig);
 
         var threadPool = new QueuedThreadPool();
         threadPool.setName("jgit-proxy-dashboard");
@@ -109,7 +110,7 @@ public class GitProxyWithDashboardApplication {
         }
 
         // Spring MVC DispatcherServlet at /* - git-specific paths take precedence per servlet spec
-        registerSpringServlet(context, pushStore, providerConfig, userStore);
+        registerSpringServlet(context, pushStore, providerConfig, userStore, gitProxyConfig);
 
         server.setHandler(context);
         server.start();
@@ -126,13 +127,15 @@ public class GitProxyWithDashboardApplication {
             ServletContextHandler context,
             PushStore pushStore,
             ProviderConfigurationSource providers,
-            UserStore userStore) {
+            UserStore userStore,
+            org.finos.gitproxy.jetty.config.GitProxyConfig gitProxyConfig) {
         var appContext = new AnnotationConfigWebApplicationContext();
         appContext.register(SpringWebConfig.class, SecurityConfig.class);
         appContext.addBeanFactoryPostProcessor(bf -> {
             bf.registerSingleton("pushStore", pushStore);
             bf.registerSingleton("providers", providers);
             bf.registerSingleton("userStore", userStore);
+            bf.registerSingleton("gitProxyConfig", gitProxyConfig);
         });
 
         // Refresh the Spring context inside a ServletContextListener so the ServletContext is set
