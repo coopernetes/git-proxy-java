@@ -6,15 +6,14 @@ database:
   url: mongodb://gitproxy:gitproxy@mongo:27017
   name: gitproxy
 
-git-proxy:
-  providers:
-    github:
-      enabled: false
-    gitlab:
-      enabled: false
-    bitbucket:
-      enabled: false
-    gitea:
-      enabled: true
-      uri: http://gitea:3000
-      servlet-path: /gitea
+providers:
+  github:
+    enabled: false
+  gitlab:
+    enabled: false
+  bitbucket:
+    enabled: false
+  gitea:
+    enabled: true
+    uri: http://gitea:3000
+    servlet-path: /gitea

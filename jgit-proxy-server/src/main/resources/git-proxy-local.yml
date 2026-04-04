@@ -3,57 +3,56 @@ logging:
     org.finos.gitproxy: DEBUG
 database:
   type: h2-file
-git-proxy:
-  commit:
-    author:
-      email:
-        # Domains allowed for commit authors.
-        # Used by the local test-*.sh scripts — replace with your corporate domain in production.
-        domain:
-          allow: "(proton\\.me|gmail\\.com|outlook\\.com|yahoo\\.com|example\\.com)$"
-        # Local-parts (before @) that are always blocked regardless of domain.
-        local:
-          block: "^(noreply|no-reply|bot|nobody)$"
-    message:
-      block:
-        # Commit messages containing any of these strings (case-insensitive) are rejected.
-        literals:
-          - "WIP"
-          - "DO NOT MERGE"
-          - "fixup!"
-          - "squash!"
-        # Commit messages matching any of these patterns are rejected.
-        patterns:
-          - '(?i)(password|secret|token)\s*[=:]\s*\S+'
-    diff:
-      block:
-        # Example: block internal hostnames/URLs from leaking into public repos.
-        # This is the intended use case for diff scanning — org-specific patterns.
-        # Secret detection should be handled by gitleaks (secret-scanning below).
-        literals:
-          - "internal.corp.example.com"
-        patterns:
-          - '(?i)https?://[a-z0-9.-]*\.corp\.example\.com\b'
-    secret-scanning:
-      enabled: true
+commit:
+  author:
+    email:
+      # Domains allowed for commit authors.
+      # Used by the local test-*.sh scripts — replace with your corporate domain in production.
+      domain:
+        allow: "(proton\\.me|gmail\\.com|outlook\\.com|yahoo\\.com|example\\.com)$"
+      # Local-parts (before @) that are always blocked regardless of domain.
+      local:
+        block: "^(noreply|no-reply|bot|nobody)$"
+  message:
+    block:
+      # Commit messages containing any of these strings (case-insensitive) are rejected.
+      literals:
+        - "WIP"
+        - "DO NOT MERGE"
+        - "fixup!"
+        - "squash!"
+      # Commit messages matching any of these patterns are rejected.
+      patterns:
+        - '(?i)(password|secret|token)\s*[=:]\s*\S+'
+  diff:
+    block:
+      # Example: block internal hostnames/URLs from leaking into public repos.
+      # This is the intended use case for diff scanning — org-specific patterns.
+      # Secret detection should be handled by gitleaks (secret-scanning below).
+      literals:
+        - "internal.corp.example.com"
+      patterns:
+        - '(?i)https?://[a-z0-9.-]*\.corp\.example\.com\b'
+  secret-scanning:
+    enabled: true
 
-  filters:
-    whitelists:
-      - enabled: true
-        order: 110
-        operations:
-          - FETCH
-          - PUSH
-        providers:
-          - github
-        slugs:
-          - finos/git-proxy
-          - coopernetes/test-repo
-      - enabled: true
-        order: 120
-        operations:
-          - FETCH
-        owners:
-          - finos
-        providers:
-          - github
+filters:
+  whitelists:
+    - enabled: true
+      order: 110
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - github
+      slugs:
+        - finos/git-proxy
+        - coopernetes/test-repo
+    - enabled: true
+      order: 120
+      operations:
+        - FETCH
+      owners:
+        - finos
+      providers:
+        - github

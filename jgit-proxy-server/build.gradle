@@ -54,8 +54,9 @@ dependencies {
     // Core module
     implementation project(':jgit-proxy-core')
 
-    // YAML configuration
-    implementation "org.yaml:snakeyaml:${snakeyamlVersion}"
+    // Gestalt config (YAML source brings SnakeYAML transitively)
+    implementation "com.github.gestalt-config:gestalt-core:${gestaltVersion}"
+    implementation "com.github.gestalt-config:gestalt-yaml:${gestaltVersion}"
 
     // Jackson BOM — keeps all Jackson modules in sync
     implementation platform("com.fasterxml.jackson:jackson-bom:${jacksonLegacyBomVersion}")

@@ -11,8 +11,8 @@ import org.finos.gitproxy.approval.ApprovalGateway;
 import org.finos.gitproxy.config.InMemoryProviderConfigurationSource;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.git.LocalRepositoryCache;
+import org.finos.gitproxy.jetty.config.GitProxyConfigLoader;
 import org.finos.gitproxy.jetty.config.JettyConfigurationBuilder;
-import org.finos.gitproxy.jetty.config.JettyConfigurationLoader;
 import org.finos.gitproxy.provider.GitProxyProvider;
 
 /**
@@ -37,8 +37,7 @@ public class GitProxyJettyApplication {
         log.info("Starting JGit Proxy (proxy only - no dashboard)...");
         writePidFile();
 
-        var configLoader = new JettyConfigurationLoader();
-        var configBuilder = new JettyConfigurationBuilder(configLoader);
+        var configBuilder = new JettyConfigurationBuilder(GitProxyConfigLoader.load());
 
         var threadPool = new QueuedThreadPool();
         threadPool.setName("jgit-proxy-server");

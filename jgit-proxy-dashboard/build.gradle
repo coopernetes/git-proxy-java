@@ -60,8 +60,8 @@ dependencies {
     runtimeOnly "org.postgresql:postgresql:${postgresVersion}"
     runtimeOnly "org.mongodb:mongodb-driver-sync:${mongoVersion}"
 
-    // YAML config
-    implementation "org.yaml:snakeyaml:${snakeyamlVersion}"
+    // Gestalt config (needed to catch GestaltException from GitProxyConfigLoader)
+    implementation "com.github.gestalt-config:gestalt-core:${gestaltVersion}"
 
     // Lombok
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
