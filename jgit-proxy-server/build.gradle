@@ -68,6 +68,9 @@ dependencies {
     runtimeOnly "org.postgresql:postgresql:${postgresVersion}"
     runtimeOnly "org.mongodb:mongodb-driver-sync:${mongoVersion}"
 
+    // Flyway database-specific modules (at runtime, alongside the drivers above)
+    runtimeOnly "org.flywaydb:flyway-database-postgresql:${flywayVersion}"
+
     // Lombok
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
