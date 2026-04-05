@@ -30,6 +30,12 @@ public class GitProxyConfig {
     private FiltersConfig filters = new FiltersConfig();
 
     /**
+     * Authentication provider configuration. Selects the active provider ({@code static}, {@code ldap}, {@code oidc})
+     * and holds its settings. Defaults to {@code static} (password hashes in {@code users:} list).
+     */
+    private AuthConfig auth = new AuthConfig();
+
+    /**
      * Optional list of proxy users. Each entry defines a username, BCrypt password hash, email addresses, and SCM
      * identities. When non-empty, these users are the authoritative source for authentication and push authorization.
      * When empty, all pushes are permitted (legacy / open mode).
