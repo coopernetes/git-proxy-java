@@ -162,11 +162,13 @@ public class GitProxyWithDashboardApplication {
 
         // Wire Spring Security filter chain into Jetty. Register only on the paths Spring Security
         // actually protects — never on /push/* or /proxy/* to avoid interfering with async git streaming.
+        // /oauth2/* and /login/oauth2/* are needed for the OIDC authorization code flow; they are
+        // no-ops when auth.provider is not "oidc" (the securityMatcher in SecurityConfig excludes them).
         var securityFilter = new FilterHolder(
                 new DelegatingFilterProxy(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME, appContext));
         securityFilter.setName(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME);
         securityFilter.setAsyncSupported(true);
-        for (String path : new String[] {"/api/*", "/login", "/logout", "/"}) {
+        for (String path : new String[] {"/api/*", "/login", "/logout", "/", "/oauth2/*", "/login/oauth2/*"}) {
             context.addFilter(securityFilter, path, EnumSet.of(DispatcherType.REQUEST, DispatcherType.ERROR));
         }
 

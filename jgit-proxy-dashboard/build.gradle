@@ -126,6 +126,9 @@ dependencies {
     // Spring Security
     implementation "org.springframework.security:spring-security-web:${springSecurityVersion}"
     implementation "org.springframework.security:spring-security-config:${springSecurityVersion}"
+    implementation "org.springframework.security:spring-security-ldap:${springSecurityVersion}"
+    implementation "org.springframework.security:spring-security-oauth2-client:${springSecurityVersion}"
+    implementation "org.springframework.security:spring-security-oauth2-jose:${springSecurityVersion}"
 
     // Jackson JSON processing
     implementation "tools.jackson.core:jackson-databind"
@@ -154,6 +157,10 @@ dependencies {
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     testRuntimeOnly "com.h2database:h2:${h2Version}"
 
+    // Testcontainers for e2e tests (LDAP + OIDC provider integration)
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:testcontainers-junit-jupiter:${testContainersVersion}"
+
     // Include core + server coverage in the aggregated JaCoCo report
     jacocoAggregation project(':jgit-proxy-core')
     jacocoAggregation project(':jgit-proxy-server')
@@ -164,7 +171,21 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'e2e'
+    }
+}
+
+tasks.register('e2eTest', Test) {
+    group = 'verification'
+    description = 'Runs end-to-end tests that require a running container runtime (LDAP, OIDC)'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'e2e'
+    }
+    // Container startup can be slow
+    timeout = java.time.Duration.ofMinutes(10)
 }
 
 tasks.named('check') {
