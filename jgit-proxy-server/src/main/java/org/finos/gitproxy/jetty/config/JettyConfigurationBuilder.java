@@ -305,37 +305,60 @@ public class JettyConfigurationBuilder {
     }
 
     private GitProxyProvider createProvider(String name, ProviderConfig providerConfig) {
-        // Resolve type: explicit 'type' field takes priority, then infer from the provider name.
         String explicitType = providerConfig.getType();
+        // Use explicit type if set; otherwise accept only exact built-in names, not fuzzy name inference.
         String resolvedType = (explicitType != null && !explicitType.isBlank())
                 ? explicitType.toLowerCase().trim()
-                : name.toLowerCase().replace("-", "").replace("_", "");
+                : name.toLowerCase();
 
         String uri = providerConfig.getUri();
         String path = providerConfig.getServletPath();
         URI parsedUri = (uri != null && !uri.isBlank()) ? URI.create(uri) : null;
 
-        if (resolvedType.contains("github")) {
-            return parsedUri != null ? new GitHubProvider(parsedUri, path, null) : new GitHubProvider(path);
-        } else if (resolvedType.contains("gitlab")) {
-            return parsedUri != null ? new GitLabProvider(parsedUri, path, null) : new GitLabProvider(path);
-        } else if (resolvedType.contains("bitbucket")) {
-            return parsedUri != null ? new BitbucketProvider(parsedUri, path, null) : new BitbucketProvider(path);
-        } else if (resolvedType.contains("codeberg") || resolvedType.contains("forgejo")) {
-            return parsedUri != null
-                    ? ForgejoProvider.builder().uri(parsedUri).basePath(path).build()
-                    : new ForgejoProvider(path);
-        } else if (parsedUri != null) {
-            return GenericProxyProvider.builder()
-                    .name(name)
-                    .uri(parsedUri)
-                    .basePath(path)
-                    .build();
-        } else {
-            log.warn(
-                    "Provider '{}' has no URI and is not a known built-in type (github/gitlab/bitbucket/codeberg/forgejo). Skipping.",
-                    name);
-            return null;
+        switch (resolvedType) {
+            case "github" -> {
+                return parsedUri != null ? new GitHubProvider(parsedUri, path, null) : new GitHubProvider(path);
+            }
+            case "gitlab" -> {
+                return parsedUri != null ? new GitLabProvider(parsedUri, path, null) : new GitLabProvider(path);
+            }
+            case "bitbucket" -> {
+                return parsedUri != null ? new BitbucketProvider(parsedUri, path, null) : new BitbucketProvider(path);
+            }
+            case "codeberg", "gitea" -> {
+                URI defaultUri = ForgejoProvider.WELL_KNOWN.get(resolvedType);
+                return ForgejoProvider.builder()
+                        .name(name)
+                        .uri(parsedUri != null ? parsedUri : defaultUri)
+                        .basePath(path)
+                        .build();
+            }
+            case "forgejo" -> {
+                if (parsedUri == null) {
+                    log.warn(
+                            "Provider '{}' has type 'forgejo' but no URI — Forgejo has no canonical public host. Add 'uri'. Skipping.",
+                            name);
+                    return null;
+                }
+                return ForgejoProvider.builder()
+                        .name(name)
+                        .uri(parsedUri)
+                        .basePath(path)
+                        .build();
+            }
+            default -> {
+                if (parsedUri != null) {
+                    return GenericProxyProvider.builder()
+                            .name(name)
+                            .uri(parsedUri)
+                            .basePath(path)
+                            .build();
+                }
+                log.warn(
+                        "Provider '{}' has no URI and is not a known built-in name (github/gitlab/bitbucket/codeberg/forgejo/gitea). Set 'type' and 'uri' for custom providers. Skipping.",
+                        name);
+                return null;
+            }
         }
     }
 

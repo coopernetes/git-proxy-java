@@ -90,32 +90,29 @@ Providers define the upstream Git hosting services the proxy routes to.
 
 ```yaml
 providers:
-  # Built-in providers — URI is inferred automatically
+  # Reserved names — provider type and default URI are built in
   github:
-    enabled: true
+    enabled: true    # → github.com
   gitlab:
-    enabled: true
+    enabled: true    # → gitlab.com
   bitbucket:
-    enabled: true
+    enabled: true    # → bitbucket.org
+  codeberg:
+    enabled: true    # → codeberg.org
+  gitea:
+    enabled: true    # → gitea.com
 
-  # Self-hosted GitHub Enterprise Server — name contains "github" so type is inferred
-  internal-github:
-    enabled: true
-    uri: https://github.corp.example.com
-
-  # Self-hosted instance with an arbitrary name — use 'type' to select the provider implementation
+  # Custom-named providers — 'type' and 'uri' are both required
   my-internal-server:
     enabled: true
-    type: github          # uses GitHubProvider (identity resolution, GHES API path logic, etc.)
+    type: github     # uses GitHubProvider (identity resolution, GHES API path logic, etc.)
     uri: https://github.corp.example.com
 
-  # Self-hosted Forgejo instance
   my-forgejo:
     enabled: true
-    type: forgejo         # also accepts: codeberg
+    type: forgejo    # ForgejoProvider; uri is required (forgejo has no canonical public host)
     uri: https://forge.internal.example.com
 
-  # Bitbucket Data Center (self-hosted)
   acme-bitbucket:
     enabled: true
     type: bitbucket
@@ -128,10 +125,10 @@ providers:
 |----------|------|---------|-------------|
 | `enabled` | boolean | `true` | Whether the provider is active |
 | `servlet-path` | string | `""` | Additional URL prefix for this provider |
-| `uri` | string | _(built-in default)_ | Upstream base URI (required for custom providers) |
-| `type` | string | _(inferred from name)_ | Provider implementation to use: `github`, `gitlab`, `bitbucket`, `codeberg`, `forgejo`. Set this when the provider name does not contain the type keyword. |
+| `uri` | string | _(built-in default)_ | Upstream base URI. Required for custom-named providers; omit for built-ins. |
+| `type` | string | _(from name)_ | Provider implementation: `github`, `gitlab`, `bitbucket`, `codeberg`, `forgejo`, `gitea`. Required for any name that is not one of the five reserved names. |
 
-When `type` (or the provider name) matches a known implementation, the full typed provider is used — including its API URL logic, identity resolution, and (for Bitbucket) credential rewriting. A custom `uri` overrides only the upstream address; all other behaviour is inherited from the provider type.
+The five reserved names (`github`, `gitlab`, `bitbucket`, `codeberg`, `gitea`) carry a built-in default URI and provider type. Any other name is opaque — the name is never parsed for type hints — so `type` and `uri` must both be set. The typed provider supplies API URL logic, identity resolution, and (for Bitbucket) credential rewriting; `uri` overrides only the upstream address.
 
 ### Bitbucket identity resolution
 

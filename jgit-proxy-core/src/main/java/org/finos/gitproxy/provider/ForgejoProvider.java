@@ -1,6 +1,7 @@
 package org.finos.gitproxy.provider;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
@@ -10,28 +11,26 @@ import org.finos.gitproxy.provider.client.ScmUserInfo;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Provider for Forgejo instances, including the public Codeberg host ({@code codeberg.org}).
+ * Provider for Forgejo and Gitea instances.
  *
- * <p>Forgejo exposes a Gitea-compatible REST API. Identity resolution calls {@code GET /api/v1/user} with a personal
- * access token and returns both the {@code login} and {@code email} fields.
+ * <p>Forgejo exposes a Gitea-compatible REST API ({@code GET /api/v1/user}). Identity resolution returns both the
+ * {@code login} and {@code email} fields.
  *
- * <p>The built-in config name is {@code codeberg} (pointing at {@code https://codeberg.org}) since Codeberg is the
- * largest public Forgejo host. Self-hosted Forgejo instances should use {@code type: forgejo} with an explicit
- * {@code uri}.
+ * <p>Built-in reserved names: {@code codeberg} (defaults to {@code https://codeberg.org}) and {@code gitea} (defaults
+ * to {@code https://gitea.com}). Custom-named providers targeting a self-hosted instance should set {@code type:
+ * forgejo} (or {@code codeberg}/{@code gitea}) with an explicit {@code uri}.
  */
 @Slf4j
 public class ForgejoProvider extends AbstractGitProxyProvider implements TokenIdentityProvider {
 
-    public static final URI DEFAULT_URI = URI.create("https://codeberg.org");
-    public static final String NAME = "codeberg";
+    /** Well-known public Forgejo/Gitea hosts, keyed by the reserved config name. */
+    public static final Map<String, URI> WELL_KNOWN = Map.of(
+            "codeberg", URI.create("https://codeberg.org"),
+            "gitea", URI.create("https://gitea.com"));
 
     @Builder
-    public ForgejoProvider(URI uri, String basePath, String customPath) {
-        super(NAME, uri, basePath, customPath);
-    }
-
-    public ForgejoProvider(String basePath) {
-        super(NAME, DEFAULT_URI, basePath);
+    public ForgejoProvider(String name, URI uri, String basePath, String customPath) {
+        super(name, uri, basePath, customPath);
     }
 
     public String getApiUrl() {
