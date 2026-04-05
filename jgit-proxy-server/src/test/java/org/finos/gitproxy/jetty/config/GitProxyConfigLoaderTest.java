@@ -55,8 +55,13 @@ class GitProxyConfigLoaderTest {
     }
 
     @Test
-    void defaultProviders_includesBitbucket() throws GestaltException {
-        assertTrue(GitProxyConfigLoader.load().getProviders().containsKey("bitbucket"));
+    void defaultProviders_includesCodeberg() throws GestaltException {
+        assertTrue(GitProxyConfigLoader.load().getProviders().containsKey("codeberg"));
+    }
+
+    @Test
+    void defaultProviders_includesGitea() throws GestaltException {
+        assertTrue(GitProxyConfigLoader.load().getProviders().containsKey("gitea"));
     }
 
     @Test
@@ -72,7 +77,8 @@ class GitProxyConfigLoaderTest {
         var providers = GitProxyConfigLoader.load().getProviders();
         assertTrue(providers.containsKey("github"));
         assertTrue(providers.containsKey("gitlab"));
-        assertTrue(providers.containsKey("bitbucket"));
+        assertTrue(providers.containsKey("codeberg"));
+        assertTrue(providers.containsKey("gitea"));
     }
 
     // --- commit config presence ---

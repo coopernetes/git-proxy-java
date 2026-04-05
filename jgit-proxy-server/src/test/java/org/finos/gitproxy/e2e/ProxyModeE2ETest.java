@@ -94,7 +94,7 @@ class ProxyModeE2ETest {
         // First push - should be blocked pending review
         var firstPush = git.pushWithResult(repo);
         assertFalse(firstPush.succeeded(), "first push should be blocked pending review");
-        assertTrue(firstPush.output().contains("/#/push/"), "should contain link to push record");
+        assertTrue(firstPush.output().contains("/push/"), "should contain link to push record");
 
         String pushId = firstPush.extractPushId();
         assertNotNull(pushId, "push ID should be present in blocked message");
