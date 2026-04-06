@@ -51,9 +51,14 @@ public class AuthController {
             scmIdentities = List.of();
         }
 
+        List<String> authorities = auth != null
+                ? auth.getAuthorities().stream().map(a -> a.getAuthority()).toList()
+                : List.of();
+
         return Map.of(
                 "username", username != null ? username : "",
                 "emails", emails,
-                "scmIdentities", scmIdentities);
+                "scmIdentities", scmIdentities,
+                "authorities", authorities);
     }
 }

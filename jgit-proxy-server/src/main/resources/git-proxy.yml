@@ -112,14 +112,16 @@ commit:
 #   {bcrypt}$2a$12$.. — bcrypt; generate with: htpasswd -bnBC 12 "" yourpassword | tr -d ':\n'
 #
 # users:
+#   - username: admin
+#     password-hash: "{noop}admin"
+#     roles:
+#       - ADMIN           # grants dashboard admin access (user CRUD, password reset, etc.)
 #   - username: alice
 #     password-hash: "{bcrypt}$2a$12$..."
 #     emails:
 #       - alice@example.com
 #     push-usernames:
 #       - alice           # HTTP Basic-auth username used when pushing via git
-#     emails:
-#       - alice@example.com
 #     scm-identities:
 #       - provider: github
 #         username: alice-gh

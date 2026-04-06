@@ -39,11 +39,17 @@ public class JdbcUserStore implements MutableUserStore {
                             Map.of("username", u.getUsername()),
                             String.class)
                     .isEmpty();
+            String roles = u.getRoles().isEmpty() ? "USER" : String.join(",", u.getRoles());
             if (!exists) {
-                String roles = u.getRoles().isEmpty() ? "USER" : String.join(",", u.getRoles());
                 jdbc.update(
                         "INSERT INTO proxy_users (username, password_hash, roles) VALUES (:username, :hash, :roles)",
                         Map.of("username", u.getUsername(), "hash", u.getPasswordHash(), "roles", roles));
+            } else {
+                // Roles are authoritative from YAML — update on every startup so changes take effect
+                // on next restart without requiring a DB migration.
+                jdbc.update(
+                        "UPDATE proxy_users SET roles = :roles WHERE username = :username",
+                        Map.of("username", u.getUsername(), "roles", roles));
             }
 
             // Always replace emails + scm-identities so YAML stays authoritative for those.
