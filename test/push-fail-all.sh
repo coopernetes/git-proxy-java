@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run all transparent-proxy tests that should fail / be rejected
+# Run all store-and-forward (push) tests that should fail / be rejected
 # Each script is independent — failure of one does not stop the others
 set -uo pipefail
 
@@ -21,10 +21,10 @@ run() {
     fi
 }
 
-run "Author email validation failures"  "${SCRIPT_DIR}/proxy-fail-author.sh"
-run "Commit message validation failures" "${SCRIPT_DIR}/proxy-fail-message.sh"
-run "Diff content scanning failures"     "${SCRIPT_DIR}/proxy-fail-diff.sh"
-run "Secret scanning failures"           "${SCRIPT_DIR}/proxy-fail-secrets.sh"
+run "Author email validation failures"  "${SCRIPT_DIR}/push-fail-author.sh"
+run "Commit message validation failures" "${SCRIPT_DIR}/push-fail-message.sh"
+run "Diff content scanning failures"     "${SCRIPT_DIR}/push-fail-diff.sh"
+run "Secret scanning failures"           "${SCRIPT_DIR}/push-fail-secrets.sh"
 
 echo ""
 echo "━━━ Results: ${PASS} passed, ${FAIL} failed ━━━"

@@ -3,49 +3,9 @@
 # Uses the proxy path (/proxy/...) which runs the servlet filter chain
 set -uo pipefail
 
-GIT_USERNAME=${GIT_USERNAME:-"me"}
-GIT_REPO=${GIT_REPO:-"github.com/coopernetes/test-repo.git"}
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
 PROXY_URL="http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:8080/proxy/${GIT_REPO}"
-PASS=0
-FAIL=0
-
-CURRENT_REPO=""
-cleanup() { [[ -n "${CURRENT_REPO}" && -d "${CURRENT_REPO}" ]] && rm -rf "${CURRENT_REPO}"; }
-trap cleanup EXIT INT TERM
-
-run_test() {
-    local test_name="$1"
-    shift
-
-    echo ""
-    echo "============================================="
-    echo "  ${test_name}"
-    echo "============================================="
-
-    CURRENT_REPO=$(mktemp -d /tmp/proxy-test-author-XXXX)
-    cd /tmp
-    git clone "${PROXY_URL}" "${CURRENT_REPO}" 2>&1
-    cd "${CURRENT_REPO}"
-
-    local branch="test/proxy-author-$(date +%s%N | tail -c 8)"
-    git checkout -b "${branch}"
-
-    "$@"
-
-    local push_exit=0
-    git push origin "${branch}" 2>&1 || push_exit=$?
-
-    if [[ ${push_exit} -ne 0 ]]; then
-        echo ">>> ${test_name}: PASSED (push correctly rejected)"
-        ((PASS++))
-    else
-        echo ">>> ${test_name}: UNEXPECTED (push should have been rejected)"
-        ((FAIL++))
-    fi
-
-    rm -rf "${CURRENT_REPO}"
-    CURRENT_REPO=""
-}
 
 # --- Test functions ---
 
@@ -75,16 +35,19 @@ test_github_noreply_email() {
 
 # --- Run tests ---
 
-echo "=========================================================="
-echo "  PROXY: AUTHOR EMAIL VALIDATION FAILURES"
-echo "  Proxy URL: ${PROXY_URL//${GIT_PASSWORD}/***}"
-echo "=========================================================="
+print_header "PROXY: AUTHOR EMAIL VALIDATION FAILURES" "${PROXY_URL}"
+
+# Helper for running failure tests (sets up branch for each test)
+run_test() {
+    local test_name="$1"
+    shift
+    branch=$(setup_repo "${PROXY_URL}" "author")
+    "$@"
+    run_test_expect_failure "${test_name}"
+}
 
 run_test "FAIL: noreply email local part"   test_noreply_email
 run_test "FAIL: non-allowed email domain"   test_bad_domain_email
 run_test "FAIL: GitHub noreply email"       test_github_noreply_email
 
-echo ""
-echo "=========================================================="
-echo "  RESULTS: ${PASS} passed, ${FAIL} unexpected"
-echo "=========================================================="
+print_results

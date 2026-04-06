@@ -99,8 +99,11 @@ public class GitProxyWithDashboardApplication {
                     approvalGateway,
                     pushIdentityResolver,
                     userAuthService,
-                    configBuilder.getHeartbeatIntervalSeconds());
-            GitProxyServletRegistrar.registerProxyServlet(context, provider, pushStore);
+                    configBuilder.getHeartbeatIntervalSeconds(),
+                    configBuilder.isFailFast(),
+                    configBuilder.getUpstreamConnectTimeoutSeconds());
+            GitProxyServletRegistrar.registerProxyServlet(
+                    context, provider, pushStore, configBuilder.getProxyConnectTimeoutSeconds());
             GitProxyServletRegistrar.registerFilters(
                     context,
                     provider,

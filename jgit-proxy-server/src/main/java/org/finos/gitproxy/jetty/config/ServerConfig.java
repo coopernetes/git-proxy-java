@@ -34,4 +34,24 @@ public class ServerConfig {
      * approval polling) to prevent idle-timeout disconnects. Set to 0 to disable.
      */
     private int heartbeatIntervalSeconds = 10;
+
+    /**
+     * When {@code true}, the validation pipeline stops after the first failed check rather than collecting all issues.
+     * The developer sees only the first problem per push. Defaults to {@code false} (collect all issues).
+     */
+    private boolean failFast = false;
+
+    /**
+     * Connection timeout in seconds for store-and-forward upstream pushes
+     * ({@link org.eclipse.jgit.transport.Transport#setTimeout}). Set to 0 to use JGit's default (no timeout).
+     * Enterprises with slow or inspecting middleboxes should set this to a generous value (e.g. 120) rather than
+     * leaving it unbounded.
+     */
+    private int upstreamConnectTimeoutSeconds = 0;
+
+    /**
+     * Total request timeout in seconds for transparent-proxy forwarding. Applied as the Jetty {@code HttpClient}
+     * connect timeout. Set to 0 to use Jetty's default (no timeout).
+     */
+    private int proxyConnectTimeoutSeconds = 0;
 }

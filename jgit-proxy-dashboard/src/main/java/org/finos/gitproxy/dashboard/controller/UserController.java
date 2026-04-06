@@ -77,12 +77,21 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                     .body(Map.of("error", "User deletion requires a JDBC user store"));
         }
-        try {
-            jdbc.deleteUser(username);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
+        var target = userStore.findByUsername(username);
+        if (target.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        if (target.get().getRoles().contains("ADMIN")) {
+            long adminCount = userStore.findAll().stream()
+                    .filter(u -> u.getRoles().contains("ADMIN"))
+                    .count();
+            if (adminCount <= 1) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("error", "Cannot delete the last admin user"));
+            }
+        }
+        jdbc.deleteUser(username);
+        return ResponseEntity.noContent().build();
     }
 
     /** Reset a user's password. Requires ROLE_ADMIN. */

@@ -1,23 +1,14 @@
 package org.finos.gitproxy.jetty;
 
-import java.nio.file.Files;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.finos.gitproxy.approval.ApprovalGateway;
-import org.finos.gitproxy.config.InMemoryProviderConfigurationSource;
-import org.finos.gitproxy.db.FetchStore;
-import org.finos.gitproxy.db.PushStore;
-import org.finos.gitproxy.git.LocalRepositoryCache;
 import org.finos.gitproxy.jetty.config.GitProxyConfigLoader;
 import org.finos.gitproxy.jetty.config.JettyConfigurationBuilder;
 import org.finos.gitproxy.provider.GitProxyProvider;
-import org.finos.gitproxy.service.PushIdentityResolver;
-import org.finos.gitproxy.service.UserAuthorizationService;
-import org.finos.gitproxy.user.UserStore;
 
 /**
  * Standalone Jetty server application for the JGit proxy. Registers two servlets per provider:
@@ -29,7 +20,7 @@ import org.finos.gitproxy.user.UserStore;
  * </ul>
  *
  * <p>This entry point runs the proxy only - no dashboard, no REST API. For the full stack including the approval
- * workflow UI, use {@code GitProxyWithDashboardApplication} from the {@code jgit-proxy-api} module.
+ * workflow UI, use {@code GitProxyWithDashboardApplication} from the {@code jgit-proxy-dashboard} module.
  *
  * <p>Configuration is loaded from {@code git-proxy.yml} and {@code git-proxy-local.yml}, overridable with
  * {@code GITPROXY_} environment variables.
@@ -51,63 +42,19 @@ public class GitProxyJettyApplication {
         connector.setPort(configBuilder.getServerPort());
         server.addConnector(connector);
 
-        PushStore pushStore = configBuilder.buildPushStore();
-        log.info("Push store initialized: {}", pushStore.getClass().getSimpleName());
-
-        FetchStore fetchStore = configBuilder.buildFetchStore();
-
-        UserStore userStore = configBuilder.buildUserStore();
-        PushIdentityResolver pushIdentityResolver = configBuilder.buildPushIdentityResolver(userStore);
-        UserAuthorizationService userAuthService = configBuilder.buildUserAuthService(userStore);
-
-        ApprovalGateway approvalGateway = configBuilder.buildApprovalGateway(pushStore);
-
-        var storeForwardCache = new LocalRepositoryCache(Files.createTempDirectory("jgit-proxy-sf-"), 0, true);
-        log.info("Initialized store-and-forward LocalRepositoryCache (full clone)");
-
-        var proxyCache = new LocalRepositoryCache();
-        log.info("Initialized proxy LocalRepositoryCache (shallow clone)");
+        GitProxyContext ctx = configBuilder.buildProxyContext();
+        log.info("Push store initialized: {}", ctx.pushStore().getClass().getSimpleName());
 
         List<GitProxyProvider> providers = configBuilder.buildProviders();
-        var providerConfig = new InMemoryProviderConfigurationSource(providers);
-
         var context = new ServletContextHandler("/", false, false);
-        var commitConfig = configBuilder.buildCommitConfig();
 
-        String serviceUrl = configBuilder.getServiceUrl();
-        for (GitProxyProvider provider : providerConfig.getProviders()) {
-            log.info("Registering provider: {}", provider.getName());
-            GitProxyServletRegistrar.registerGitServlet(
-                    context,
-                    provider,
-                    storeForwardCache,
-                    commitConfig,
-                    pushStore,
-                    serviceUrl,
-                    approvalGateway,
-                    pushIdentityResolver,
-                    userAuthService,
-                    configBuilder.getHeartbeatIntervalSeconds());
-            GitProxyServletRegistrar.registerProxyServlet(context, provider, pushStore);
-            GitProxyServletRegistrar.registerFilters(
-                    context,
-                    provider,
-                    proxyCache,
-                    configBuilder,
-                    commitConfig,
-                    pushStore,
-                    serviceUrl,
-                    approvalGateway,
-                    pushIdentityResolver,
-                    userAuthService,
-                    fetchStore);
-        }
+        GitProxyServletRegistrar.registerProviders(context, ctx, configBuilder, providers);
 
         server.setHandler(context);
         server.start();
 
         log.info("JGit Proxy started on port {}", connector.getPort());
-        for (GitProxyProvider provider : providerConfig.getProviders()) {
+        for (GitProxyProvider provider : providers) {
             log.info(
                     "  - {} (store-and-forward) at {}{}",
                     provider.getName(),
@@ -124,7 +71,7 @@ public class GitProxyJettyApplication {
     }
 
     /** Write PID file so {@code ./gradlew :jgit-proxy-server:stop} can find and kill this process. */
-    private static void writePidFile() {
+    public static void writePidFile() {
         String pidFilePath = System.getProperty("jgitproxy.pidfile");
         if (pidFilePath == null) return;
         try {

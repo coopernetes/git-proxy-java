@@ -8,7 +8,6 @@ import static org.finos.gitproxy.git.GitClientUtils.sym;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.lib.NullProgressMonitor;
 import org.eclipse.jgit.lib.Repository;
@@ -25,12 +24,30 @@ import org.finos.gitproxy.provider.GitProxyProvider;
  * forwarding.
  */
 @Slf4j
-@RequiredArgsConstructor
 public class ForwardingPostReceiveHook implements PostReceiveHook {
 
     private final GitProxyProvider provider;
     private final CredentialsProvider credentials;
     private final PushContext pushContext;
+
+    /** JGit transport timeout in seconds. 0 = no timeout (JGit default). */
+    private final int connectTimeoutSeconds;
+
+    public ForwardingPostReceiveHook(
+            GitProxyProvider provider, CredentialsProvider credentials, PushContext pushContext) {
+        this(provider, credentials, pushContext, 0);
+    }
+
+    public ForwardingPostReceiveHook(
+            GitProxyProvider provider,
+            CredentialsProvider credentials,
+            PushContext pushContext,
+            int connectTimeoutSeconds) {
+        this.provider = provider;
+        this.credentials = credentials;
+        this.pushContext = pushContext;
+        this.connectTimeoutSeconds = connectTimeoutSeconds;
+    }
 
     @Override
     public void onPostReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
@@ -113,6 +130,9 @@ public class ForwardingPostReceiveHook implements PostReceiveHook {
         try (Transport transport = Transport.open(repo, upstream)) {
             if (creds != null) {
                 transport.setCredentialsProvider(creds);
+            }
+            if (connectTimeoutSeconds > 0) {
+                transport.setTimeout(connectTimeoutSeconds);
             }
 
             List<RemoteRefUpdate> updates = buildRefUpdates(repo, commands);

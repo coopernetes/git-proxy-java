@@ -4,54 +4,9 @@
 # Requires secret-scanning.enabled: true in git-proxy.yml / git-proxy-local.yml
 set -uo pipefail
 
-GIT_USERNAME=${GIT_USERNAME:-"me"}
-GIT_REPO=${GIT_REPO:-"github.com/coopernetes/test-repo.git"}
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
 PUSH_URL="http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:8080/push/${GIT_REPO}"
-PASS=0
-FAIL=0
-
-CURRENT_REPO=""
-cleanup() { [[ -n "${CURRENT_REPO}" && -d "${CURRENT_REPO}" ]] && rm -rf "${CURRENT_REPO}"; }
-trap cleanup EXIT INT TERM
-
-run_test() {
-    local test_name="$1"
-    shift
-
-    echo ""
-    echo "============================================="
-    echo "  ${test_name}"
-    echo "============================================="
-
-    CURRENT_REPO=$(mktemp -d /tmp/push-test-pass-secrets-XXXX)
-    cd /tmp
-    git clone "${PUSH_URL}" "${CURRENT_REPO}" 2>&1
-    cd "${CURRENT_REPO}"
-
-    local branch="test/push-pass-secrets-$(date +%s%N | tail -c 8)"
-    git checkout -b "${branch}"
-
-    git config user.name "Test Developer"
-    git config user.email "developer@example.com"
-
-    "$@"
-
-    local push_exit=0
-    git push origin "${branch}" 2>&1 || push_exit=$?
-
-    if [[ ${push_exit} -eq 0 ]]; then
-        echo ">>> ${test_name}: PASSED (push correctly allowed)"
-        ((PASS++))
-        git remote set-url origin "http://${GIT_USERNAME}:${GIT_PASSWORD}@${GIT_REPO}" 2>/dev/null || true
-        git push origin --delete "${branch}" 2>/dev/null || true
-    else
-        echo ">>> ${test_name}: FAILED (push incorrectly rejected — false positive)"
-        ((FAIL++))
-    fi
-
-    rm -rf "${CURRENT_REPO}"
-    CURRENT_REPO=""
-}
 
 # --- Test functions ---
 
@@ -108,17 +63,24 @@ EOF
 
 # --- Run tests ---
 
-echo "=========================================================="
-echo "  STORE-AND-FORWARD: SECRET SCANNING FALSE-POSITIVE CHECK"
-echo "  Push URL: ${PUSH_URL//${GIT_PASSWORD}/***}"
-echo "=========================================================="
+print_header "STORE-AND-FORWARD: SECRET SCANNING FALSE-POSITIVE CHECK" "${PUSH_URL}"
+
+# Helper for running success tests that clean up after themselves
+run_test() {
+    local test_name="$1"
+    shift
+    branch=$(setup_repo "${PUSH_URL}" "pass-secrets")
+    "$@"
+    run_test_expect_success "${test_name}"
+
+    # Cleanup remote ref (run_test_expect_success doesn't do this)
+    git remote set-url origin "http://${GIT_USERNAME}:${GIT_PASSWORD}@${GIT_REPO}" 2>/dev/null || true
+    git push origin --delete "${branch}" 2>/dev/null || true
+}
 
 run_test "PASS: npm package-lock.json with sha512 integrity hashes"  test_package_lock_sha512
 run_test "PASS: plain JS source file with no secrets"                 test_plain_text_no_secrets
 
-echo ""
-echo "=========================================================="
-echo "  RESULTS: ${PASS} passed, ${FAIL} false positives"
-echo "=========================================================="
+print_results
 
 [[ ${FAIL} -eq 0 ]]
