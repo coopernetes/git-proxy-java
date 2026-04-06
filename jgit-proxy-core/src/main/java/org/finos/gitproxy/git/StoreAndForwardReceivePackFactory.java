@@ -44,6 +44,22 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
     private final String serviceUrl;
     private final Duration heartbeatInterval;
 
+    /** Stop the validation hook chain after the first failure (see {@link ServerConfig#isFailFast()}). */
+    private boolean failFast = false;
+
+    /** Connect timeout in seconds passed to the JGit {@link org.eclipse.jgit.transport.Transport} (0 = no timeout). */
+    private int connectTimeoutSeconds = 0;
+
+    /** Enable fail-fast mode. Call after construction before the factory handles any requests. */
+    public void setFailFast(boolean failFast) {
+        this.failFast = failFast;
+    }
+
+    /** Set the upstream connect timeout. Call after construction before the factory handles any requests. */
+    public void setConnectTimeoutSeconds(int connectTimeoutSeconds) {
+        this.connectTimeoutSeconds = connectTimeoutSeconds;
+    }
+
     public StoreAndForwardReceivePackFactory(
             GitProxyProvider provider,
             CommitConfig commitConfig,
@@ -230,10 +246,10 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             preHooks = validationHooks.toArray(PreReceiveHook[]::new);
         }
 
-        rp.setPreReceiveHook(chainPreReceiveHooks(heartbeatInterval, preHooks));
+        rp.setPreReceiveHook(chainPreReceiveHooks(heartbeatInterval, validationContext, failFast, preHooks));
 
         // Post-receive: forward to upstream, then record final status
-        var forwardingHook = new ForwardingPostReceiveHook(provider, creds, pushContext);
+        var forwardingHook = new ForwardingPostReceiveHook(provider, creds, pushContext, connectTimeoutSeconds);
         if (persistenceHook != null) {
             rp.setPostReceiveHook(chainPostReceiveHooks(forwardingHook, persistenceHook.postReceiveHook()));
         } else {
@@ -245,11 +261,21 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         return rp;
     }
 
-    private static PreReceiveHook chainPreReceiveHooks(Duration heartbeatInterval, PreReceiveHook... hooks) {
+    private static PreReceiveHook chainPreReceiveHooks(
+            Duration heartbeatInterval,
+            ValidationContext validationContext,
+            boolean failFast,
+            PreReceiveHook... hooks) {
         return (ReceivePack rp, Collection<ReceiveCommand> commands) -> {
             try (HeartbeatSender heartbeat = new HeartbeatSender(rp, heartbeatInterval)) {
                 heartbeat.start();
+                boolean skipValidationHooks = false;
                 for (PreReceiveHook hook : hooks) {
+                    // Fail-fast: skip remaining GitProxyHook (validation) hooks after first issue.
+                    // Lifecycle hooks (persistence, approval) do not implement GitProxyHook and always run.
+                    if (skipValidationHooks && hook instanceof GitProxyHook) {
+                        continue;
+                    }
                     hook.onPreReceive(rp, commands);
                     // Flush sideband after each hook so messages stream to the client in real time
                     // (JGit's sendMessage() doesn't flush - without this, all output batches up)
@@ -258,9 +284,13 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                     } catch (IOException e) {
                         log.warn("Failed to flush sideband stream", e);
                     }
-                    // Stop chain if any command was rejected
+                    // Stop chain if any command was rejected (e.g. by a lifecycle hook)
                     if (commands.stream().anyMatch(cmd -> cmd.getResult() != ReceiveCommand.Result.NOT_ATTEMPTED)) {
                         return;
+                    }
+                    // After a validation hook reports an issue, mark remaining validation hooks to skip
+                    if (failFast && hook instanceof GitProxyHook && validationContext.hasIssues()) {
+                        skipValidationHooks = true;
                     }
                 }
             }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run all transparent-proxy tests that should fail / be rejected
+# Run all transparent-proxy tests that should succeed (require manual approval)
 # Each script is independent — failure of one does not stop the others
 set -uo pipefail
 
@@ -21,10 +21,8 @@ run() {
     fi
 }
 
-run "Author email validation failures"  "${SCRIPT_DIR}/proxy-fail-author.sh"
-run "Commit message validation failures" "${SCRIPT_DIR}/proxy-fail-message.sh"
-run "Diff content scanning failures"     "${SCRIPT_DIR}/proxy-fail-diff.sh"
-run "Secret scanning failures"           "${SCRIPT_DIR}/proxy-fail-secrets.sh"
+run "Golden-path proxy (with manual approval)" "${SCRIPT_DIR}/proxy-pass.sh"
+run "Tag push via proxy"                       "${SCRIPT_DIR}/proxy-pass-tag.sh"
 
 echo ""
 echo "━━━ Results: ${PASS} passed, ${FAIL} failed ━━━"

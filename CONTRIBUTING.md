@@ -100,6 +100,9 @@ These start a containerised Gitea instance and a live Jetty proxy in-process. Th
 The `test/` directory contains bash scripts for exercising both proxy modes against a running server. They are the
 fastest way to verify a feature end-to-end without writing Java.
 
+Test scripts share a common library (`test/common.sh`) with setup, cleanup, and assertion helpers. Individual test cases
+are organized into logical groupings by test outcome (pass/fail) and proxy mode (push/proxy).
+
 #### Environment variables
 
 All scripts share these variables:
@@ -111,34 +114,45 @@ All scripts share these variables:
 | `GIT_REPO`         | `github.com/coopernetes/test-repo.git` | `<provider>/<owner>/<repo>.git` path |
 | `GITPROXY_API_KEY` | _(optional)_                           | API key for approval scripts         |
 
-#### Store-and-forward scripts (`push-*`)
+#### Test entry points
 
-These use the `/push/...` path (JGit ReceivePack + sideband).
+Run tests by logical grouping. Each entry point orchestrates multiple related test cases:
 
-| Script                 | What it tests                                          |
-| ---------------------- | ------------------------------------------------------ |
-| `push-pass.sh`         | Golden-path push — should succeed and forward upstream |
-| `push-pass-tag.sh`     | Pushing a tag — should succeed                         |
-| `push-pass-secrets.sh` | Push with a file that looks secret but passes gitleaks |
-| `push-fail-author.sh`  | Blocked due to invalid author email domains            |
-| `push-fail-message.sh` | Blocked due to commit message validation failures      |
-| `push-fail-diff.sh`    | Blocked due to diff content rule violations            |
-| `push-fail-secrets.sh` | Blocked due to gitleaks detecting secrets in the diff  |
+**Store-and-forward (push):**
 
-#### Transparent proxy scripts (`proxy-*`)
+- `bash test/push-pass-all.sh` — golden-path pushes and tag pushes (should succeed)
+- `bash test/push-fail-all.sh` — validation failures (should be rejected)
 
-These use the `/proxy/...` path (Jetty ProxyServlet + servlet filter chain).
+**Transparent proxy:**
 
-| Script                  | What it tests                                                    |
-| ----------------------- | ---------------------------------------------------------------- |
-| `proxy-pass.sh`         | Golden-path push — blocks for approval, then the script approves |
-| `proxy-pass-tag.sh`     | Pushing a tag through the proxy                                  |
-| `proxy-fail-author.sh`  | Blocked due to invalid author email domains                      |
-| `proxy-fail-message.sh` | Blocked due to commit message validation failures                |
-| `proxy-fail-diff.sh`    | Blocked due to diff content rule violations                      |
-| `proxy-fail-secrets.sh` | Blocked due to gitleaks detecting secrets in the diff            |
+- `bash test/proxy-pass-all.sh` — golden-path and tag pushes (require manual approval)
+- `bash test/proxy-fail-all.sh` — validation failures (should be rejected)
 
-#### Running scripts manually
+**Identity verification:**
+
+- `bash test/push-identity-all.sh` — SCM identity resolution across providers
+- `bash test/proxy-identity-all.sh` — SCM identity resolution via proxy
+
+#### Individual test scripts
+
+If running a single test case by name:
+
+**Store-and-forward (push):** | Script | Category | What it tests | | ---------------------- | -------- |
+------------------------------------------------------ | | `push-pass.sh` | Pass | Golden-path push — should succeed and
+forward upstream | | `push-pass-tag.sh` | Pass | Lightweight and annotated tags — should succeed | |
+`push-pass-secrets.sh` | Pass | File patterns that look like secrets but pass gitleaks | | `push-fail-author.sh` | Fail
+| Invalid author email domains (noreply, disallowed) | | `push-fail-message.sh` | Fail | Commit message validation (WIP,
+fixup, DO NOT MERGE) | | `push-fail-diff.sh` | Fail | Diff content scanning (internal URLs, patterns) | |
+`push-fail-secrets.sh` | Fail | Gitleaks detecting secrets in diff (AWS, GitHub, PEM) |
+
+**Transparent proxy:** | Script | Category | What it tests | | ----------------------- | -------- |
+---------------------------------------------------------------- | | `proxy-pass.sh` | Pass | Golden-path push — blocks
+for approval, then auto-approves | | `proxy-pass-tag.sh` | Pass | Lightweight and annotated tags through proxy | |
+`proxy-fail-author.sh` | Fail | Invalid author email domains (noreply, disallowed) | | `proxy-fail-message.sh` | Fail |
+Commit message validation (WIP, fixup, DO NOT MERGE) | | `proxy-fail-diff.sh` | Fail | Diff content scanning (internal
+URLs, patterns) | | `proxy-fail-secrets.sh` | Fail | Gitleaks detecting secrets in diff (AWS, GitHub, PEM) |
+
+#### Running tests manually
 
 Make sure the server is running first (see above), then:
 
@@ -147,14 +161,20 @@ export GIT_USERNAME=your-github-username
 export GIT_PASSWORD=your-github-pat
 export GIT_REPO=github.com/your-org/your-repo.git
 
-bash test/push-pass.sh
+# Run all passing push tests:
+bash test/push-pass-all.sh
+
+# Run all failure push tests:
+bash test/push-fail-all.sh
+
+# Run a single test case:
 bash test/push-fail-secrets.sh
 ```
 
 #### Full suite runners
 
-Two scripts spin up a complete Docker Compose environment (jgit-proxy + Gitea + database), run all `test/*.sh` scripts,
-then tear down:
+Two scripts spin up a complete Docker Compose environment (jgit-proxy + Gitea + database), run all test groups, then
+tear down:
 
 ```shell
 bash test/run-postgres.sh             # PostgreSQL backend

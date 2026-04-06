@@ -4,53 +4,9 @@
 # Tests the diff.block.literals and diff.block.patterns config
 set -uo pipefail
 
-GIT_USERNAME=${GIT_USERNAME:-"me"}
-GIT_REPO=${GIT_REPO:-"github.com/coopernetes/test-repo.git"}
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
 PUSH_URL="http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:8080/push/${GIT_REPO}"
-PASS=0
-FAIL=0
-
-CURRENT_REPO=""
-cleanup() { [[ -n "${CURRENT_REPO}" && -d "${CURRENT_REPO}" ]] && rm -rf "${CURRENT_REPO}"; }
-trap cleanup EXIT INT TERM
-
-run_test() {
-    local test_name="$1"
-    shift
-
-    echo ""
-    echo "============================================="
-    echo "  ${test_name}"
-    echo "============================================="
-
-    CURRENT_REPO=$(mktemp -d /tmp/push-test-diff-XXXX)
-    cd /tmp
-    git clone "${PUSH_URL}" "${CURRENT_REPO}" 2>&1
-    cd "${CURRENT_REPO}"
-
-    local branch="test/push-diff-$(date +%s%N | tail -c 8)"
-    git checkout -b "${branch}"
-
-    # All diff tests use a valid author/message to isolate diff scanning
-    git config user.name "Test Developer"
-    git config user.email "developer@example.com"
-
-    "$@"
-
-    local push_exit=0
-    git push origin "${branch}" 2>&1 || push_exit=$?
-
-    if [[ ${push_exit} -ne 0 ]]; then
-        echo ">>> ${test_name}: PASSED (push correctly rejected)"
-        ((PASS++))
-    else
-        echo ">>> ${test_name}: UNEXPECTED (push should have been rejected)"
-        ((FAIL++))
-    fi
-
-    rm -rf "${CURRENT_REPO}"
-    CURRENT_REPO=""
-}
 
 # --- Test functions ---
 
@@ -78,15 +34,18 @@ EOF
 
 # --- Run tests ---
 
-echo "=========================================================="
-echo "  STORE-AND-FORWARD: DIFF CONTENT SCANNING FAILURES"
-echo "  Push URL: ${PUSH_URL//${GIT_PASSWORD}/***}"
-echo "=========================================================="
+print_header "STORE-AND-FORWARD: DIFF CONTENT SCANNING FAILURES" "${PUSH_URL}"
+
+# Helper for running failure tests (sets up branch for each test)
+run_test() {
+    local test_name="$1"
+    shift
+    branch=$(setup_repo "${PUSH_URL}" "diff")
+    "$@"
+    run_test_expect_failure "${test_name}"
+}
 
 run_test "FAIL: internal hostname literal in diff"  test_internal_hostname_literal
 run_test "FAIL: internal URL pattern in diff"       test_internal_url_pattern
 
-echo ""
-echo "=========================================================="
-echo "  RESULTS: ${PASS} passed, ${FAIL} unexpected"
-echo "=========================================================="
+print_results

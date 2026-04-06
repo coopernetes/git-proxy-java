@@ -1,6 +1,8 @@
 package org.finos.gitproxy.jetty.config;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,8 @@ import org.finos.gitproxy.db.jdbc.JdbcRepoRegistry;
 import org.finos.gitproxy.db.memory.InMemoryFetchStore;
 import org.finos.gitproxy.db.memory.InMemoryRepoRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.git.LocalRepositoryCache;
+import org.finos.gitproxy.jetty.GitProxyContext;
 import org.finos.gitproxy.provider.*;
 import org.finos.gitproxy.service.CachingTokenPushIdentityResolver;
 import org.finos.gitproxy.service.ChainedPushIdentityResolver;
@@ -54,6 +58,9 @@ public class JettyConfigurationBuilder {
 
     private final GitProxyConfig config;
     private DataSource cachedDataSource;
+    private PushStore cachedPushStore;
+    private FetchStore cachedFetchStore;
+    private UserStore cachedUserStore;
 
     public JettyConfigurationBuilder(GitProxyConfig config) {
         this.config = config;
@@ -67,6 +74,21 @@ public class JettyConfigurationBuilder {
     /** Returns the heartbeat interval in seconds (0 = disabled). */
     public int getHeartbeatIntervalSeconds() {
         return config.getServer().getHeartbeatIntervalSeconds();
+    }
+
+    /** Returns whether fail-fast validation is enabled (stop after first failure). */
+    public boolean isFailFast() {
+        return config.getServer().isFailFast();
+    }
+
+    /** Returns the S&amp;F upstream connect timeout in seconds (0 = no timeout). */
+    public int getUpstreamConnectTimeoutSeconds() {
+        return config.getServer().getUpstreamConnectTimeoutSeconds();
+    }
+
+    /** Returns the transparent-proxy connect timeout in seconds (0 = no timeout). */
+    public int getProxyConnectTimeoutSeconds() {
+        return config.getServer().getProxyConnectTimeoutSeconds();
     }
 
     /** Returns the service URL for dashboard links, defaulting to {@code http://localhost:<port>}. */
@@ -205,6 +227,48 @@ public class JettyConfigurationBuilder {
     }
 
     /**
+     * Builds the complete {@link GitProxyContext} using the config-derived {@link ApprovalGateway} (based on
+     * {@code server.approval-mode}).
+     */
+    public GitProxyContext buildProxyContext() throws IOException {
+        PushStore ps = buildPushStore();
+        return buildProxyContextWith(buildApprovalGateway(ps));
+    }
+
+    /**
+     * Builds the complete {@link GitProxyContext} with a caller-supplied {@link ApprovalGateway}. Used by the dashboard
+     * application, which always forces {@link org.finos.gitproxy.approval.UiApprovalGateway} regardless of config.
+     */
+    public GitProxyContext buildProxyContext(ApprovalGateway approvalGateway) throws IOException {
+        return buildProxyContextWith(approvalGateway);
+    }
+
+    private GitProxyContext buildProxyContextWith(ApprovalGateway approvalGateway) throws IOException {
+        PushStore ps = buildPushStore();
+        FetchStore fs = buildFetchStore();
+        UserStore us = buildUserStore();
+        var storeForwardCache = new LocalRepositoryCache(Files.createTempDirectory("jgit-proxy-sf-"), 0, true);
+        log.info("Initialized store-and-forward LocalRepositoryCache (full clone)");
+        var proxyCache = new LocalRepositoryCache();
+        log.info("Initialized proxy LocalRepositoryCache (shallow clone)");
+        return new GitProxyContext(
+                ps,
+                fs,
+                us,
+                buildUserAuthService(us),
+                buildPushIdentityResolver(us),
+                approvalGateway,
+                buildCommitConfig(),
+                getServiceUrl(),
+                getHeartbeatIntervalSeconds(),
+                isFailFast(),
+                getUpstreamConnectTimeoutSeconds(),
+                getProxyConnectTimeoutSeconds(),
+                storeForwardCache,
+                proxyCache);
+    }
+
+    /**
      * Creates the {@link ApprovalGateway} based on the {@code server.approval-mode} config key.
      *
      * <ul>
@@ -239,10 +303,10 @@ public class JettyConfigurationBuilder {
 
     /** Creates a {@link PushStore} based on the database configuration. */
     public PushStore buildPushStore() {
+        if (cachedPushStore != null) return cachedPushStore;
         DatabaseConfig db = config.getDatabase();
         log.info("Initializing push store: type={}", db.getType());
-
-        return switch (db.getType()) {
+        cachedPushStore = switch (db.getType()) {
             case "memory" -> PushStoreFactory.inMemory();
             case "h2-mem", "h2-file", "postgres" -> PushStoreFactory.fromDataSource(requireJdbcDataSource());
             case "mongo" -> PushStoreFactory.mongo(db.getUrl(), db.getName());
@@ -250,6 +314,7 @@ public class JettyConfigurationBuilder {
                 throw new IllegalArgumentException("Unknown database type: " + db.getType()
                         + ". Supported: memory, h2-mem, h2-file, postgres, mongo");
         };
+        return cachedPushStore;
     }
 
     /**
@@ -319,6 +384,7 @@ public class JettyConfigurationBuilder {
 
     /** Builds a {@link FetchStore}. JDBC backends share the same {@link DataSource} as the push store. */
     public FetchStore buildFetchStore() {
+        if (cachedFetchStore != null) return cachedFetchStore;
         String type = config.getDatabase().getType();
         FetchStore store;
         if ("memory".equals(type) || "mongo".equals(type)) {
@@ -327,7 +393,8 @@ public class JettyConfigurationBuilder {
             store = new JdbcFetchStore(requireJdbcDataSource());
         }
         store.initialize();
-        return store;
+        cachedFetchStore = store;
+        return cachedFetchStore;
     }
 
     private static AccessRule.Operations toOperations(List<String> ops) {
@@ -341,6 +408,7 @@ public class JettyConfigurationBuilder {
 
     /** Builds a {@link UserStore} from config. JDBC backends share the same {@link DataSource} as the push store. */
     public UserStore buildUserStore() {
+        if (cachedUserStore != null) return cachedUserStore;
         List<UserEntry> staticUsers = config.getUsers().stream()
                 .map(uc -> {
                     List<ScmIdentity> scmIdentities = new ArrayList<>();
@@ -372,12 +440,14 @@ public class JettyConfigurationBuilder {
         String type = config.getDatabase().getType();
         if ("memory".equals(type) || "mongo".equals(type)) {
             log.info("Using in-memory user store ({} users)", staticUsers.size());
-            return new StaticUserStore(staticUsers);
+            cachedUserStore = new StaticUserStore(staticUsers);
+        } else {
+            var jdbcStore = new JdbcUserStore(requireJdbcDataSource());
+            var configStore = new StaticUserStore(staticUsers);
+            log.info("Using composite user store ({} config users + JDBC)", staticUsers.size());
+            cachedUserStore = new CompositeUserStore(configStore, jdbcStore);
         }
-        var jdbcStore = new JdbcUserStore(requireJdbcDataSource());
-        var configStore = new StaticUserStore(staticUsers);
-        log.info("Using composite user store ({} config users + JDBC)", staticUsers.size());
-        return new CompositeUserStore(configStore, jdbcStore);
+        return cachedUserStore;
     }
 
     /**

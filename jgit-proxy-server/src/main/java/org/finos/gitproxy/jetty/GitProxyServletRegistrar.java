@@ -40,6 +40,47 @@ public final class GitProxyServletRegistrar {
 
     private GitProxyServletRegistrar() {}
 
+    /**
+     * Registers git servlets, proxy servlets, and filter chains for every provider. This is the primary entry point for
+     * both the standalone and dashboard applications; it replaces the per-provider loop previously written inline in
+     * each main method.
+     */
+    public static void registerProviders(
+            ServletContextHandler context,
+            GitProxyContext gitProxyCtx,
+            JettyConfigurationBuilder configBuilder,
+            List<GitProxyProvider> providers) {
+        for (GitProxyProvider provider : providers) {
+            log.info("Registering provider: {}", provider.getName());
+            registerGitServlet(
+                    context,
+                    provider,
+                    gitProxyCtx.storeForwardCache(),
+                    gitProxyCtx.commitConfig(),
+                    gitProxyCtx.pushStore(),
+                    gitProxyCtx.serviceUrl(),
+                    gitProxyCtx.approvalGateway(),
+                    gitProxyCtx.pushIdentityResolver(),
+                    gitProxyCtx.userAuthService(),
+                    gitProxyCtx.heartbeatIntervalSeconds(),
+                    gitProxyCtx.failFast(),
+                    gitProxyCtx.upstreamConnectTimeoutSeconds());
+            registerProxyServlet(context, provider, gitProxyCtx.pushStore(), gitProxyCtx.proxyConnectTimeoutSeconds());
+            registerFilters(
+                    context,
+                    provider,
+                    gitProxyCtx.proxyCache(),
+                    configBuilder,
+                    gitProxyCtx.commitConfig(),
+                    gitProxyCtx.pushStore(),
+                    gitProxyCtx.serviceUrl(),
+                    gitProxyCtx.approvalGateway(),
+                    gitProxyCtx.pushIdentityResolver(),
+                    gitProxyCtx.userAuthService(),
+                    gitProxyCtx.fetchStore());
+        }
+    }
+
     public static void registerGitServlet(
             ServletContextHandler context,
             GitProxyProvider provider,
@@ -79,7 +120,9 @@ public final class GitProxyServletRegistrar {
                 approvalGateway,
                 pushIdentityResolver,
                 userAuthorizationService,
-                10);
+                10,
+                false,
+                0);
     }
 
     public static void registerGitServlet(
@@ -93,11 +136,37 @@ public final class GitProxyServletRegistrar {
             PushIdentityResolver pushIdentityResolver,
             UserAuthorizationService userAuthorizationService,
             int heartbeatIntervalSeconds) {
+        registerGitServlet(
+                context,
+                provider,
+                cache,
+                commitConfig,
+                pushStore,
+                serviceUrl,
+                approvalGateway,
+                pushIdentityResolver,
+                userAuthorizationService,
+                heartbeatIntervalSeconds,
+                false,
+                0);
+    }
+
+    public static void registerGitServlet(
+            ServletContextHandler context,
+            GitProxyProvider provider,
+            LocalRepositoryCache cache,
+            CommitConfig commitConfig,
+            PushStore pushStore,
+            String serviceUrl,
+            ApprovalGateway approvalGateway,
+            PushIdentityResolver pushIdentityResolver,
+            UserAuthorizationService userAuthorizationService,
+            int heartbeatIntervalSeconds,
+            boolean failFast,
+            int connectTimeoutSeconds) {
         var resolver = new StoreAndForwardRepositoryResolver(cache, provider);
 
-        var gitServlet = new GitServlet();
-        gitServlet.setRepositoryResolver(resolver);
-        gitServlet.setReceivePackFactory(new StoreAndForwardReceivePackFactory(
+        var factory = new StoreAndForwardReceivePackFactory(
                 provider,
                 commitConfig,
                 GpgConfig.defaultConfig(),
@@ -106,7 +175,13 @@ public final class GitProxyServletRegistrar {
                 pushStore,
                 approvalGateway,
                 serviceUrl,
-                Duration.ofSeconds(heartbeatIntervalSeconds)));
+                Duration.ofSeconds(heartbeatIntervalSeconds));
+        factory.setFailFast(failFast);
+        factory.setConnectTimeoutSeconds(connectTimeoutSeconds);
+
+        var gitServlet = new GitServlet();
+        gitServlet.setRepositoryResolver(resolver);
+        gitServlet.setReceivePackFactory(factory);
         gitServlet.setUploadPackFactory(new StoreAndForwardUploadPackFactory());
 
         String pushPath = PUSH_PATH_PREFIX + provider.servletPath();
@@ -127,6 +202,11 @@ public final class GitProxyServletRegistrar {
 
     public static void registerProxyServlet(
             ServletContextHandler context, GitProxyProvider provider, PushStore pushStore) {
+        registerProxyServlet(context, provider, pushStore, 0);
+    }
+
+    public static void registerProxyServlet(
+            ServletContextHandler context, GitProxyProvider provider, PushStore pushStore, int connectTimeoutSeconds) {
         String proxyPath = PROXY_PATH_PREFIX + provider.servletPath();
         String proxyMapping = proxyPath + "/*";
 
@@ -137,6 +217,9 @@ public final class GitProxyServletRegistrar {
         proxyServletHolder.setInitParameter("prefix", proxyPath);
         proxyServletHolder.setInitParameter("hostHeader", provider.getUri().getHost());
         proxyServletHolder.setInitParameter("preserveHost", "false");
+        if (connectTimeoutSeconds > 0) {
+            proxyServletHolder.setInitParameter("connectTimeout", String.valueOf(connectTimeoutSeconds * 1000L));
+        }
         context.addServlet(proxyServletHolder, proxyMapping);
 
         log.info("Registered proxy servlet for {} at {}", provider.getName(), proxyMapping);
@@ -293,6 +376,13 @@ public final class GitProxyServletRegistrar {
         filters.add(new FetchFinalizerFilter());
         filters.add(new PushFinalizerFilter(serviceUrl, approvalGateway));
         filters.add(new AuditLogFilter());
+
+        boolean failFast = configBuilder != null && configBuilder.isFailFast();
+        if (failFast) {
+            filters.forEach(f -> {
+                if (f instanceof AbstractGitProxyFilter af) af.setFailFast(true);
+            });
+        }
 
         filters.sort(Comparator.comparingInt(GitProxyFilter::getOrder));
 

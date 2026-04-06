@@ -4,53 +4,9 @@
 # Requires secret-scanning.enabled: true in git-proxy.yml / git-proxy-local.yml
 set -uo pipefail
 
-GIT_USERNAME=${GIT_USERNAME:-"me"}
-GIT_REPO=${GIT_REPO:-"github.com/coopernetes/test-repo.git"}
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
 PUSH_URL="http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:8080/push/${GIT_REPO}"
-PASS=0
-FAIL=0
-
-CURRENT_REPO=""
-cleanup() { [[ -n "${CURRENT_REPO}" && -d "${CURRENT_REPO}" ]] && rm -rf "${CURRENT_REPO}"; }
-trap cleanup EXIT INT TERM
-
-run_test() {
-    local test_name="$1"
-    shift
-
-    echo ""
-    echo "============================================="
-    echo "  ${test_name}"
-    echo "============================================="
-
-    CURRENT_REPO=$(mktemp -d /tmp/push-test-secrets-XXXX)
-    cd /tmp
-    git clone "${PUSH_URL}" "${CURRENT_REPO}" 2>&1
-    cd "${CURRENT_REPO}"
-
-    local branch="test/push-secrets-$(date +%s%N | tail -c 8)"
-    git checkout -b "${branch}"
-
-    # All secret tests use a valid author to isolate the secret scanning filter
-    git config user.name "Test Developer"
-    git config user.email "developer@example.com"
-
-    "$@"
-
-    local push_exit=0
-    git push origin "${branch}" 2>&1 || push_exit=$?
-
-    if [[ ${push_exit} -ne 0 ]]; then
-        echo ">>> ${test_name}: PASSED (push correctly rejected)"
-        ((PASS++))
-    else
-        echo ">>> ${test_name}: UNEXPECTED (push should have been rejected)"
-        ((FAIL++))
-    fi
-
-    rm -rf "${CURRENT_REPO}"
-    CURRENT_REPO=""
-}
 
 # --- Test functions ---
 # Each test commits a file containing a secret pattern that gitleaks detects
@@ -113,10 +69,16 @@ EOF
 
 # --- Run tests ---
 
-echo "=========================================================="
-echo "  STORE-AND-FORWARD: GITLEAKS SECRET SCANNING FAILURES"
-echo "  Push URL: ${PUSH_URL//${GIT_PASSWORD}/***}"
-echo "=========================================================="
+print_header "STORE-AND-FORWARD: GITLEAKS SECRET SCANNING FAILURES" "${PUSH_URL}"
+
+# Helper for running failure tests (sets up branch for each test)
+run_test() {
+    local test_name="$1"
+    shift
+    branch=$(setup_repo "${PUSH_URL}" "secrets")
+    "$@"
+    run_test_expect_failure "${test_name}"
+}
 
 run_test "FAIL: AWS access key in diff"         test_aws_access_key
 run_test "FAIL: GitHub PAT in diff"             test_github_pat
@@ -124,7 +86,4 @@ run_test "FAIL: RSA private key in diff"        test_private_key_pem
 run_test "FAIL: Generic API key in diff"        test_generic_api_key
 run_test "FAIL: Slack webhook URL in diff"      test_slack_webhook
 
-echo ""
-echo "=========================================================="
-echo "  RESULTS: ${PASS} passed, ${FAIL} unexpected"
-echo "=========================================================="
+print_results
