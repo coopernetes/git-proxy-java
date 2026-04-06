@@ -11,7 +11,10 @@ import java.util.List;
 import java.util.Set;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import org.finos.gitproxy.db.FetchStore;
+import org.finos.gitproxy.db.model.FetchRecord;
 import org.finos.gitproxy.git.GitClientUtils;
+import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitProxyProvider;
 
@@ -25,6 +28,7 @@ import org.finos.gitproxy.provider.GitProxyProvider;
 public class WhitelistAggregateFilter extends AbstractProviderAwareGitProxyFilter {
 
     private final List<WhitelistByUrlFilter> whitelistFilters;
+    private final FetchStore fetchStore;
 
     // Whitelist aggregate filters must be in the authorization range 50-199
     private static final int MIN_WHITELIST_ORDER = 50;
@@ -35,19 +39,37 @@ public class WhitelistAggregateFilter extends AbstractProviderAwareGitProxyFilte
             Set<HttpOperation> applicableOperations,
             GitProxyProvider provider,
             List<WhitelistByUrlFilter> whitelistFilters) {
-        super(validateWhitelistOrder(order), applicableOperations, provider);
-        this.whitelistFilters = whitelistFilters;
+        this(order, applicableOperations, provider, whitelistFilters, null, null);
     }
 
     public WhitelistAggregateFilter(int order, GitProxyProvider provider, List<WhitelistByUrlFilter> whitelistFilters) {
-        super(validateWhitelistOrder(order), DEFAULT_OPERATIONS, provider);
-        this.whitelistFilters = whitelistFilters;
+        this(order, DEFAULT_OPERATIONS, provider, whitelistFilters, null, null);
     }
 
     public WhitelistAggregateFilter(
             int order, GitProxyProvider provider, List<WhitelistByUrlFilter> whitelistFilters, String pathPrefix) {
-        super(validateWhitelistOrder(order), DEFAULT_OPERATIONS, provider, pathPrefix);
+        this(order, DEFAULT_OPERATIONS, provider, whitelistFilters, pathPrefix, null);
+    }
+
+    public WhitelistAggregateFilter(
+            int order,
+            GitProxyProvider provider,
+            List<WhitelistByUrlFilter> whitelistFilters,
+            String pathPrefix,
+            FetchStore fetchStore) {
+        this(order, DEFAULT_OPERATIONS, provider, whitelistFilters, pathPrefix, fetchStore);
+    }
+
+    public WhitelistAggregateFilter(
+            int order,
+            Set<HttpOperation> applicableOperations,
+            GitProxyProvider provider,
+            List<WhitelistByUrlFilter> whitelistFilters,
+            String pathPrefix,
+            FetchStore fetchStore) {
+        super(validateWhitelistOrder(order), applicableOperations, provider, pathPrefix != null ? pathPrefix : "");
         this.whitelistFilters = whitelistFilters;
+        this.fetchStore = fetchStore;
     }
 
     /**
@@ -82,10 +104,18 @@ public class WhitelistAggregateFilter extends AbstractProviderAwareGitProxyFilte
             filter.applyWhitelist(request);
         }
         String whitelistedBy = (String) request.getAttribute(WHITELISTED_BY_ATTRIBUTE);
-        if (whitelistedBy != null) {
+        var operation = determineOperation(request);
+        boolean allowed = whitelistedBy != null;
+
+        if (allowed) {
             log.debug("Whitelisted by {}", whitelistedBy);
-        } else {
-            var operation = determineOperation(request);
+        }
+
+        if (operation == HttpOperation.FETCH && fetchStore != null) {
+            recordFetch(request, allowed);
+        }
+
+        if (!allowed) {
             String action = operation == HttpOperation.PUSH ? "Push" : "Fetch";
             String title = sym(NO_ENTRY) + "  " + action + " Blocked - Repository Not Allowed";
             String verb = operation == HttpOperation.PUSH ? "Pushes to" : "Fetches from";
@@ -98,6 +128,31 @@ public class WhitelistAggregateFilter extends AbstractProviderAwareGitProxyFilte
                     response,
                     "Repository not in allowlist",
                     GitClientUtils.formatForOperation(title, message, GitClientUtils.AnsiColor.RED, operation));
+        }
+    }
+
+    private void recordFetch(HttpServletRequest request, boolean allowed) {
+        try {
+            var details = (GitRequestDetails)
+                    request.getAttribute(org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR);
+            if (details == null) return;
+            var ref = details.getRepoRef();
+            String authHeader = request.getHeader("Authorization");
+            String pushUsername = null;
+            if (authHeader != null && authHeader.startsWith("Basic ")) {
+                String decoded = new String(java.util.Base64.getDecoder().decode(authHeader.substring(6)));
+                int colon = decoded.indexOf(':');
+                if (colon > 0) pushUsername = decoded.substring(0, colon);
+            }
+            fetchStore.record(FetchRecord.builder()
+                    .provider(provider.getUri().getHost())
+                    .owner(ref.getOwner())
+                    .repoName(ref.getName())
+                    .result(allowed ? FetchRecord.Result.ALLOWED : FetchRecord.Result.BLOCKED)
+                    .pushUsername(pushUsername)
+                    .build());
+        } catch (Exception e) {
+            log.warn("Failed to record fetch event", e);
         }
     }
 }

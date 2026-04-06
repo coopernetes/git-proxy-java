@@ -97,6 +97,43 @@ CREATE TABLE IF NOT EXISTS user_scm_identities (
 CREATE INDEX IF NOT EXISTS idx_user_emails_email ON user_emails(email);
 
 -- ---------------------------------------------------------------------------
+-- Access control rules (allow/deny by provider, owner, name, or slug pattern)
+--
+-- owner/name/slug match the {owner}/{repo} URL shape used by GitHub, GitLab,
+-- Gitea, Codeberg, and Forgejo. Generic providers with arbitrary URL paths
+-- should use slug with a glob pattern and leave owner/name NULL.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS access_rules (
+    id          VARCHAR(36)  PRIMARY KEY,
+    provider    VARCHAR(100),               -- NULL = applies to all providers
+    slug        VARCHAR(512),               -- owner/repo glob pattern; NULL = not used
+    owner       VARCHAR(255),               -- owner/org glob pattern; NULL = not used
+    name        VARCHAR(255),               -- repo name glob pattern; NULL = not used
+    access      VARCHAR(10)  NOT NULL DEFAULT 'ALLOW',  -- ALLOW or DENY
+    operations  VARCHAR(10)  NOT NULL DEFAULT 'ALL',    -- FETCH, PUSH, or ALL
+    description TEXT,
+    enabled     BOOLEAN      NOT NULL DEFAULT TRUE,
+    rule_order  INT          NOT NULL DEFAULT 100,
+    source      VARCHAR(10)  NOT NULL DEFAULT 'DB'      -- CONFIG (seeded from YAML) or DB (created via API)
+);
+
+-- ---------------------------------------------------------------------------
+-- Fetch activity log (lightweight; no steps/commits/attestations)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS fetch_records (
+    id            VARCHAR(36)  PRIMARY KEY,
+    timestamp     TIMESTAMP    NOT NULL,
+    provider      VARCHAR(100),
+    owner         VARCHAR(255),
+    repo_name     VARCHAR(255),
+    result        VARCHAR(10)  NOT NULL,    -- ALLOWED or BLOCKED
+    push_username VARCHAR(255),             -- HTTP Basic username (arbitrary; see GIT_USERNAME memory)
+    resolved_user VARCHAR(255) REFERENCES proxy_users(username) ON DELETE SET NULL
+);
+
+-- ---------------------------------------------------------------------------
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_push_records_status ON push_records(status);
 CREATE INDEX IF NOT EXISTS idx_push_records_project ON push_records(project);
@@ -106,3 +143,6 @@ CREATE INDEX IF NOT EXISTS idx_push_records_timestamp ON push_records(timestamp)
 CREATE INDEX IF NOT EXISTS idx_push_steps_push_id ON push_steps(push_id);
 CREATE INDEX IF NOT EXISTS idx_push_commits_push_id ON push_commits(push_id);
 CREATE INDEX IF NOT EXISTS idx_push_records_commit_to ON push_records(commit_to, branch, repo_name);
+CREATE INDEX IF NOT EXISTS idx_access_rules_provider ON access_rules(provider);
+CREATE INDEX IF NOT EXISTS idx_fetch_records_timestamp ON fetch_records(timestamp);
+CREATE INDEX IF NOT EXISTS idx_fetch_records_provider_repo ON fetch_records(provider, owner, repo_name);

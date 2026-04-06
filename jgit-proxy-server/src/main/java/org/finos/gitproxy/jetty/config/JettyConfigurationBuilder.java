@@ -12,9 +12,17 @@ import org.finos.gitproxy.approval.AutoApprovalGateway;
 import org.finos.gitproxy.approval.ServiceNowApprovalGateway;
 import org.finos.gitproxy.approval.UiApprovalGateway;
 import org.finos.gitproxy.config.CommitConfig;
+import org.finos.gitproxy.db.CompositeRepoRegistry;
+import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.PushStoreFactory;
+import org.finos.gitproxy.db.RepoRegistry;
 import org.finos.gitproxy.db.jdbc.DataSourceFactory;
+import org.finos.gitproxy.db.jdbc.JdbcFetchStore;
+import org.finos.gitproxy.db.jdbc.JdbcRepoRegistry;
+import org.finos.gitproxy.db.memory.InMemoryFetchStore;
+import org.finos.gitproxy.db.memory.InMemoryRepoRegistry;
+import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.provider.*;
 import org.finos.gitproxy.service.ChainedPushIdentityResolver;
 import org.finos.gitproxy.service.ConfigPushIdentityResolver;
@@ -236,6 +244,93 @@ public class JettyConfigurationBuilder {
             default ->
                 throw new IllegalArgumentException("Unknown database type: " + db.getType()
                         + ". Supported: memory, h2-mem, h2-file, postgres, mongo");
+        };
+    }
+
+    /**
+     * Builds a {@link RepoRegistry}, seeding it with rules derived from the YAML whitelist config. JDBC backends share
+     * the same {@link DataSource} as the push store.
+     */
+    public RepoRegistry buildRepoRegistry() {
+        // CONFIG rules live only in memory — never written to DB, no stale duplicates on restart.
+        InMemoryRepoRegistry configRegistry = new InMemoryRepoRegistry();
+        for (WhitelistConfig wl : config.getFilters().getWhitelists()) {
+            if (!wl.isEnabled()) continue;
+            AccessRule.Operations ops = toOperations(wl.getOperations());
+            // A whitelist entry with no providers means "all providers" — one rule with provider=null.
+            // An entry scoped to N providers produces N rules, one per provider name.
+            List<String> providers =
+                    wl.getProviders().isEmpty() ? java.util.Collections.singletonList(null) : wl.getProviders();
+            for (String provider : providers) {
+                for (String slug : wl.getSlugs()) {
+                    configRegistry.save(AccessRule.builder()
+                            .provider(provider)
+                            .slug(slug)
+                            .access(AccessRule.Access.ALLOW)
+                            .operations(ops)
+                            .source(AccessRule.Source.CONFIG)
+                            .ruleOrder(wl.getOrder())
+                            .build());
+                }
+                for (String owner : wl.getOwners()) {
+                    configRegistry.save(AccessRule.builder()
+                            .provider(provider)
+                            .owner(owner)
+                            .access(AccessRule.Access.ALLOW)
+                            .operations(ops)
+                            .source(AccessRule.Source.CONFIG)
+                            .ruleOrder(wl.getOrder())
+                            .build());
+                }
+                for (String name : wl.getNames()) {
+                    configRegistry.save(AccessRule.builder()
+                            .provider(provider)
+                            .name(name)
+                            .access(AccessRule.Access.ALLOW)
+                            .operations(ops)
+                            .source(AccessRule.Source.CONFIG)
+                            .ruleOrder(wl.getOrder())
+                            .build());
+                }
+            }
+        }
+
+        String type = config.getDatabase().getType();
+        RepoRegistry dbRegistry;
+        if ("memory".equals(type) || "mongo".equals(type)) {
+            dbRegistry = new InMemoryRepoRegistry();
+        } else {
+            dbRegistry = new JdbcRepoRegistry(requireJdbcDataSource());
+        }
+
+        RepoRegistry registry = new CompositeRepoRegistry(configRegistry, dbRegistry);
+        registry.initialize();
+        log.info(
+                "RepoRegistry initialized ({} config rules, {} db rules)",
+                configRegistry.findAll().size(),
+                dbRegistry.findAll().size());
+        return registry;
+    }
+
+    /** Builds a {@link FetchStore}. JDBC backends share the same {@link DataSource} as the push store. */
+    public FetchStore buildFetchStore() {
+        String type = config.getDatabase().getType();
+        FetchStore store;
+        if ("memory".equals(type) || "mongo".equals(type)) {
+            store = new InMemoryFetchStore();
+        } else {
+            store = new JdbcFetchStore(requireJdbcDataSource());
+        }
+        store.initialize();
+        return store;
+    }
+
+    private static AccessRule.Operations toOperations(List<String> ops) {
+        if (ops == null || ops.isEmpty() || ops.size() > 1) return AccessRule.Operations.ALL;
+        return switch (ops.get(0).toUpperCase()) {
+            case "FETCH" -> AccessRule.Operations.FETCH;
+            case "PUSH" -> AccessRule.Operations.PUSH;
+            default -> AccessRule.Operations.ALL;
         };
     }
 

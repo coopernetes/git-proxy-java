@@ -9,6 +9,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.finos.gitproxy.approval.ApprovalGateway;
 import org.finos.gitproxy.config.InMemoryProviderConfigurationSource;
+import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.git.LocalRepositoryCache;
 import org.finos.gitproxy.jetty.config.GitProxyConfigLoader;
@@ -53,6 +54,8 @@ public class GitProxyJettyApplication {
         PushStore pushStore = configBuilder.buildPushStore();
         log.info("Push store initialized: {}", pushStore.getClass().getSimpleName());
 
+        FetchStore fetchStore = configBuilder.buildFetchStore();
+
         UserStore userStore = configBuilder.buildUserStore();
         PushIdentityResolver pushIdentityResolver = configBuilder.buildPushIdentityResolver(userStore);
         UserAuthorizationService userAuthService = configBuilder.buildUserAuthService(userStore);
@@ -96,7 +99,8 @@ public class GitProxyJettyApplication {
                     serviceUrl,
                     approvalGateway,
                     pushIdentityResolver,
-                    userAuthService);
+                    userAuthService,
+                    fetchStore);
         }
 
         server.setHandler(context);
