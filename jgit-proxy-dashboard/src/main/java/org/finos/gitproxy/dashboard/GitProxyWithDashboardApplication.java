@@ -16,7 +16,9 @@ import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.finos.gitproxy.approval.UiApprovalGateway;
 import org.finos.gitproxy.config.InMemoryProviderConfigurationSource;
 import org.finos.gitproxy.config.ProviderConfigurationSource;
+import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.PushStore;
+import org.finos.gitproxy.db.RepoRegistry;
 import org.finos.gitproxy.git.LocalRepositoryCache;
 import org.finos.gitproxy.jetty.GitProxyServletRegistrar;
 import org.finos.gitproxy.jetty.config.GitProxyConfigLoader;
@@ -62,6 +64,9 @@ public class GitProxyWithDashboardApplication {
         PushStore pushStore = configBuilder.buildPushStore();
         log.info("Push store initialized: {}", pushStore.getClass().getSimpleName());
 
+        RepoRegistry repoRegistry = configBuilder.buildRepoRegistry();
+        FetchStore fetchStore = configBuilder.buildFetchStore();
+
         UserStore userStore = configBuilder.buildUserStore();
         PushIdentityResolver pushIdentityResolver = configBuilder.buildPushIdentityResolver(userStore);
         UserAuthorizationService userAuthService = configBuilder.buildUserAuthService(userStore);
@@ -106,11 +111,12 @@ public class GitProxyWithDashboardApplication {
                     serviceUrl,
                     approvalGateway,
                     pushIdentityResolver,
-                    userAuthService);
+                    userAuthService,
+                    fetchStore);
         }
 
         // Spring MVC DispatcherServlet at /* - git-specific paths take precedence per servlet spec
-        registerSpringServlet(context, pushStore, providerConfig, userStore, gitProxyConfig);
+        registerSpringServlet(context, pushStore, providerConfig, userStore, gitProxyConfig, repoRegistry, fetchStore);
 
         server.setHandler(context);
         server.start();
@@ -128,7 +134,9 @@ public class GitProxyWithDashboardApplication {
             PushStore pushStore,
             ProviderConfigurationSource providers,
             UserStore userStore,
-            org.finos.gitproxy.jetty.config.GitProxyConfig gitProxyConfig) {
+            org.finos.gitproxy.jetty.config.GitProxyConfig gitProxyConfig,
+            RepoRegistry repoRegistry,
+            FetchStore fetchStore) {
         var appContext = new AnnotationConfigWebApplicationContext();
         appContext.register(SpringWebConfig.class, SecurityConfig.class);
         appContext.addBeanFactoryPostProcessor(bf -> {
@@ -136,6 +144,8 @@ public class GitProxyWithDashboardApplication {
             bf.registerSingleton("providers", providers);
             bf.registerSingleton("userStore", userStore);
             bf.registerSingleton("gitProxyConfig", gitProxyConfig);
+            bf.registerSingleton("repoRegistry", repoRegistry);
+            bf.registerSingleton("fetchStore", fetchStore);
         });
 
         // Refresh the Spring context inside a ServletContextListener so the ServletContext is set
