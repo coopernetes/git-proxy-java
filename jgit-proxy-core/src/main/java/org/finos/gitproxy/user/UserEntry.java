@@ -18,4 +18,11 @@ public class UserEntry {
 
     /** SCM identities (provider + username) for this user. */
     List<ScmIdentity> scmIdentities;
+
+    /**
+     * Roles granted to this user (e.g. {@code USER}, {@code ADMIN}). Defaults to an empty list which is treated as
+     * {@code [USER]} by callers that need at least one role.
+     */
+    @Builder.Default
+    List<String> roles = List.of("USER");
 }

@@ -357,11 +357,13 @@ public class JettyConfigurationBuilder {
                                     .username(pushName)
                                     .build())
                             .forEach(scmIdentities::add);
+                    List<String> roles = uc.getRoles().isEmpty() ? List.of("USER") : uc.getRoles();
                     return UserEntry.builder()
                             .username(uc.getUsername())
                             .passwordHash(uc.getPasswordHash())
                             .emails(uc.getEmails())
                             .scmIdentities(scmIdentities)
+                            .roles(roles)
                             .build();
                 })
                 .toList();

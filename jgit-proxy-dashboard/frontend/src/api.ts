@@ -137,3 +137,69 @@ export async function removeScmIdentity(provider: string, scmUsername: string) {
   )
   if (!res.ok) await parseErrorResponse(res, 'Failed to remove SCM identity')
 }
+
+export async function createUser(
+  username: string,
+  password: string,
+  email?: string,
+  roles?: string[],
+) {
+  const res = await apiFetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, email, roles }),
+  })
+  if (!res.ok) await parseErrorResponse(res, 'Failed to create user')
+  return res.json()
+}
+
+export async function deleteUser(username: string) {
+  const res = await apiFetch(`/api/users/${encodeURIComponent(username)}`, { method: 'DELETE' })
+  if (!res.ok) await parseErrorResponse(res, 'Failed to delete user')
+}
+
+export async function resetUserPassword(username: string, password: string) {
+  const res = await apiFetch(`/api/users/${encodeURIComponent(username)}/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  })
+  if (!res.ok) await parseErrorResponse(res, 'Failed to reset password')
+  return res.json()
+}
+
+export async function addUserIdentity(username: string, provider: string, scmUsername: string) {
+  const res = await apiFetch(`/api/users/${encodeURIComponent(username)}/identities`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, scmUsername }),
+  })
+  if (!res.ok) await parseErrorResponse(res, 'Failed to add SCM identity')
+  return res.json()
+}
+
+export async function addUserEmail(username: string, email: string) {
+  const res = await apiFetch(`/api/users/${encodeURIComponent(username)}/emails`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  if (!res.ok) await parseErrorResponse(res, 'Failed to add email')
+  return res.json()
+}
+
+export async function removeUserEmail(username: string, email: string) {
+  const res = await apiFetch(
+    `/api/users/${encodeURIComponent(username)}/emails/${encodeURIComponent(email)}`,
+    { method: 'DELETE' },
+  )
+  if (!res.ok) await parseErrorResponse(res, 'Failed to remove email')
+}
+
+export async function removeUserIdentity(username: string, provider: string, scmUsername: string) {
+  const res = await apiFetch(
+    `/api/users/${encodeURIComponent(username)}/identities/${encodeURIComponent(provider)}/${encodeURIComponent(scmUsername)}`,
+    { method: 'DELETE' },
+  )
+  if (!res.ok) await parseErrorResponse(res, 'Failed to remove SCM identity')
+}

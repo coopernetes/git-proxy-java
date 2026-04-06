@@ -24,4 +24,7 @@ public class UserConfig {
      * additional aliases only.
      */
     private List<String> pushUsernames = new ArrayList<>();
+
+    /** Roles granted to this user. Valid values: {@code USER}, {@code ADMIN}. Defaults to {@code [USER]} if not set. */
+    private List<String> roles = new ArrayList<>();
 }
