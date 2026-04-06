@@ -14,6 +14,7 @@ server:
 users:
   - username: admin
     password-hash: "{noop}admin"
+    roles: [ADMIN]
     emails:
       - developer@example.com
     scm-identities:
