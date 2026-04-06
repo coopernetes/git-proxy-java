@@ -7,10 +7,13 @@ import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.model.PushQuery;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.user.JdbcUserStore;
+import org.finos.gitproxy.user.MutableUserStore;
 import org.finos.gitproxy.user.UserEntry;
 import org.finos.gitproxy.user.UserStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,6 +25,9 @@ public class UserController {
 
     @Autowired
     private PushStore pushStore;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     /** List all users with a summary suitable for the admin list view. */
     @GetMapping
@@ -36,6 +42,136 @@ public class UserController {
                 .findByUsername(username)
                 .map(u -> ResponseEntity.ok(toDetail(u)))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Create a new local user. Requires ROLE_ADMIN. */
+    @PostMapping
+    public ResponseEntity<?> create(@RequestBody CreateUserRequest req) {
+        if (!(userStore instanceof JdbcUserStore jdbc)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(Map.of("error", "User creation requires a JDBC user store"));
+        }
+        if (req.username() == null || req.username().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "username is required"));
+        }
+        if (req.password() == null || req.password().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "password is required"));
+        }
+        try {
+            String encoded = passwordEncoder.encode(req.password());
+            String roles = (req.roles() == null || req.roles().isEmpty()) ? "USER" : String.join(",", req.roles());
+            jdbc.createUser(req.username(), encoded, roles);
+            if (req.email() != null && !req.email().isBlank()) {
+                jdbc.addEmail(req.username(), req.email());
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("username", req.username()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** Delete a user. Requires ROLE_ADMIN. */
+    @DeleteMapping("/{username}")
+    public ResponseEntity<?> delete(@PathVariable String username) {
+        if (!(userStore instanceof JdbcUserStore jdbc)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(Map.of("error", "User deletion requires a JDBC user store"));
+        }
+        try {
+            jdbc.deleteUser(username);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /** Reset a user's password. Requires ROLE_ADMIN. */
+    @PostMapping("/{username}/reset-password")
+    public ResponseEntity<?> resetPassword(@PathVariable String username, @RequestBody ResetPasswordRequest req) {
+        if (!(userStore instanceof JdbcUserStore jdbc)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(Map.of("error", "Password reset requires a JDBC user store"));
+        }
+        if (req.password() == null || req.password().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "password is required"));
+        }
+        try {
+            jdbc.setPassword(username, passwordEncoder.encode(req.password()));
+            return ResponseEntity.ok(Map.of("username", username));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /** Add an email address to a user. Requires ROLE_ADMIN. */
+    @PostMapping("/{username}/emails")
+    public ResponseEntity<?> addEmail(@PathVariable String username, @RequestBody AddEmailRequest req) {
+        if (!(userStore instanceof MutableUserStore mutable)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(Map.of("error", "Email management requires a mutable user store"));
+        }
+        if (req.email() == null || req.email().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "email is required"));
+        }
+        if (userStore.findByUsername(username).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        mutable.addEmail(username, req.email());
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("email", req.email()));
+    }
+
+    /** Remove an email address from a user. Requires ROLE_ADMIN. */
+    @DeleteMapping("/{username}/emails/{email}")
+    public ResponseEntity<?> removeEmail(@PathVariable String username, @PathVariable String email) {
+        if (!(userStore instanceof MutableUserStore mutable)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(Map.of("error", "Email management requires a mutable user store"));
+        }
+        if (userStore.findByUsername(username).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        try {
+            mutable.removeEmail(username, email);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Add an SCM identity to a user. Requires ROLE_ADMIN. */
+    @PostMapping("/{username}/identities")
+    public ResponseEntity<?> addIdentity(@PathVariable String username, @RequestBody ScmIdentityRequest req) {
+        if (!(userStore instanceof MutableUserStore mutable)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(Map.of("error", "SCM identity management requires a mutable user store"));
+        }
+        if (req.provider() == null
+                || req.provider().isBlank()
+                || req.scmUsername() == null
+                || req.scmUsername().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "provider and scmUsername are required"));
+        }
+        if (userStore.findByUsername(username).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        mutable.addScmIdentity(username, req.provider(), req.scmUsername());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Map.of("provider", req.provider(), "scmUsername", req.scmUsername()));
+    }
+
+    /** Remove an SCM identity from a user. Requires ROLE_ADMIN. */
+    @DeleteMapping("/{username}/identities/{provider}/{scmUsername}")
+    public ResponseEntity<?> removeIdentity(
+            @PathVariable String username, @PathVariable String provider, @PathVariable String scmUsername) {
+        if (!(userStore instanceof MutableUserStore mutable)) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(Map.of("error", "SCM identity management requires a mutable user store"));
+        }
+        if (userStore.findByUsername(username).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        mutable.removeScmIdentity(username, provider, scmUsername);
+        return ResponseEntity.noContent().build();
     }
 
     private UserSummary toSummary(UserEntry u) {
@@ -88,4 +224,12 @@ public class UserController {
             List<Map<String, Object>> emails,
             List<Map<String, Object>> scmIdentities,
             Map<String, Long> pushCounts) {}
+
+    public record CreateUserRequest(String username, String password, String email, List<String> roles) {}
+
+    public record ResetPasswordRequest(String password) {}
+
+    public record ScmIdentityRequest(String provider, String scmUsername) {}
+
+    public record AddEmailRequest(String email) {}
 }

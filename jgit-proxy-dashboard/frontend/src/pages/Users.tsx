@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchUsers } from '../api'
+import { createUser, fetchUsers } from '../api'
 import type { PushStatus, UserSummary } from '../types'
 
 interface UsersProps {
@@ -62,20 +62,116 @@ function PushStatChip({
   )
 }
 
+function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      const roles = isAdmin ? ['USER', 'ADMIN'] : ['USER']
+      await createUser(username.trim(), password, email.trim() || undefined, roles)
+      onCreated()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create user')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-base font-semibold text-gray-800 mb-4">Add User</h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+            <input
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+            <input
+              required
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Email <span className="text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isAdmin}
+              onChange={(e) => setIsAdmin(e.target.checked)}
+              className="rounded"
+            />
+            Grant admin role
+          </label>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-3 py-1.5 rounded bg-slate-700 text-white text-xs hover:bg-slate-800 disabled:opacity-50"
+            >
+              {submitting ? 'Creating…' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export function Users({ authProvider }: UsersProps) {
   const navigate = useNavigate()
   const [users, setUsers] = useState<UserSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const isLocalAuth = authProvider === 'local'
 
-  useEffect(() => {
+  function loadUsers() {
     fetchUsers()
       .then(setUsers)
       .catch(() => setError('Failed to load users'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadUsers()
   }, [])
 
   const filtered = users.filter(
@@ -91,13 +187,15 @@ export function Users({ authProvider }: UsersProps) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+      {showAddModal && (
+        <AddUserModal onClose={() => setShowAddModal(false)} onCreated={loadUsers} />
+      )}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Users</h2>
         {isLocalAuth && (
           <button
-            disabled
-            className="px-3 py-1.5 rounded bg-slate-700 text-white text-sm opacity-40 cursor-not-allowed"
-            title="User creation coming soon"
+            onClick={() => setShowAddModal(true)}
+            className="px-3 py-1.5 rounded bg-slate-700 text-white text-sm hover:bg-slate-800"
           >
             + Add User
           </button>

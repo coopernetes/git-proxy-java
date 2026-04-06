@@ -115,6 +115,15 @@ public class SecurityConfig {
         http.securityMatcher(protectedPaths)
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/api/runtime-config")
                         .permitAll()
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/api/users",
+                                "/api/users/*/reset-password",
+                                "/api/users/*/identities",
+                                "/api/users/*/emails")
+                        .hasRole("ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/users/**")
+                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
                 .logout(logout -> logout.logoutSuccessUrl("/login.html?logout").permitAll())
@@ -381,10 +390,15 @@ public class SecurityConfig {
     private UserDetailsService staticUserDetailsService() {
         return username -> userStore
                 .findByUsername(username)
-                .map(u -> User.withUsername(u.getUsername())
-                        .password(u.getPasswordHash())
-                        .roles("USER")
-                        .build())
+                .map(u -> {
+                    String[] roles = u.getRoles().isEmpty()
+                            ? new String[] {"USER"}
+                            : u.getRoles().toArray(String[]::new);
+                    return User.withUsername(u.getUsername())
+                            .password(u.getPasswordHash())
+                            .roles(roles)
+                            .build();
+                })
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
     }
 

@@ -40,9 +40,10 @@ public class JdbcUserStore implements MutableUserStore {
                             String.class)
                     .isEmpty();
             if (!exists) {
+                String roles = u.getRoles().isEmpty() ? "USER" : String.join(",", u.getRoles());
                 jdbc.update(
-                        "INSERT INTO proxy_users (username, password_hash) VALUES (:username, :hash)",
-                        Map.of("username", u.getUsername(), "hash", u.getPasswordHash()));
+                        "INSERT INTO proxy_users (username, password_hash, roles) VALUES (:username, :hash, :roles)",
+                        Map.of("username", u.getUsername(), "hash", u.getPasswordHash(), "roles", roles));
             }
 
             // Always replace emails + scm-identities so YAML stays authoritative for those.
@@ -68,11 +69,12 @@ public class JdbcUserStore implements MutableUserStore {
 
     @Override
     public Optional<UserEntry> findByUsername(String username) {
-        List<String> rows = jdbc.queryForList(
-                "SELECT password_hash FROM proxy_users WHERE username = :u", Map.of("u", username), String.class);
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT password_hash, roles FROM proxy_users WHERE username = :u", Map.of("u", username));
         if (rows.isEmpty()) return Optional.empty();
-        String hash = rows.get(0);
-        return Optional.of(buildEntry(username, hash));
+        String hash = (String) rows.get(0).get("password_hash");
+        String rolesStr = (String) rows.get(0).get("roles");
+        return Optional.of(buildEntry(username, hash, rolesStr));
     }
 
     @Override
@@ -181,9 +183,59 @@ public class JdbcUserStore implements MutableUserStore {
                         "SELECT username FROM proxy_users WHERE username = :u", Map.of("u", username), String.class)
                 .isEmpty();
         if (!exists) {
-            jdbc.update("INSERT INTO proxy_users (username, password_hash) VALUES (:u, NULL)", Map.of("u", username));
+            jdbc.update(
+                    "INSERT INTO proxy_users (username, password_hash, roles) VALUES (:u, NULL, 'USER')",
+                    Map.of("u", username));
             log.debug("Auto-provisioned IdP user '{}'", username);
         }
+    }
+
+    /**
+     * Create a new local user. Throws {@link IllegalArgumentException} if the username already exists.
+     *
+     * @param username proxy username
+     * @param passwordHash encoded password (e.g. {@code {bcrypt}$2a$...} or {@code {noop}plain})
+     * @param roles comma-separated roles string, e.g. {@code "USER"} or {@code "USER,ADMIN"}
+     */
+    public void createUser(String username, String passwordHash, String roles) {
+        boolean exists = !jdbc.queryForList(
+                        "SELECT username FROM proxy_users WHERE username = :u", Map.of("u", username), String.class)
+                .isEmpty();
+        if (exists) {
+            throw new IllegalArgumentException("User already exists: " + username);
+        }
+        jdbc.update(
+                "INSERT INTO proxy_users (username, password_hash, roles) VALUES (:u, :hash, :roles)",
+                Map.of("u", username, "hash", passwordHash, "roles", roles));
+        log.info("Created user '{}'", username);
+    }
+
+    /**
+     * Delete a user and all their associated emails, SCM identities, and cached tokens (cascade).
+     *
+     * @throws IllegalArgumentException if the user does not exist
+     */
+    public void deleteUser(String username) {
+        int deleted = jdbc.update("DELETE FROM proxy_users WHERE username = :u", Map.of("u", username));
+        if (deleted == 0) {
+            throw new IllegalArgumentException("User not found: " + username);
+        }
+        log.info("Deleted user '{}'", username);
+    }
+
+    /**
+     * Update the password hash for an existing user.
+     *
+     * @throws IllegalArgumentException if the user does not exist
+     */
+    public void setPassword(String username, String passwordHash) {
+        int updated = jdbc.update(
+                "UPDATE proxy_users SET password_hash = :hash WHERE username = :u",
+                Map.of("u", username, "hash", passwordHash));
+        if (updated == 0) {
+            throw new IllegalArgumentException("User not found: " + username);
+        }
+        log.info("Updated password for user '{}'", username);
     }
 
     /**
@@ -206,7 +258,7 @@ public class JdbcUserStore implements MutableUserStore {
         log.debug("Upserted locked email '{}' ({}) for user '{}'", email, authSource, username);
     }
 
-    private UserEntry buildEntry(String username, String passwordHash) {
+    private UserEntry buildEntry(String username, String passwordHash, String rolesStr) {
         List<String> emails = jdbc.queryForList(
                 "SELECT email FROM user_emails WHERE username = :u ORDER BY email",
                 Map.of("u", username),
@@ -219,11 +271,13 @@ public class JdbcUserStore implements MutableUserStore {
                         .username((String) r.get("scm_username"))
                         .build())
                 .toList();
+        List<String> roles = (rolesStr != null && !rolesStr.isBlank()) ? List.of(rolesStr.split(",")) : List.of("USER");
         return UserEntry.builder()
                 .username(username)
                 .passwordHash(passwordHash)
                 .emails(Collections.unmodifiableList(emails))
                 .scmIdentities(Collections.unmodifiableList(scmIdentities))
+                .roles(roles)
                 .build();
     }
 }

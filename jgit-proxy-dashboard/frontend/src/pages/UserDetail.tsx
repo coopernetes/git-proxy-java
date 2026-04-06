@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { fetchPushes, fetchUser } from '../api'
+import {
+  addUserEmail,
+  addUserIdentity,
+  deleteUser,
+  fetchPushes,
+  fetchUser,
+  removeUserEmail,
+  removeUserIdentity,
+  resetUserPassword,
+} from '../api'
 import { StatusBadge } from '../components/StatusBadge'
 import type { EmailEntry, PushRecord, ScmIdentity, UserDetail as UserDetailType } from '../types'
 
@@ -63,18 +72,323 @@ function VerifiedBadge() {
   )
 }
 
-function OverviewTab({ user, isLocalAuth }: { user: UserDetailType; isLocalAuth: boolean }) {
+function AddEmailModal({
+  username,
+  onClose,
+  onAdded,
+}: {
+  username: string
+  onClose: () => void
+  onAdded: () => void
+}) {
+  const [email, setEmail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      await addUserEmail(username, email.trim())
+      onAdded()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add email')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-base font-semibold text-gray-800 mb-4">Add Email</h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="user@example.com"
+            className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-3 py-1.5 rounded bg-slate-700 text-white text-xs hover:bg-slate-800 disabled:opacity-50"
+            >
+              {submitting ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function AddScmIdentityModal({
+  username,
+  onClose,
+  onAdded,
+}: {
+  username: string
+  onClose: () => void
+  onAdded: () => void
+}) {
+  const [provider, setProvider] = useState('')
+  const [scmUsername, setScmUsername] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      await addUserIdentity(username, provider.trim(), scmUsername.trim())
+      onAdded()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add identity')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-base font-semibold text-gray-800 mb-4">Add SCM Identity</h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Provider</label>
+            <input
+              required
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              placeholder="github"
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">SCM Username</label>
+            <input
+              required
+              value={scmUsername}
+              onChange={(e) => setScmUsername(e.target.value)}
+              placeholder="github-handle"
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+            />
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-3 py-1.5 rounded bg-slate-700 text-white text-xs hover:bg-slate-800 disabled:opacity-50"
+            >
+              {submitting ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function ResetPasswordModal({ username, onClose }: { username: string; onClose: () => void }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (password !== confirm) {
+      setError('Passwords do not match')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await resetUserPassword(username, password)
+      setDone(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-base font-semibold text-gray-800 mb-4">Reset Password — {username}</h3>
+        {done ? (
+          <div className="space-y-3">
+            <p className="text-sm text-green-600">Password updated successfully.</p>
+            <div className="flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-3 py-1.5 rounded bg-slate-700 text-white text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
+              <input
+                required
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Confirm Password
+              </label>
+              <input
+                required
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+              />
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-3 py-1.5 rounded bg-slate-700 text-white text-xs hover:bg-slate-800 disabled:opacity-50"
+              >
+                {submitting ? 'Saving…' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function OverviewTab({
+  user,
+  isLocalAuth,
+  onRefresh,
+  onDeleted,
+}: {
+  user: UserDetailType
+  isLocalAuth: boolean
+  onRefresh: () => void
+  onDeleted: () => void
+}) {
+  const [showAddEmail, setShowAddEmail] = useState(false)
+  const [showAddScm, setShowAddScm] = useState(false)
+  const [showResetPw, setShowResetPw] = useState(false)
+  const [deletingEmail, setDeletingEmail] = useState<string | null>(null)
+  const [deletingScm, setDeletingScm] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  async function handleRemoveEmail(email: string) {
+    setDeletingEmail(email)
+    setActionError(null)
+    try {
+      await removeUserEmail(user.username, email)
+      onRefresh()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to remove email')
+    } finally {
+      setDeletingEmail(null)
+    }
+  }
+
+  async function handleRemoveScm(provider: string, scmUsername: string) {
+    const key = `${provider}/${scmUsername}`
+    setDeletingScm(key)
+    setActionError(null)
+    try {
+      await removeUserIdentity(user.username, provider, scmUsername)
+      onRefresh()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to remove SCM identity')
+    } finally {
+      setDeletingScm(null)
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete user "${user.username}"? This cannot be undone.`)) return
+    setDeleting(true)
+    setActionError(null)
+    try {
+      await deleteUser(user.username)
+      onDeleted()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete user')
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {showAddEmail && (
+        <AddEmailModal
+          username={user.username}
+          onClose={() => setShowAddEmail(false)}
+          onAdded={onRefresh}
+        />
+      )}
+      {showAddScm && (
+        <AddScmIdentityModal
+          username={user.username}
+          onClose={() => setShowAddScm(false)}
+          onAdded={onRefresh}
+        />
+      )}
+      {showResetPw && (
+        <ResetPasswordModal username={user.username} onClose={() => setShowResetPw(false)} />
+      )}
+
       {/* Emails */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Email Addresses</h3>
           {isLocalAuth && (
             <button
-              disabled
-              className="text-xs text-slate-400 cursor-not-allowed"
-              title="Coming soon"
+              onClick={() => setShowAddEmail(true)}
+              className="text-xs text-slate-600 hover:text-slate-800"
             >
               + Add
             </button>
@@ -93,11 +407,11 @@ function OverviewTab({ user, isLocalAuth }: { user: UserDetailType; isLocalAuth:
                 </span>
                 {isLocalAuth && !entry.locked && (
                   <button
-                    disabled
-                    className="text-gray-300 text-xs cursor-not-allowed"
-                    title="Coming soon"
+                    onClick={() => handleRemoveEmail(entry.email)}
+                    disabled={deletingEmail === entry.email}
+                    className="text-red-400 text-xs hover:text-red-600 disabled:opacity-40"
                   >
-                    Remove
+                    {deletingEmail === entry.email ? '…' : 'Remove'}
                   </button>
                 )}
               </li>
@@ -112,9 +426,8 @@ function OverviewTab({ user, isLocalAuth }: { user: UserDetailType; isLocalAuth:
           <h3 className="text-sm font-semibold text-gray-700">SCM Identities</h3>
           {isLocalAuth && (
             <button
-              disabled
-              className="text-xs text-slate-400 cursor-not-allowed"
-              title="Coming soon"
+              onClick={() => setShowAddScm(true)}
+              className="text-xs text-slate-600 hover:text-slate-800"
             >
               + Add
             </button>
@@ -138,11 +451,11 @@ function OverviewTab({ user, isLocalAuth }: { user: UserDetailType; isLocalAuth:
                 </span>
                 {isLocalAuth && (
                   <button
-                    disabled
-                    className="text-gray-300 text-xs cursor-not-allowed"
-                    title="Coming soon"
+                    onClick={() => handleRemoveScm(id.provider, id.username)}
+                    disabled={deletingScm === `${id.provider}/${id.username}`}
+                    className="text-red-400 text-xs hover:text-red-600 disabled:opacity-40"
                   >
-                    Remove
+                    {deletingScm === `${id.provider}/${id.username}` ? '…' : 'Remove'}
                   </button>
                 )}
               </li>
@@ -168,23 +481,24 @@ function OverviewTab({ user, isLocalAuth }: { user: UserDetailType; isLocalAuth:
         </div>
       </section>
 
+      {actionError && <p className="text-xs text-red-500">{actionError}</p>}
+
       {isLocalAuth && (
         <section className="border-t border-gray-100 pt-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Account Actions</h3>
           <div className="flex gap-2">
             <button
-              disabled
-              className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-400 cursor-not-allowed"
-              title="Coming soon"
+              onClick={() => setShowResetPw(true)}
+              className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
             >
               Reset Password
             </button>
             <button
-              disabled
-              className="px-3 py-1.5 rounded border border-red-100 text-xs text-red-300 cursor-not-allowed"
-              title="Coming soon"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-3 py-1.5 rounded border border-red-200 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
             >
-              Delete User
+              {deleting ? 'Deleting…' : 'Delete User'}
             </button>
           </div>
         </section>
@@ -304,12 +618,16 @@ export function UserDetail({ authProvider }: UserDetailProps) {
 
   const isLocalAuth = authProvider === 'local'
 
-  useEffect(() => {
+  function loadUser() {
     if (!username) return
     fetchUser(username)
       .then(setUser)
       .catch(() => setError('User not found'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadUser()
   }, [username])
 
   if (loading)
@@ -364,7 +682,14 @@ export function UserDetail({ authProvider }: UserDetailProps) {
         ))}
       </div>
 
-      {tab === 'overview' && <OverviewTab user={user} isLocalAuth={isLocalAuth} />}
+      {tab === 'overview' && (
+        <OverviewTab
+          user={user}
+          isLocalAuth={isLocalAuth}
+          onRefresh={loadUser}
+          onDeleted={() => navigate('/users')}
+        />
+      )}
       {tab === 'pushes' && <PushesTab username={user.username} />}
       {tab === 'permissions' && <PermissionsTab isLocalAuth={isLocalAuth} />}
     </div>

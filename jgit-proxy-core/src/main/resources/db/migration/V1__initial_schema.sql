@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS push_attestations (
 
 CREATE TABLE IF NOT EXISTS proxy_users (
     username      VARCHAR(255) PRIMARY KEY,
-    password_hash VARCHAR(255)
+    password_hash VARCHAR(255),
+    roles         VARCHAR(255) NOT NULL DEFAULT 'USER'
 );
 
 CREATE TABLE IF NOT EXISTS user_emails (
