@@ -1,6 +1,10 @@
 package org.finos.gitproxy.jetty;
 
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,6 +79,27 @@ public final class GitProxyServletRegistrar {
                     gitProxyCtx.repoPermissionService(),
                     gitProxyCtx.fetchStore());
         }
+        registerFallbackServlets(context);
+    }
+
+    /**
+     * Registers catch-all servlets at {@code /proxy/*} and {@code /push/*} that return 400 for any path not matched by
+     * a more-specific provider servlet. Without these, unrecognized paths fall through to Spring's DispatcherServlet
+     * (in the dashboard module) and get a confusing "No static resource" 404.
+     *
+     * <p>Per the servlet spec, path-prefix mappings are resolved longest-match-first, so provider-specific patterns
+     * like {@code /proxy/github/*} always win over this {@code /proxy/*} fallback regardless of registration order.
+     */
+    private static void registerFallbackServlets(ServletContextHandler context) {
+        HttpServlet fallback = new HttpServlet() {
+            @Override
+            protected void service(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+                resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No git proxy route configured for this path");
+            }
+        };
+        context.addServlet(new ServletHolder("proxy-fallback", fallback), PROXY_PATH_PREFIX + "/*");
+        context.addServlet(new ServletHolder("push-fallback", fallback), PUSH_PATH_PREFIX + "/*");
+        log.debug("Registered fallback servlets for {} and {}", PROXY_PATH_PREFIX, PUSH_PATH_PREFIX);
     }
 
     public static void registerGitServlet(

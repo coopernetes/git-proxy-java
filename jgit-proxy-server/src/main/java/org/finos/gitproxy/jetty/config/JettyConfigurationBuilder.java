@@ -92,10 +92,10 @@ public class JettyConfigurationBuilder {
         return config.getServer().getProxyConnectTimeoutSeconds();
     }
 
-    /** Returns the service URL for dashboard links, defaulting to {@code http://localhost:<port>}. */
+    /** Returns the service URL for dashboard links, defaulting to {@code http://localhost:<port>/dashboard}. */
     public String getServiceUrl() {
         String url = config.getServiceUrl();
-        return (url != null && !url.isBlank()) ? url : "http://localhost:" + getServerPort();
+        return (url != null && !url.isBlank()) ? url : "http://localhost:" + getServerPort() + "/dashboard";
     }
 
     /** Creates the list of enabled providers from configuration. */

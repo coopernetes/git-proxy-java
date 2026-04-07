@@ -43,8 +43,9 @@ public class GitProxyConfig {
     private List<UserConfig> users = new ArrayList<>();
 
     /**
-     * Optional service URL for dashboard links embedded in block messages. Defaults to {@code http://localhost:<port>}
-     * when not set.
+     * Optional service URL for dashboard links embedded in block messages. Should be the base URL of the dashboard
+     * (e.g. {@code https://gitproxy.example.com/dashboard}). Defaults to {@code http://localhost:<port>/dashboard} when
+     * not set.
      */
     private String serviceUrl;
 

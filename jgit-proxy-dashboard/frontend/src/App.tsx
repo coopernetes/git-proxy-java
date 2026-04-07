@@ -23,7 +23,7 @@ export default function App() {
   }, [])
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/dashboard">
       <div className="bg-gray-100 min-h-screen flex flex-col">
         <Nav currentUser={currentUser} />
         <main className="flex-1">

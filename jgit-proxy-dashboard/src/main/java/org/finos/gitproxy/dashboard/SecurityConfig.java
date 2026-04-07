@@ -331,7 +331,7 @@ public class SecurityConfig {
      */
     private AuthenticationSuccessHandler idpProvisioningSuccessHandler() {
         var delegate = new SavedRequestAwareAuthenticationSuccessHandler();
-        delegate.setDefaultTargetUrl("/");
+        delegate.setDefaultTargetUrl("/dashboard/");
         delegate.setAlwaysUseDefaultTargetUrl(true);
         return new AuthenticationSuccessHandler() {
             @Override
