@@ -22,8 +22,8 @@ if [ -z "${GITEA_TOKEN}" ]; then
     exit 1
 fi
 
-GIT_REPO=${GIT_REPO:-"localhost:3000/test-owner/test-repo.git"}
-PUSH_URL="http://me:${GITEA_TOKEN}@localhost:8080/push/${GIT_REPO}"
+GITEA_REPO="localhost:3000/test-owner/test-repo.git"
+PUSH_URL="http://me:${GITEA_TOKEN}@localhost:8080/push/gitea/test-owner/test-repo.git"
 TEST_BRANCH="test/gitea-unlinked-$(date +%s)"
 REPO_DIR=$(mktemp -d /tmp/gitea-unlinked-XXXX)
 
@@ -33,11 +33,11 @@ cleanup() {
 trap cleanup EXIT
 
 # Clone directly from Gitea (not via proxy) so we have a repo to push from
-git clone "http://me:${GITEA_TOKEN}@${GIT_REPO}" "${REPO_DIR}"
+git clone "http://me:${GITEA_TOKEN}@${GITEA_REPO}" "${REPO_DIR}"
 cd "${REPO_DIR}"
 git checkout -b "${TEST_BRANCH}"
 git config user.name "Gitea Admin"
-git config user.email "admin@example.com"
+git config user.email "unregistered@example.com"
 git remote set-url origin "${PUSH_URL}"
 
 echo "unlinked - $(date)" >> test-file.txt

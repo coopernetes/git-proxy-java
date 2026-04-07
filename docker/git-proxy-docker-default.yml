@@ -76,6 +76,26 @@ permissions:
     path-type: GLOB
     operations: APPROVE
 
+  # LDAP testuser (maps to gitea/test-user): same literal grant as test-user above.
+  # When docker-default,ldap profiles are combined, GITEA_TESTUSER_TOKEN resolves to
+  # "testuser" (the LDAP proxy user). Only LITERAL /test-owner/test-repo is granted
+  # so that push-permission-literal.sh still passes the deny-on-other-repo case.
+  - username: testuser
+    provider: gitea
+    path: /test-owner/test-repo
+    operations: PUSH
+
+  # admin APPROVE grants for LDAP setup (admin approves via dashboard).
+  - username: admin
+    provider: gitea
+    path: /test-owner/test-repo
+    operations: APPROVE
+  - username: admin
+    provider: gitea
+    path: /otherorg/*
+    path-type: GLOB
+    operations: APPROVE
+
 providers:
   # Local gitea included in docker compose setup
   gitea:

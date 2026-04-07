@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GLOB permission smoke test.
+# GLOB permission smoke test via transparent proxy.
 #
 # user2 has a GLOB permission on /otherorg/* — matches any repo under otherorg.
 #
@@ -21,29 +21,29 @@ REPO_FOO="gitea/otherorg/other-foo.git"
 REPO_BAR="gitea/otherorg/other-bar.git"
 REPO_DENIED="gitea/test-owner/test-repo.git"
 
-print_header "PERMISSION: GLOB — user2 (/otherorg/*)" "http://localhost:8080"
+print_header "PERMISSION: GLOB (proxy) — user2 (/otherorg/*)" "http://localhost:8080"
 
 # --- allowed: /otherorg/other-foo ---
-PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/push/${REPO_FOO}"
-setup_repo "${PUSH_URL}" "perm-glob-foo"
+PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/proxy/${REPO_FOO}"
+setup_repo "${PUSH_URL}" "proxy-perm-glob-foo"
 git config user.email "user2@example.com"
 echo "glob-foo - $(date)" >> test-file.txt
 git add test-file.txt
 git commit -m "test: glob permission — otherorg/other-foo"
-run_test_expect_success "PASS: user2 → /otherorg/other-foo (glob match)"
+run_proxy_test_expect_success "PASS: user2 → /otherorg/other-foo (glob match)"
 
 # --- allowed: /otherorg/other-bar ---
-PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/push/${REPO_BAR}"
-setup_repo "${PUSH_URL}" "perm-glob-bar"
+PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/proxy/${REPO_BAR}"
+setup_repo "${PUSH_URL}" "proxy-perm-glob-bar"
 git config user.email "user2@example.com"
 echo "glob-bar - $(date)" >> test-file.txt
 git add test-file.txt
 git commit -m "test: glob permission — otherorg/other-bar"
-run_test_expect_success "PASS: user2 → /otherorg/other-bar (glob match)"
+run_proxy_test_expect_success "PASS: user2 → /otherorg/other-bar (glob match)"
 
 # --- denied: /test-owner/test-repo (outside glob scope) ---
-PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/push/${REPO_DENIED}"
-setup_repo "${PUSH_URL}" "perm-glob-deny"
+PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/proxy/${REPO_DENIED}"
+setup_repo "${PUSH_URL}" "proxy-perm-glob-deny"
 git config user.email "user2@example.com"
 echo "glob-deny - $(date)" >> test-file.txt
 git add test-file.txt

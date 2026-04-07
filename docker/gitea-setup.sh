@@ -20,7 +20,7 @@ GITEA_URL="http://localhost:3000"
 # Gitea admin — owns orgs/repos; NOT mapped in jgit-proxy (tests identity-not-linked)
 ADMIN_USER="gitproxyadmin"
 ADMIN_PASSWORD="Admin1234!"
-ADMIN_EMAIL="admin@example.com"
+ADMIN_EMAIL="gitproxyadmin@example.com"
 
 # Test users — each mapped to a distinct proxy user for permission testing:
 #

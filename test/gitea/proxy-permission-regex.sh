@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# REGEX permission smoke test.
+# REGEX permission smoke test via transparent proxy.
 #
 # user3 has a REGEX permission on /test-owner/test-repo.* — matches any repo
 # under test-owner whose name starts with "test-repo".
@@ -22,29 +22,29 @@ REPO1="gitea/test-owner/test-repo.git"
 REPO2="gitea/test-owner/test-repo-2.git"
 REPO_DENIED="gitea/otherorg/other-foo.git"
 
-print_header "PERMISSION: REGEX — user3 (/test-owner/test-repo.*)" "http://localhost:8080"
+print_header "PERMISSION: REGEX (proxy) — user3 (/test-owner/test-repo.*)" "http://localhost:8080"
 
 # --- allowed: /test-owner/test-repo ---
-PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/push/${REPO1}"
-setup_repo "${PUSH_URL}" "perm-regex-repo1"
+PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/proxy/${REPO1}"
+setup_repo "${PUSH_URL}" "proxy-perm-regex-repo1"
 git config user.email "user3@example.com"
 echo "regex-repo1 - $(date)" >> test-file.txt
 git add test-file.txt
 git commit -m "test: regex permission — test-repo"
-run_test_expect_success "PASS: user3 → /test-owner/test-repo (regex match)"
+run_proxy_test_expect_success "PASS: user3 → /test-owner/test-repo (regex match)"
 
 # --- allowed: /test-owner/test-repo-2 ---
-PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/push/${REPO2}"
-setup_repo "${PUSH_URL}" "perm-regex-repo2"
+PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/proxy/${REPO2}"
+setup_repo "${PUSH_URL}" "proxy-perm-regex-repo2"
 git config user.email "user3@example.com"
 echo "regex-repo2 - $(date)" >> test-file.txt
 git add test-file.txt
 git commit -m "test: regex permission — test-repo-2"
-run_test_expect_success "PASS: user3 → /test-owner/test-repo-2 (regex match)"
+run_proxy_test_expect_success "PASS: user3 → /test-owner/test-repo-2 (regex match)"
 
 # --- denied: /otherorg/other-foo (no match) ---
-PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/push/${REPO_DENIED}"
-setup_repo "${PUSH_URL}" "perm-regex-deny"
+PUSH_URL="http://${GIT_USERNAME}:${TOKEN}@localhost:8080/proxy/${REPO_DENIED}"
+setup_repo "${PUSH_URL}" "proxy-perm-regex-deny"
 git config user.email "user3@example.com"
 echo "regex-deny - $(date)" >> test-file.txt
 git add test-file.txt

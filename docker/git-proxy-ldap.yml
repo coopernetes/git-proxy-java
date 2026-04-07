@@ -31,24 +31,7 @@ users:
       - admin@example.com
     roles: [ADMIN]
 
-# Repo permissions for LDAP test users.
-# Mirrors docker-default: testuser pushes, admin approves via dashboard.
-permissions:
-  - username: testuser
-    provider: gitea
-    path: /test-owner/test-repo
-    operations: PUSH
-  - username: testuser
-    provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
-    operations: PUSH
-  - username: admin
-    provider: gitea
-    path: /test-owner/test-repo
-    operations: APPROVE
-  - username: admin
-    provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
-    operations: APPROVE
+# Repo permissions are defined in git-proxy-docker-default.yml.
+# Defining permissions here would override docker-default entries by list index (Gestalt
+# list-merge behaviour), causing user2/user3 grants to disappear. All gitea permissions
+# must live in a single config file to avoid this.

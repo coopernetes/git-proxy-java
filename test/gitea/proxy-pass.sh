@@ -12,7 +12,7 @@ TEST_BRANCH="test/gitea-proxy-pass-$(date +%s)"
 REPO_DIR=$(mktemp -d /tmp/gitea-proxy-pass-XXXX)
 
 cleanup() {
-    git -C "${REPO_DIR}" remote set-url origin "http://${GIT_USERNAME}:${GIT_PASSWORD}@${GIT_REPO}" 2>/dev/null || true
+    git -C "${REPO_DIR}" remote set-url origin "http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:3000/test-owner/test-repo.git" 2>/dev/null || true
     git -C "${REPO_DIR}" push origin --delete "${TEST_BRANCH}" 2>/dev/null || true
     rm -rf "${REPO_DIR}"
 }

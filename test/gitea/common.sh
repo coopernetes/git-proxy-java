@@ -4,14 +4,16 @@
 source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 resolve_gitea_pat
 
-export GIT_REPO=${GIT_REPO:-"localhost:3000/test-owner/test-repo.git"}
+export GIT_REPO=${GIT_REPO:-"gitea/test-owner/test-repo.git"}
 
 export PASS=0
 export FAIL=0
 CURRENT_REPO=""
 
 cleanup() {
-    [[ -n "${CURRENT_REPO}" && -d "${CURRENT_REPO}" ]] && rm -rf "${CURRENT_REPO}"
+    if [[ -n "${CURRENT_REPO}" && -d "${CURRENT_REPO}" ]]; then
+        rm -rf "${CURRENT_REPO}"
+    fi
 }
 trap cleanup EXIT INT TERM
 
@@ -86,6 +88,41 @@ run_test_expect_success() {
     fi
     rm -rf "${CURRENT_REPO}"
     CURRENT_REPO=""
+}
+
+run_proxy_test_expect_success() {
+    local test_name="$1"
+    shift
+    print_test_header "${test_name}"
+    "$@"
+    local output push_id approve_code exit_code=0
+    output=$(git push origin "${BRANCH}" 2>&1 || true)
+    echo "${output}"
+    push_id=$(echo "${output}" | grep -oP '(?<=/push/)[0-9a-f-]{36}' | head -1)
+    if [ -z "${push_id}" ]; then
+        echo ">>> ${test_name}: UNEXPECTED (no push ID in proxy response)"
+        ((++FAIL))
+        rm -rf "${CURRENT_REPO}"; CURRENT_REPO=""; return
+    fi
+    approve_code=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "http://localhost:8080/api/push/${push_id}/authorise" \
+        -H "Content-Type: application/json" \
+        -H "X-Api-Key: ${GITPROXY_API_KEY}" \
+        -d '{"user":"test-script","comment":"auto-approved"}')
+    if [ "${approve_code}" != "200" ]; then
+        echo ">>> ${test_name}: UNEXPECTED (approval API returned ${approve_code})"
+        ((++FAIL))
+        rm -rf "${CURRENT_REPO}"; CURRENT_REPO=""; return
+    fi
+    git push origin "${BRANCH}" 2>&1 || exit_code=$?
+    if [[ ${exit_code} -eq 0 ]]; then
+        echo ">>> ${test_name}: PASSED"
+        ((++PASS))
+    else
+        echo ">>> ${test_name}: UNEXPECTED (re-push after approval failed)"
+        ((++FAIL))
+    fi
+    rm -rf "${CURRENT_REPO}"; CURRENT_REPO=""
 }
 
 run_orchestrated() {
