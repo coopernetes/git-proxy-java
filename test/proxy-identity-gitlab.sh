@@ -14,7 +14,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 resolve_pat ~/.gitlab-pat
 GIT_REPO=${GIT_REPO:-"gitlab.com/coopernetes/test-repo-gitlab.git"}
 GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-"Thomas Cooper"}
-GIT_EMAIL=${GIT_EMAIL:-"unregistered@example.com"}
 GITPROXY_API_KEY=${GITPROXY_API_KEY:-"change-me-in-production"}
 PROXY_URL="http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:8080/proxy/${GIT_REPO}"
 TEST_BRANCH="test/proxy-identity-gitlab-$(date +%s)"
@@ -31,7 +30,8 @@ git clone "${PROXY_URL}" "${REPO_DIR}"
 cd "${REPO_DIR}"
 git checkout -b "${TEST_BRANCH}"
 git config user.name "${GIT_AUTHOR_NAME}"
-git config user.email "${GIT_EMAIL}"
+# Hardcoded unregistered email — must NOT be in thomas-cooper's registered emails
+git config user.email "unregistered@example.com"
 
 echo "proxy-identity-gitlab - $(date)" >> test-file.txt
 git add test-file.txt

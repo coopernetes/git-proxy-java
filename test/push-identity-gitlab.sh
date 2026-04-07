@@ -18,7 +18,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 resolve_pat ~/.gitlab-pat
 GIT_REPO=${GIT_REPO:-"gitlab.com/coopernetes/test-repo-gitlab.git"}
 GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-"Thomas Cooper"}
-GIT_EMAIL=${GIT_EMAIL:-"unregistered@example.com"}
 PUSH_URL="http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:8080/push/${GIT_REPO}"
 TEST_BRANCH="test/identity-gitlab-$(date +%s)"
 REPO_DIR=$(mktemp -d /tmp/push-identity-gitlab-XXXX)
@@ -33,9 +32,9 @@ trap cleanup EXIT
 git clone "${PUSH_URL}" "${REPO_DIR}"
 cd "${REPO_DIR}"
 git checkout -b "${TEST_BRANCH}"
-# Use an email NOT registered to admin — triggers email-level identity warning
+# Hardcoded unregistered email — must NOT be in thomas-cooper's registered emails
 git config user.name "${GIT_AUTHOR_NAME}"
-git config user.email "${GIT_EMAIL}"
+git config user.email "unregistered@example.com"
 
 echo "identity-gitlab - $(date)" >> test-file.txt
 git add test-file.txt
