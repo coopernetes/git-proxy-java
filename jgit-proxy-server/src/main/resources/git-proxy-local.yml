@@ -33,6 +33,8 @@ users:
       - provider: gitlab
         username: coopernetes
       # codeberg intentionally omitted — used to test unresolved-identity scenario
+    emails:
+      - thomas-cooper@example.com
 
   - username: reviewer
     password-hash: "{noop}password"
@@ -96,7 +98,7 @@ permissions:
     operations: PUSH
   - username: thomas-cooper
     provider: codeberg
-    path: /coopernetes/test-repo-codeberg
+    path: /coopernetes/test-repo-([\d]+) # Match "codeberg" with a capturing group to test that group captures are ignored and the regex is still evaluated correctly.
     path-type: REGEX
     operations: PUSH
   - username: reviewer

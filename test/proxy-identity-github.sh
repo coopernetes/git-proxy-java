@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Identity verification — GitHub, transparent proxy mode (full resolution expected).
 #
-# Scenario: push as coopernetes via GitHub PAT. Proxy resolves coopernetes → admin
-# (user_scm_identities provider=github). Commit email matches admin's registered
-# email → identity fully verified. Push is blocked for review, auto-approved via API.
+# Scenario: push as coopernetes via GitHub PAT. Proxy resolves coopernetes →
+# thomas-cooper (user_scm_identities provider=github). Commit email matches
+# thomas-cooper's registered email → identity fully verified. Push is blocked
+# for review, auto-approved via API.
 #
-# Expected: push succeeds, resolved_user = admin, identity badge = green.
+# Expected: push succeeds, resolved_user = thomas-cooper, identity badge = green.
 set -euo pipefail
 
 GIT_USERNAME=${GIT_USERNAME:-"me"}
@@ -27,8 +28,8 @@ trap cleanup EXIT
 git clone "${PROXY_URL}" "${REPO_DIR}"
 cd "${REPO_DIR}"
 git checkout -b "${TEST_BRANCH}"
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 
 echo "proxy-identity-github - $(date)" >> test-file.txt
 git add test-file.txt

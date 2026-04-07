@@ -2,10 +2,10 @@
 # Identity verification — GitHub (full resolution expected).
 #
 # Scenario: push as coopernetes using a GitHub PAT. The proxy resolves
-# coopernetes → admin (via user_scm_identities for provider=github).
-# Commit email matches admin's registered email → identity fully verified.
+# coopernetes → thomas-cooper (via user_scm_identities for provider=github).
+# Commit email matches thomas-cooper's registered email → identity fully verified.
 #
-# Expected: push succeeds, resolved_user = admin on the push record.
+# Expected: push succeeds, resolved_user = thomas-cooper on the push record.
 set -euo pipefail
 
 GIT_USERNAME=${GIT_USERNAME:-"me"}
@@ -26,9 +26,8 @@ trap cleanup EXIT
 git clone "${PUSH_URL}" "${REPO_DIR}"
 cd "${REPO_DIR}"
 git checkout -b "${TEST_BRANCH}"
-# Use registered email so identity verification passes cleanly
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 
 echo "identity-github - $(date)" >> test-file.txt
 git add test-file.txt
