@@ -39,6 +39,18 @@ users:
   - username: reviewer
     password-hash: "{noop}password"
 
+auth:
+  provider: ldap
+  ldap:
+    url: ldap://localhost:3389/dc=example,dc=com
+    user-dn-patterns: cn={0},ou=users
+    bind-dn: cn=admin,dc=example,dc=com
+    bind-password: adminpassword
+    group-search-base: ou=groups
+  role-mappings:
+    ADMIN:
+      - jgit_proxy_admins
+
 commit:
   author:
     email:

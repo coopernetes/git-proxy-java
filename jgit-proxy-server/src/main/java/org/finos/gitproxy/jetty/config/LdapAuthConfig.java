@@ -19,13 +19,13 @@ public class LdapAuthConfig {
     private String userDnPatterns = "uid={0}";
 
     /**
-     * Optional manager DN used to bind when performing group searches or attribute lookups. Leave blank when anonymous
-     * search is sufficient (e.g. bind-only auth with no attribute population).
+     * Optional bind DN used when performing group searches or attribute lookups. Leave blank when anonymous search is
+     * sufficient (e.g. bind-only auth with no attribute population).
      */
-    private String managerDn = "";
+    private String bindDn = "";
 
-    /** Password for the manager DN. Ignored when {@code managerDn} is blank. */
-    private String managerPassword = "";
+    /** Password for the bind DN. Ignored when {@code bindDn} is blank. */
+    private String bindPassword = "";
 
     /**
      * Base DN for group search, relative to the base DN in {@code url}. When set, group membership is used to derive

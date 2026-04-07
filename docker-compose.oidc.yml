@@ -28,6 +28,11 @@ services:
       # so accessing it as http://mock-oauth2:9090 produces a consistent issuer URL
       # from both jgit-proxy (Docker DNS) and the browser (/etc/hosts).
       SERVER_PORT: "9090"
+      # Pre-configured token callbacks: logging in as "admin" injects a groups claim
+      # so that auth.role-mappings can grant ROLE_ADMIN automatically.
+      JSON_CONFIG_PATH: /app/mock-oauth2-config.json
+    volumes:
+      - ./docker/mock-oauth2-config.json:/app/mock-oauth2-config.json:ro
     ports:
       - "9090:9090"
     healthcheck:

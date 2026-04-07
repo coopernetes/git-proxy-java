@@ -1,0 +1,17 @@
+{
+  "interactiveLogin": true,
+  "tokenCallbacks": [
+    {
+      "issuerId": "default",
+      "requestMappings": [
+        {
+          "requestParam": "sub",
+          "match": "admin",
+          "claims": {
+            "groups": ["jgit_proxy_admins"]
+          }
+        }
+      ]
+    }
+  ]
+}

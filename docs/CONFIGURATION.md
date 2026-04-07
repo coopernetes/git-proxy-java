@@ -140,6 +140,95 @@ database:
   name: gitproxy
 ```
 
+## Authentication
+
+The dashboard supports three authentication providers, selected via `auth.provider`.
+
+```yaml
+auth:
+  provider: local   # local | ldap | oidc (default: local)
+```
+
+### Local (default)
+
+Usernames and BCrypt password hashes are defined directly in the `users:` block. See the [Users](#users) section.
+
+### LDAP
+
+Authenticates users against an LDAP or Active Directory server using a bind operation.
+
+```yaml
+auth:
+  provider: ldap
+  ldap:
+    # LDAP server URL including base DN.
+    url: ldap://ldap.example.com:389/dc=example,dc=com
+
+    # User DN pattern — {0} is substituted with the login username.
+    user-dn-patterns: cn={0},ou=users
+
+    # Optional bind credentials for group search / attribute lookup.
+    bind-dn: cn=admin,dc=example,dc=com
+    bind-password: secret
+
+    # Base DN (relative to url base) to search for group membership.
+    # When set, group names are mapped to roles via auth.role-mappings below.
+    group-search-base: ou=groups
+
+    # LDAP filter for group membership. {0} = user full DN, {1} = username.
+    group-search-filter: "(member={0})"
+
+  # Map jgit-proxy role names to lists of LDAP group CNs.
+  # When a user is a member of any listed group, the role is granted.
+  role-mappings:
+    ADMIN:
+      - git-admins
+      - security-team
+```
+
+### OIDC
+
+Authenticates users via OpenID Connect authorization code flow (Keycloak, Okta, Entra ID, Dex, etc.).
+
+```yaml
+auth:
+  provider: oidc
+  oidc:
+    # OIDC issuer URI — Spring Security fetches {issuerUri}/.well-known/openid-configuration at startup.
+    issuer-uri: https://accounts.example.com
+
+    client-id: gitproxy-client
+    client-secret: gitproxy-secret
+
+    # Optional: skip OIDC discovery and issuer validation. Required for Entra ID,
+    # which issues tokens with iss=https://sts.windows.net/{tenant}/ regardless of
+    # the discovery URL. Set to https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys.
+    # jwk-set-uri: https://...
+
+    # Optional: path to a PKCS#8 PEM RSA private key for private_key_jwt client auth.
+    # When set, client-secret is not required.
+    # private-key-path: /run/secrets/gitproxy-oidc-private-key.pem
+
+  # OIDC claim containing the user's group memberships. Defaults to "groups",
+  # which is standard for Keycloak, Okta, and most Entra ID configurations.
+  groups-claim: groups
+
+  # Map jgit-proxy role names to lists of OIDC group values from the claim above.
+  role-mappings:
+    ADMIN:
+      - git-admins
+```
+
+### Role mappings
+
+`auth.role-mappings` applies to both LDAP and OIDC. Keys are role names (without the `ROLE_` prefix); values are lists
+of group names or claim values from the IdP. `ROLE_USER` is always granted to every authenticated user.
+
+| Role    | Dashboard access |
+| ------- | ---------------- |
+| `USER`  | View and act on pushes awaiting approval |
+| `ADMIN` | All USER permissions + create/delete users, reset passwords, manage identities |
+
 ## Providers
 
 Providers define the upstream Git hosting services the proxy routes to.

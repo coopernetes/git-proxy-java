@@ -193,9 +193,9 @@ public class SecurityConfig {
         }
 
         var contextSource = new DefaultSpringSecurityContextSource(ldapCfg.getUrl());
-        if (!ldapCfg.getManagerDn().isBlank()) {
-            contextSource.setUserDn(ldapCfg.getManagerDn());
-            contextSource.setPassword(ldapCfg.getManagerPassword());
+        if (!ldapCfg.getBindDn().isBlank()) {
+            contextSource.setUserDn(ldapCfg.getBindDn());
+            contextSource.setPassword(ldapCfg.getBindPassword());
         }
         contextSource.afterPropertiesSet();
 
@@ -209,6 +209,7 @@ public class SecurityConfig {
             var populator = new DefaultLdapAuthoritiesPopulator(contextSource, ldapCfg.getGroupSearchBase());
             populator.setGroupSearchFilter(ldapCfg.getGroupSearchFilter());
             populator.setRolePrefix("");
+            populator.setConvertToUpperCase(false);
             populator.setSearchSubtree(true);
             ldapProvider = new LdapAuthenticationProvider(authenticator, populator);
             ldapProvider.setAuthoritiesMapper(ldapAuthorities -> mapIdpGroupsToRoles(ldapAuthorities, roleMappings));
@@ -389,11 +390,9 @@ public class SecurityConfig {
                 for (Map.Entry<String, List<String>> entry : roleMappings.entrySet()) {
                     List<String> mappedGroups = entry.getValue();
                     if (groups.stream().anyMatch(mappedGroups::contains)) {
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + entry.getKey()));
-                        log.debug(
-                                "Granted ROLE_{} to OIDC user '{}' via group membership",
-                                entry.getKey(),
-                                oidcUser.getName());
+                        String role = entry.getKey().toUpperCase(java.util.Locale.ROOT);
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+                        log.debug("Granted ROLE_{} to OIDC user '{}' via group membership", role, oidcUser.getName());
                     }
                 }
                 return new DefaultOidcUser(authorities, oidcUser.getIdToken(), oidcUser.getUserInfo());
@@ -413,7 +412,8 @@ public class SecurityConfig {
             String groupName = authority.getAuthority();
             for (Map.Entry<String, List<String>> entry : roleMappings.entrySet()) {
                 if (entry.getValue().contains(groupName)) {
-                    mapped.add(new SimpleGrantedAuthority("ROLE_" + entry.getKey()));
+                    mapped.add(
+                            new SimpleGrantedAuthority("ROLE_" + entry.getKey().toUpperCase(java.util.Locale.ROOT)));
                 }
             }
         }

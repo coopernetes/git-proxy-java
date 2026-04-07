@@ -8,7 +8,8 @@ import org.testcontainers.images.builder.Transferable;
  * Testcontainers wrapper for <a href="https://github.com/osixia/container-openldap">osixia/openldap</a>.
  *
  * <p>Starts with a single test user ({@value #TEST_USER} / {@value #TEST_PASSWORD}) added via {@code ldapadd} after
- * container startup. The user is created at {@code cn=testuser,ou=users,dc=example,dc=com}.
+ * container startup. The user is created at {@code cn=testuser,ou=users,dc=example,dc=com} and is a member of the
+ * {@value #ADMIN_GROUP} group at {@code cn=admins,ou=groups,dc=example,dc=com}.
  *
  * <p>TLS is disabled ({@code LDAP_TLS=false}) so the test JVM can connect over plain {@code ldap://} without needing to
  * trust a self-signed certificate. This is intentional for test containers only.
@@ -29,8 +30,18 @@ class OpenLdapContainer extends GenericContainer<OpenLdapContainer> {
     static final String BASE_DN = "dc=example,dc=com";
     static final String USER_DN_PATTERN = "cn={0},ou=users";
 
+    /** Base DN for group search (relative to {@link #BASE_DN}). */
+    static final String GROUP_SEARCH_BASE = "ou=groups";
+
+    /** CN of the test group that {@link #TEST_USER} belongs to. */
+    static final String ADMIN_GROUP = "admins";
+
+    /** Manager DN for authenticated group searches. */
+    static final String MANAGER_DN = "cn=admin," + BASE_DN;
+
+    static final String ADMIN_PASSWORD = "adminpassword";
+
     private static final int LDAP_PORT = 389;
-    private static final String ADMIN_PASSWORD = "adminpassword";
 
     private static final String BOOTSTRAP_LDIF = "dn: ou=users," + BASE_DN + "\n"
             + "objectClass: organizationalUnit\n"
@@ -40,7 +51,16 @@ class OpenLdapContainer extends GenericContainer<OpenLdapContainer> {
             + "objectClass: inetOrgPerson\n"
             + "cn: " + TEST_USER + "\n"
             + "sn: " + TEST_USER + "\n"
-            + "userPassword: " + TEST_PASSWORD + "\n";
+            + "userPassword: " + TEST_PASSWORD + "\n"
+            + "\n"
+            + "dn: ou=groups," + BASE_DN + "\n"
+            + "objectClass: organizationalUnit\n"
+            + "ou: groups\n"
+            + "\n"
+            + "dn: cn=" + ADMIN_GROUP + ",ou=groups," + BASE_DN + "\n"
+            + "objectClass: groupOfNames\n"
+            + "cn: " + ADMIN_GROUP + "\n"
+            + "member: cn=" + TEST_USER + ",ou=users," + BASE_DN + "\n";
 
     OpenLdapContainer() {
         super("docker.io/osixia/openldap:1.5.0");
