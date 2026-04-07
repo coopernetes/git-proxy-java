@@ -11,6 +11,10 @@
 set -euo pipefail
 
 COMPOSE="${COMPOSE:-docker compose}"
+# Always pass the compose file explicitly so podman-compose finds it when the
+# script is run from any directory (podman-compose doesn't auto-discover like
+# Docker Compose v2 does).
+COMPOSE_FILE="$(dirname "${BASH_SOURCE[0]}")/../docker-compose.yml"
 GITEA_URL="http://localhost:3000"
 
 # Gitea admin — owns orgs/repos; NOT mapped in jgit-proxy (tests identity-not-linked)
@@ -55,7 +59,7 @@ gitea_api() {
 create_user() {
     local username="$1" password="$2" email="$3"
     echo "==> Creating user '${username}'..."
-    $COMPOSE exec gitea /sbin/su-exec git gitea admin user create \
+    $COMPOSE -f "${COMPOSE_FILE}" exec gitea /sbin/su-exec git gitea admin user create \
         --username "${username}" \
         --password "${password}" \
         --email "${email}" \
@@ -65,7 +69,7 @@ create_user() {
 generate_token() {
     local username="$1" token_name="$2"
     local out
-    out=$($COMPOSE exec gitea /sbin/su-exec git gitea admin user generate-access-token \
+    out=$($COMPOSE -f "${COMPOSE_FILE}" exec gitea /sbin/su-exec git gitea admin user generate-access-token \
         --username "${username}" \
         --token-name "${token_name}" \
         --scopes "read:user,write:repository" 2>&1) || true
@@ -106,7 +110,7 @@ echo "    Gitea is up."
 # ---------------------------------------------------------------------------
 
 echo "==> Creating admin user '${ADMIN_USER}'..."
-$COMPOSE exec gitea /sbin/su-exec git gitea admin user create \
+$COMPOSE -f "${COMPOSE_FILE}" exec gitea /sbin/su-exec git gitea admin user create \
     --admin \
     --username "${ADMIN_USER}" \
     --password "${ADMIN_PASSWORD}" \
