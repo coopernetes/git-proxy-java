@@ -91,10 +91,10 @@ class GitProxyConfigLoaderTest {
         assertFalse(ss.isEnabled());
     }
 
-    // --- whitelists ---
+    // --- rules ---
 
     @Test
-    void whitelistFilters_returnsNonNullList() throws GestaltException {
-        assertNotNull(GitProxyConfigLoader.load().getFilters().getWhitelists());
+    void rules_allowList_returnsNonNull() throws GestaltException {
+        assertNotNull(GitProxyConfigLoader.load().getRules().getAllow());
     }
 }

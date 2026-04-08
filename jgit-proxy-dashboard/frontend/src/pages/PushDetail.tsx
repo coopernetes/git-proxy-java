@@ -43,8 +43,9 @@ const STEP_DISPLAY_NAMES: Record<string, string> = {
   IdentityVerificationHook: 'Identity verification',
   CheckUserPushPermissionFilter: 'Push permissions',
   CheckUserPushPermissionHook: 'Push permissions',
-  WhitelistAggregateFilter: 'Repository whitelist',
-  RepositoryWhitelistHook: 'Repository whitelist',
+  checkUrlRules: 'URL allow rules',
+  UrlRuleAggregateFilter: 'URL allow rules',
+  RepositoryUrlRuleHook: 'URL allow rules',
 }
 
 function IdentityBadge({ record }: { record: PushRecord }) {

@@ -1,7 +1,7 @@
 package org.finos.gitproxy.servlet.filter;
 
 import static org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR;
-import static org.finos.gitproxy.servlet.filter.WhitelistByUrlFilter.WHITELISTED_BY_ATTRIBUTE;
+import static org.finos.gitproxy.servlet.filter.UrlRuleFilter.MATCHED_BY_ATTRIBUTE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -25,7 +25,7 @@ import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
 import org.junit.jupiter.api.Test;
 
-class WhitelistFilterTest {
+class UrlRuleFilterTest {
 
     private static final GitProxyProvider GITHUB = new GitHubProvider("/proxy");
 
@@ -99,7 +99,7 @@ class WhitelistFilterTest {
                 })
                 .when(req)
                 .setAttribute(anyString(), any());
-        when(req.getAttribute(WHITELISTED_BY_ATTRIBUTE)).thenAnswer(inv -> attrs.get(WHITELISTED_BY_ATTRIBUTE));
+        when(req.getAttribute(MATCHED_BY_ATTRIBUTE)).thenAnswer(inv -> attrs.get(MATCHED_BY_ATTRIBUTE));
         return req;
     }
 
@@ -114,136 +114,163 @@ class WhitelistFilterTest {
         return details;
     }
 
-    // --- WhitelistByUrlFilter ---
+    // --- UrlRuleFilter ---
 
     @Test
-    void whitelistByUrl_orderBelowMinimum_throws() {
+    void urlRule_orderBelowMinimum_throws() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new WhitelistByUrlFilter(49, GITHUB, List.of("owner"), AuthorizedByUrlFilter.Target.OWNER));
+                () -> new UrlRuleFilter(49, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
     }
 
     @Test
-    void whitelistByUrl_orderAboveMaximum_throws() {
+    void urlRule_orderAboveMaximum_throws() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new WhitelistByUrlFilter(200, GITHUB, List.of("owner"), AuthorizedByUrlFilter.Target.OWNER));
+                () -> new UrlRuleFilter(200, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
     }
 
     @Test
-    void whitelistByUrl_validOrder_succeeds() {
-        assertDoesNotThrow(
-                () -> new WhitelistByUrlFilter(50, GITHUB, List.of("owner"), AuthorizedByUrlFilter.Target.OWNER));
-        assertDoesNotThrow(
-                () -> new WhitelistByUrlFilter(199, GITHUB, List.of("owner"), AuthorizedByUrlFilter.Target.OWNER));
+    void urlRule_validOrder_succeeds() {
+        assertDoesNotThrow(() -> new UrlRuleFilter(50, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
+        assertDoesNotThrow(() -> new UrlRuleFilter(199, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
     }
 
     @Test
-    void whitelistByUrl_applyWhitelist_ownerMatch_setsAttribute() throws Exception {
-        var filter =
-                new WhitelistByUrlFilter(100, GITHUB, List.of("allowed-owner"), AuthorizedByUrlFilter.Target.OWNER);
+    void urlRule_applyRule_ownerMatch_setsAttribute() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("allowed-owner"), UrlRuleFilter.Target.OWNER);
         GitRequestDetails details = makeDetails("allowed-owner", "repo", "allowed-owner/repo");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_applyWhitelist_ownerNoMatch_doesNotSetAttribute() throws Exception {
-        var filter =
-                new WhitelistByUrlFilter(100, GITHUB, List.of("allowed-owner"), AuthorizedByUrlFilter.Target.OWNER);
+    void urlRule_applyRule_ownerNoMatch_doesNotSetAttribute() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("allowed-owner"), UrlRuleFilter.Target.OWNER);
         GitRequestDetails details = makeDetails("other-owner", "repo", "other-owner/repo");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req, never()).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req, never()).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_applyWhitelist_nameMatch_setsAttribute() throws Exception {
-        var filter = new WhitelistByUrlFilter(100, GITHUB, List.of("my-repo"), AuthorizedByUrlFilter.Target.NAME);
+    void urlRule_applyRule_nameMatch_setsAttribute() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("my-repo"), UrlRuleFilter.Target.NAME);
         GitRequestDetails details = makeDetails("owner", "my-repo", "owner/my-repo");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_applyWhitelist_slugMatch_setsAttribute() throws Exception {
-        var filter = new WhitelistByUrlFilter(100, GITHUB, List.of("/owner/repo"), AuthorizedByUrlFilter.Target.SLUG);
+    void urlRule_applyRule_slugMatch_setsAttribute() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG);
         GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_globOwner_matches() throws Exception {
-        var filter =
-                new WhitelistByUrlFilter(100, GITHUB, List.of("open-source-*"), AuthorizedByUrlFilter.Target.OWNER);
+    void urlRule_globOwner_matches() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("open-source-*"), UrlRuleFilter.Target.OWNER);
         GitRequestDetails details = makeDetails("open-source-org", "repo", "open-source-org/repo");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_globOwner_noMatch() throws Exception {
-        var filter =
-                new WhitelistByUrlFilter(100, GITHUB, List.of("open-source-*"), AuthorizedByUrlFilter.Target.OWNER);
+    void urlRule_globOwner_noMatch() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("open-source-*"), UrlRuleFilter.Target.OWNER);
         GitRequestDetails details = makeDetails("other-org", "repo", "other-org/repo");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req, never()).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req, never()).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_globSlug_matches() throws Exception {
-        var filter = new WhitelistByUrlFilter(100, GITHUB, List.of("/*/public-*"), AuthorizedByUrlFilter.Target.SLUG);
+    void urlRule_globSlug_matches() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("/*/public-*"), UrlRuleFilter.Target.SLUG);
         GitRequestDetails details = makeDetails("owner", "public-api", "/owner/public-api");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_globSlug_noMatch() throws Exception {
-        var filter = new WhitelistByUrlFilter(100, GITHUB, List.of("/*/public-*"), AuthorizedByUrlFilter.Target.SLUG);
+    void urlRule_globSlug_noMatch() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("/*/public-*"), UrlRuleFilter.Target.SLUG);
         GitRequestDetails details = makeDetails("owner", "private-repo", "/owner/private-repo");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req, never()).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req, never()).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_globName_matches() throws Exception {
-        var filter = new WhitelistByUrlFilter(100, GITHUB, List.of("feature-*"), AuthorizedByUrlFilter.Target.NAME);
+    void urlRule_globName_matches() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("feature-*"), UrlRuleFilter.Target.NAME);
         GitRequestDetails details = makeDetails("owner", "feature-xyz", "/owner/feature-xyz");
         HttpServletRequest req = mockPushRequest(details);
 
-        filter.applyWhitelist(req);
+        filter.applyRule(req);
 
-        verify(req).setAttribute(eq(WHITELISTED_BY_ATTRIBUTE), anyString());
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
     }
 
     @Test
-    void whitelistByUrl_beanName_includesProviderAndTargetAndOrder() {
-        var filter = new WhitelistByUrlFilter(100, GITHUB, List.of("owner"), AuthorizedByUrlFilter.Target.OWNER);
+    void urlRule_regexOwner_matches() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("regex:^(myorg|partnerorg)$"), UrlRuleFilter.Target.OWNER);
+        GitRequestDetails details = makeDetails("myorg", "repo", "myorg/repo");
+        HttpServletRequest req = mockPushRequest(details);
+
+        filter.applyRule(req);
+
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
+    }
+
+    @Test
+    void urlRule_regexOwner_noMatch() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("regex:^(myorg|partnerorg)$"), UrlRuleFilter.Target.OWNER);
+        GitRequestDetails details = makeDetails("other-org", "repo", "other-org/repo");
+        HttpServletRequest req = mockPushRequest(details);
+
+        filter.applyRule(req);
+
+        verify(req, never()).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
+    }
+
+    @Test
+    void urlRule_regexSlug_matches() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("regex:/myorg/.*"), UrlRuleFilter.Target.SLUG);
+        GitRequestDetails details = makeDetails("myorg", "any-repo", "/myorg/any-repo");
+        HttpServletRequest req = mockPushRequest(details);
+
+        filter.applyRule(req);
+
+        verify(req).setAttribute(eq(MATCHED_BY_ATTRIBUTE), anyString());
+    }
+
+    @Test
+    void urlRule_beanName_includesProviderAndTargetAndOrder() {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER);
         String name = filter.beanName();
         assertTrue(name.contains("github"));
         assertTrue(name.contains("OWNER"));
@@ -251,55 +278,55 @@ class WhitelistFilterTest {
     }
 
     @Test
-    void whitelistByUrl_doHttpFilter_isNoOp() throws Exception {
-        var filter = new WhitelistByUrlFilter(100, GITHUB, List.of("owner"), AuthorizedByUrlFilter.Target.OWNER);
+    void urlRule_doHttpFilter_isNoOp() throws Exception {
+        var filter = new UrlRuleFilter(100, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER);
         GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
         filter.doHttpFilter(mockPushRequest(details), resp.mock);
 
-        assertFalse(resp.committed.get(), "doHttpFilter on WhitelistByUrlFilter should be no-op");
+        assertFalse(resp.committed.get(), "doHttpFilter on UrlRuleFilter should be no-op");
     }
 
-    // --- WhitelistAggregateFilter ---
+    // --- UrlRuleAggregateFilter ---
 
     @Test
-    void whitelistAggregate_orderBelowMinimum_throws() {
-        assertThrows(IllegalArgumentException.class, () -> new WhitelistAggregateFilter(49, GITHUB, List.of()));
+    void urlRuleAggregate_orderBelowMinimum_throws() {
+        assertThrows(IllegalArgumentException.class, () -> new UrlRuleAggregateFilter(49, GITHUB, List.of()));
     }
 
     @Test
-    void whitelistAggregate_whitelistMatches_passes() throws Exception {
-        var ownerFilter = new WhitelistByUrlFilter(100, GITHUB, List.of("owner"), AuthorizedByUrlFilter.Target.OWNER);
-        var aggregate = new WhitelistAggregateFilter(50, GITHUB, List.of(ownerFilter));
+    void urlRuleAggregate_ruleMatches_passes() throws Exception {
+        var ownerFilter = new UrlRuleFilter(100, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER);
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(ownerFilter));
         GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
         aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
 
-        assertFalse(resp.committed.get(), "Request matching whitelist should pass");
+        assertFalse(resp.committed.get(), "Request matching an allow rule should pass");
     }
 
     @Test
-    void whitelistAggregate_noWhitelistMatch_blocks() throws Exception {
-        var ownerFilter = new WhitelistByUrlFilter(100, GITHUB, List.of("allowed"), AuthorizedByUrlFilter.Target.OWNER);
-        var aggregate = new WhitelistAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of(ownerFilter));
+    void urlRuleAggregate_noRuleMatch_blocks() throws Exception {
+        var ownerFilter = new UrlRuleFilter(100, GITHUB, List.of("allowed"), UrlRuleFilter.Target.OWNER);
+        var aggregate = new UrlRuleAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of(ownerFilter));
         GitRequestDetails details = makeDetails("not-allowed", "repo", "/not-allowed/repo");
         FakeResponse resp = new FakeResponse();
 
         aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
 
-        assertTrue(resp.committed.get(), "Request not matching any whitelist should be blocked");
+        assertTrue(resp.committed.get(), "Request not matching any allow rule should be blocked");
     }
 
     @Test
-    void whitelistAggregate_emptyWhitelist_blocks() throws Exception {
-        var aggregate = new WhitelistAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of());
+    void urlRuleAggregate_emptyRules_blocks() throws Exception {
+        var aggregate = new UrlRuleAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of());
         GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
         aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
 
-        assertTrue(resp.committed.get(), "Empty whitelist should block all requests");
+        assertTrue(resp.committed.get(), "Empty allow rules should block all requests");
     }
 }

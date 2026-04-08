@@ -2,7 +2,7 @@ package org.finos.gitproxy.servlet.filter;
 
 import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
 import static org.finos.gitproxy.git.GitClientUtils.sym;
-import static org.finos.gitproxy.servlet.filter.WhitelistByUrlFilter.WHITELISTED_BY_ATTRIBUTE;
+import static org.finos.gitproxy.servlet.filter.UrlRuleFilter.MATCHED_BY_ATTRIBUTE;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,96 +19,88 @@ import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitProxyProvider;
 
 /**
- * An aggregate filter that applies a list of {@link WhitelistByUrlFilter} filters to a given request and provider. This
- * filter is used to iterate through the list of whitelists and only block the request if it does not match any of the
- * whitelists.
+ * An aggregate filter that applies a list of {@link UrlRuleFilter} filters to a given request and provider. The request
+ * is blocked only if it does not match any rule in the list.
  */
 @Slf4j
 @ToString
-public class WhitelistAggregateFilter extends AbstractProviderAwareGitProxyFilter {
+public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter {
 
-    private final List<WhitelistByUrlFilter> whitelistFilters;
+    private final List<UrlRuleFilter> urlRuleFilters;
     private final FetchStore fetchStore;
 
-    // Whitelist aggregate filters must be in the authorization range 50-199
-    private static final int MIN_WHITELIST_ORDER = 50;
-    private static final int MAX_WHITELIST_ORDER = 199;
+    // URL rule aggregate filters must be in the authorization range 50-199
+    private static final int MIN_ORDER = 50;
+    private static final int MAX_ORDER = 199;
 
-    public WhitelistAggregateFilter(
+    public UrlRuleAggregateFilter(
             int order,
             Set<HttpOperation> applicableOperations,
             GitProxyProvider provider,
-            List<WhitelistByUrlFilter> whitelistFilters) {
-        this(order, applicableOperations, provider, whitelistFilters, null, null);
+            List<UrlRuleFilter> urlRuleFilters) {
+        this(order, applicableOperations, provider, urlRuleFilters, null, null);
     }
 
-    public WhitelistAggregateFilter(int order, GitProxyProvider provider, List<WhitelistByUrlFilter> whitelistFilters) {
-        this(order, DEFAULT_OPERATIONS, provider, whitelistFilters, null, null);
+    public UrlRuleAggregateFilter(int order, GitProxyProvider provider, List<UrlRuleFilter> urlRuleFilters) {
+        this(order, DEFAULT_OPERATIONS, provider, urlRuleFilters, null, null);
     }
 
-    public WhitelistAggregateFilter(
-            int order, GitProxyProvider provider, List<WhitelistByUrlFilter> whitelistFilters, String pathPrefix) {
-        this(order, DEFAULT_OPERATIONS, provider, whitelistFilters, pathPrefix, null);
+    public UrlRuleAggregateFilter(
+            int order, GitProxyProvider provider, List<UrlRuleFilter> urlRuleFilters, String pathPrefix) {
+        this(order, DEFAULT_OPERATIONS, provider, urlRuleFilters, pathPrefix, null);
     }
 
-    public WhitelistAggregateFilter(
+    public UrlRuleAggregateFilter(
             int order,
             GitProxyProvider provider,
-            List<WhitelistByUrlFilter> whitelistFilters,
+            List<UrlRuleFilter> urlRuleFilters,
             String pathPrefix,
             FetchStore fetchStore) {
-        this(order, DEFAULT_OPERATIONS, provider, whitelistFilters, pathPrefix, fetchStore);
+        this(order, DEFAULT_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore);
     }
 
-    public WhitelistAggregateFilter(
+    public UrlRuleAggregateFilter(
             int order,
             Set<HttpOperation> applicableOperations,
             GitProxyProvider provider,
-            List<WhitelistByUrlFilter> whitelistFilters,
+            List<UrlRuleFilter> urlRuleFilters,
             String pathPrefix,
             FetchStore fetchStore) {
-        super(validateWhitelistOrder(order), applicableOperations, provider, pathPrefix != null ? pathPrefix : "");
-        this.whitelistFilters = whitelistFilters;
+        super(validateOrder(order), applicableOperations, provider, pathPrefix != null ? pathPrefix : "");
+        this.urlRuleFilters = urlRuleFilters;
         this.fetchStore = fetchStore;
     }
 
-    /**
-     * Validates that the whitelist filter order is within the allowed range.
-     *
-     * @param order The filter order
-     * @return The validated order
-     * @throws IllegalArgumentException if order is outside the allowed range
-     */
-    private static int validateWhitelistOrder(int order) {
-        if (order < MIN_WHITELIST_ORDER || order > MAX_WHITELIST_ORDER) {
+    private static int validateOrder(int order) {
+        if (order < MIN_ORDER || order > MAX_ORDER) {
             throw new IllegalArgumentException(String.format(
-                    "Whitelist aggregate filter order must be in the authorization range %d-%d (inclusive), but was %d",
-                    MIN_WHITELIST_ORDER, MAX_WHITELIST_ORDER, order));
+                    "UrlRuleAggregateFilter order must be in the authorization range %d-%d (inclusive), but was %d",
+                    MIN_ORDER, MAX_ORDER, order));
         }
         return order;
     }
 
     @Override
     public String getStepName() {
-        return "checkWhitelist";
+        return "checkUrlRules";
     }
 
     @Override
     public boolean skipForRefDeletion() {
-        return false; // Deletions must still be whitelisted
+        return false; // Deletions must still match an allow rule
     }
 
     @Override
     public void doHttpFilter(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        for (WhitelistByUrlFilter filter : whitelistFilters) {
-            filter.applyWhitelist(request);
+        for (UrlRuleFilter filter : urlRuleFilters) {
+            filter.applyRule(request);
         }
-        String whitelistedBy = (String) request.getAttribute(WHITELISTED_BY_ATTRIBUTE);
+        String matchedBy = (String) request.getAttribute(MATCHED_BY_ATTRIBUTE);
         var operation = determineOperation(request);
-        boolean allowed = whitelistedBy != null;
+        boolean allowed = matchedBy != null;
 
         if (allowed) {
-            log.debug("Whitelisted by {}", whitelistedBy);
+            log.debug("Allowed by rule: {}", matchedBy);
         }
 
         if (operation == HttpOperation.FETCH && fetchStore != null) {
@@ -122,11 +114,11 @@ public class WhitelistAggregateFilter extends AbstractProviderAwareGitProxyFilte
             String message = verb + " this repository are not permitted.\n"
                     + "\n"
                     + "Contact an administrator to add this repository\n"
-                    + "to the allowlist.";
+                    + "to the allow rules.";
             rejectAndSendError(
                     request,
                     response,
-                    "Repository not in allowlist",
+                    "Repository not in allow rules",
                     GitClientUtils.formatForOperation(title, message, GitClientUtils.AnsiColor.RED, operation));
         }
     }

@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
 
-/** Binds a single entry under {@code filters.whitelists[]} in git-proxy.yml. */
+/** Binds a single entry under {@code rules.allow[]} (or {@code rules.deny[]}) in git-proxy.yml. */
 @Data
-public class WhitelistConfig {
+public class RuleConfig {
 
     private boolean enabled = true;
     private int order = 1100;
@@ -17,12 +17,15 @@ public class WhitelistConfig {
     /** Provider names to scope this entry to. Empty = all providers. */
     private List<String> providers = new ArrayList<>();
 
-    /** Repository slugs ({@code owner/repo}). Supports glob patterns. */
+    /**
+     * Repository slugs ({@code owner/repo}). Supports glob patterns and {@code regex:}-prefixed Java regular
+     * expressions.
+     */
     private List<String> slugs = new ArrayList<>();
 
-    /** Repository owner/org names. Supports glob patterns. */
+    /** Repository owner/org names. Supports glob patterns and {@code regex:}-prefixed Java regular expressions. */
     private List<String> owners = new ArrayList<>();
 
-    /** Repository names. Supports glob patterns. */
+    /** Repository names. Supports glob patterns and {@code regex:}-prefixed Java regular expressions. */
     private List<String> names = new ArrayList<>();
 }

@@ -17,7 +17,7 @@ import lombok.Data;
  * database:     → {@link DatabaseConfig}
  * providers:    → Map&lt;name, {@link ProviderConfig}&gt;
  * commit:       → {@link CommitSettings}
- * filters:      → {@link FiltersConfig}
+ * rules:        → {@link RulesConfig}
  * </pre>
  */
 @Data
@@ -27,7 +27,7 @@ public class GitProxyConfig {
     private DatabaseConfig database = new DatabaseConfig();
     private Map<String, ProviderConfig> providers = new LinkedHashMap<>();
     private CommitSettings commit = new CommitSettings();
-    private FiltersConfig filters = new FiltersConfig();
+    private RulesConfig rules = new RulesConfig();
 
     /**
      * Authentication provider configuration. Selects the active provider ({@code static}, {@code ldap}, {@code oidc})

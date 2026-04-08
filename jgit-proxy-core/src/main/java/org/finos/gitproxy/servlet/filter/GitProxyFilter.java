@@ -39,9 +39,9 @@ import org.finos.gitproxy.git.HttpOperation;
  * <ul>
  *   <li><b>System filters (Integer.MIN_VALUE to Integer.MIN_VALUE+99):</b> Core preprocessing filters that must run
  *       first (e.g., ForceGitClientFilter, ParseGitRequestFilter, EnrichPushCommitsFilter).
- *   <li><b>Authorization filters (0-199):</b> Filters that determine if a request is allowed (pre-approval check,
- *       repository whitelists, user push-permission checks). Built-in filters use steps of 50; custom filters can be
- *       inserted between them.
+ *   <li><b>Authorization filters (0-199):</b> Filters that determine if a request is allowed (pre-approval check, URL
+ *       allow rules, user push-permission checks). Built-in filters use steps of 50; custom filters can be inserted
+ *       between them.
  *   <li><b>Content filters (200-399):</b> Core validation filters (empty-branch guard, hidden-commit detection, author
  *       email, commit message, diff scanning, GPG signatures, secret scanning). Built-in filters use steps of 10-30;
  *       custom filters can be inserted between them.
@@ -87,7 +87,7 @@ public interface GitProxyFilter extends Filter {
      */
     /**
      * Whether this filter should be skipped for ref-deletion pushes (commitTo = zero SHA). Content validation filters
-     * return {@code true} (the default) because there are no commits to validate. Auth and whitelist filters that must
+     * return {@code true} (the default) because there are no commits to validate. Auth and URL rule filters that must
      * still gate deletions should override this to return {@code false}.
      */
     default boolean skipForRefDeletion() {

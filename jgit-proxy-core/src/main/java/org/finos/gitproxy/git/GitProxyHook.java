@@ -11,7 +11,7 @@ import org.eclipse.jgit.transport.PreReceiveHook;
  * <ul>
  *   <li><b>Negative (&lt;= -1):</b> System lifecycle hooks that must run first or last (e.g., persistence hooks).
  *       Custom hooks must not use negative values.
- *   <li><b>0-199 authorization range:</b> Whitelist and user/repo/provider permission checks.
+ *   <li><b>0-199 authorization range:</b> URL rule and user/repo/provider permission checks.
  *   <li><b>200-399 content filtering range:</b> Commit content validation (emails, messages, diffs, signatures,
  *       secrets). Built-in hooks use multiples of 10 within this range to leave room for custom hooks between them.
  *   <li><b>400-499 post-validation range:</b> Reserved for future use (e.g., outbound commit decoration).

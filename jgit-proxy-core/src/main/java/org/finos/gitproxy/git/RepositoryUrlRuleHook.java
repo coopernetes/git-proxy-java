@@ -9,14 +9,14 @@ import org.finos.gitproxy.db.model.PushStep;
 import org.finos.gitproxy.db.model.StepStatus;
 
 /**
- * Pre-receive hook that records the repository whitelist check result. In store-and-forward mode, the repository is
- * validated by {@link StoreAndForwardRepositoryResolver} before the hook chain runs - if we reach this hook, the
- * repository is already whitelisted. This hook records that result so the dashboard shows parity with proxy mode's
- * {@code WhitelistAggregateFilter} step.
+ * Pre-receive hook that records the URL rule check result. In store-and-forward mode, the repository is validated by
+ * {@link StoreAndForwardRepositoryResolver} before the hook chain runs — if we reach this hook, the repository already
+ * matched an allow rule. This hook records that result so the dashboard shows parity with proxy mode's
+ * {@code UrlRuleAggregateFilter} step.
  */
 @Slf4j
 @RequiredArgsConstructor
-public class RepositoryWhitelistHook implements GitProxyHook {
+public class RepositoryUrlRuleHook implements GitProxyHook {
 
     private static final int ORDER = 100;
 
@@ -24,9 +24,9 @@ public class RepositoryWhitelistHook implements GitProxyHook {
 
     @Override
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
-        log.debug("Repository whitelist check: passed (resolver already validated)");
+        log.debug("Repository URL rule check: passed (resolver already validated)");
         pushContext.addStep(PushStep.builder()
-                .stepName("checkWhitelist")
+                .stepName("checkUrlRules")
                 .stepOrder(ORDER)
                 .status(StepStatus.PASS)
                 .build());
@@ -39,6 +39,6 @@ public class RepositoryWhitelistHook implements GitProxyHook {
 
     @Override
     public String getName() {
-        return "RepositoryWhitelistHook";
+        return "RepositoryUrlRuleHook";
     }
 }

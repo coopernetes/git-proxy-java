@@ -102,7 +102,7 @@ providers:
     enabled: true
     uri: http://gitea:3000
   # Disable most public providers by default since they require additional setup (access tokens, etc.) and are not
-  # needed for automated testing. Enables github but whitelist only permits fetches from github.com/finos (no push)
+  # needed for automated testing. Enables github but allow rules only permit fetches from github.com/finos (no push)
   # for demonstration purposes — adjust as needed for your own testing.
   github:
     enabled: true
@@ -145,8 +145,8 @@ commit:
   secret-scanning:
     enabled: true
 
-filters:
-  whitelists:
+rules:
+  allow:
     - enabled: true
       order: 110
       operations:

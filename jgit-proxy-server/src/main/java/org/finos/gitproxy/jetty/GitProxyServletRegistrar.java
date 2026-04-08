@@ -189,10 +189,10 @@ public final class GitProxyServletRegistrar {
         filters.add(new EnrichPushCommitsFilter(provider, repositoryCache, PROXY_PATH_PREFIX));
         filters.add(new AllowApprovedPushFilter(pushStore, serviceUrl));
 
-        List<WhitelistByUrlFilter> whitelistFilters = configBuilder.buildWhitelistFilters(provider);
-        if (!whitelistFilters.isEmpty()) {
-            filters.add(new WhitelistAggregateFilter(100, provider, whitelistFilters, PROXY_PATH_PREFIX, fetchStore));
-            log.info("Registered {} whitelist filter(s) for provider {}", whitelistFilters.size(), provider.getName());
+        List<UrlRuleFilter> urlRuleFilters = configBuilder.buildUrlRuleFilters(provider);
+        if (!urlRuleFilters.isEmpty()) {
+            filters.add(new UrlRuleAggregateFilter(100, provider, urlRuleFilters, PROXY_PATH_PREFIX, fetchStore));
+            log.info("Registered {} URL allow rule(s) for provider {}", urlRuleFilters.size(), provider.getName());
         }
 
         if (provider instanceof BitbucketProvider bitbucketProvider) {

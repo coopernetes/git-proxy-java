@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class RepositoryWhitelistHookTest {
+class RepositoryUrlRuleHookTest {
 
     @TempDir
     Path tempDir;
@@ -35,10 +35,10 @@ class RepositoryWhitelistHookTest {
         ReceivePack rp = new ReceivePack(repo);
         ReceiveCommand cmd = new ReceiveCommand(ObjectId.zeroId(), ObjectId.zeroId(), "refs/heads/main");
 
-        new RepositoryWhitelistHook(pushContext).onPreReceive(rp, List.of(cmd));
+        new RepositoryUrlRuleHook(pushContext).onPreReceive(rp, List.of(cmd));
 
         assertFalse(pushContext.getSteps().isEmpty());
-        assertEquals("checkWhitelist", pushContext.getSteps().get(0).getStepName());
+        assertEquals("checkUrlRules", pushContext.getSteps().get(0).getStepName());
         assertEquals(StepStatus.PASS, pushContext.getSteps().get(0).getStatus());
     }
 
@@ -48,7 +48,7 @@ class RepositoryWhitelistHookTest {
         ReceivePack rp = new ReceivePack(repo);
         ReceiveCommand cmd = new ReceiveCommand(ObjectId.zeroId(), ObjectId.zeroId(), "refs/heads/main");
 
-        new RepositoryWhitelistHook(pushContext).onPreReceive(rp, List.of(cmd));
+        new RepositoryUrlRuleHook(pushContext).onPreReceive(rp, List.of(cmd));
 
         assertEquals(ReceiveCommand.Result.NOT_ATTEMPTED, cmd.getResult());
     }

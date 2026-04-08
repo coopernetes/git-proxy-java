@@ -84,7 +84,7 @@ commit:
 
 # Repo permissions for local dev / smoke testing.
 #
-# thomas-cooper: push access on all whitelisted repos (exercises LITERAL/GLOB/REGEX).
+# thomas-cooper: push access on all allowed repos (exercises LITERAL/GLOB/REGEX).
 # reviewer:      approve-only — dummy account for testing the approval flow
 #                independently of the pusher identity; no SCM identity needed.
 # (admin can also approve via the dashboard by virtue of its ADMIN role.)
@@ -132,8 +132,8 @@ permissions:
     path-type: REGEX
     operations: APPROVE
 
-filters:
-  whitelists:
+rules:
+  allow:
     - enabled: true
       order: 110
       operations:

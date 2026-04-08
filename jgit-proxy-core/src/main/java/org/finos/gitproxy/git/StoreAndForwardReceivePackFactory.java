@@ -179,7 +179,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         // Lifecycle hooks (persistence, approval) are pinned outside this list.
         //
         // Authorization range (0-199):
-        //   RepositoryWhitelistHook         (100) - whitelist PASS (resolver already validated)
+        //   RepositoryUrlRuleHook           (100) - URL rule PASS (resolver already validated)
         //   CheckUserPushPermissionHook     (150) - push user authorization
         // Content filtering range (200-399):
         //   CheckEmptyBranchHook            (210) - reject if no commits introduced (short-circuit)
@@ -213,7 +213,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
 
         // Build and sort the orderable validation hook list
         List<GitProxyHook> validationHooks = new ArrayList<>(List.of(
-                new RepositoryWhitelistHook(pushContext),
+                new RepositoryUrlRuleHook(pushContext),
                 permissionHook,
                 identityVerificationHook,
                 new CheckEmptyBranchHook(pushContext),

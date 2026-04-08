@@ -39,8 +39,7 @@ import org.finos.gitproxy.service.CachingTokenPushIdentityResolver;
 import org.finos.gitproxy.service.JdbcScmTokenCache;
 import org.finos.gitproxy.service.PushIdentityResolver;
 import org.finos.gitproxy.service.TokenPushIdentityResolver;
-import org.finos.gitproxy.servlet.filter.AuthorizedByUrlFilter;
-import org.finos.gitproxy.servlet.filter.WhitelistByUrlFilter;
+import org.finos.gitproxy.servlet.filter.UrlRuleFilter;
 import org.finos.gitproxy.user.CompositeUserStore;
 import org.finos.gitproxy.user.JdbcUserStore;
 import org.finos.gitproxy.user.ScmIdentity;
@@ -140,36 +139,33 @@ public class JettyConfigurationBuilder {
         return providers;
     }
 
-    /** Creates whitelist filters for a given provider from configuration. */
-    public List<WhitelistByUrlFilter> buildWhitelistFilters(GitProxyProvider provider) {
-        List<WhitelistByUrlFilter> filters = new ArrayList<>();
+    /** Creates URL rule filters for a given provider from configuration. */
+    public List<UrlRuleFilter> buildUrlRuleFilters(GitProxyProvider provider) {
+        List<UrlRuleFilter> filters = new ArrayList<>();
 
-        for (WhitelistConfig wl : config.getFilters().getWhitelists()) {
-            if (!wl.isEnabled()) continue;
+        for (RuleConfig rule : config.getRules().getAllow()) {
+            if (!rule.isEnabled()) continue;
 
-            // Scope check: skip if this whitelist is scoped to specific providers that exclude this one
-            List<String> providerNames = wl.getProviders();
+            // Scope check: skip if this rule is scoped to specific providers that exclude this one
+            List<String> providerNames = rule.getProviders();
             if (!providerNames.isEmpty()
                     && !providerNames.contains(provider.getName().toLowerCase())) {
                 continue;
             }
 
-            int order = wl.getOrder();
+            int order = rule.getOrder();
 
-            if (!wl.getSlugs().isEmpty()) {
-                filters.add(
-                        new WhitelistByUrlFilter(order, provider, wl.getSlugs(), AuthorizedByUrlFilter.Target.SLUG));
-                log.debug("Added slug whitelist for provider {}: {}", provider.getName(), wl.getSlugs());
+            if (!rule.getSlugs().isEmpty()) {
+                filters.add(new UrlRuleFilter(order, provider, rule.getSlugs(), UrlRuleFilter.Target.SLUG));
+                log.debug("Added slug allow rule for provider {}: {}", provider.getName(), rule.getSlugs());
             }
-            if (!wl.getOwners().isEmpty()) {
-                filters.add(
-                        new WhitelistByUrlFilter(order, provider, wl.getOwners(), AuthorizedByUrlFilter.Target.OWNER));
-                log.debug("Added owner whitelist for provider {}: {}", provider.getName(), wl.getOwners());
+            if (!rule.getOwners().isEmpty()) {
+                filters.add(new UrlRuleFilter(order, provider, rule.getOwners(), UrlRuleFilter.Target.OWNER));
+                log.debug("Added owner allow rule for provider {}: {}", provider.getName(), rule.getOwners());
             }
-            if (!wl.getNames().isEmpty()) {
-                filters.add(
-                        new WhitelistByUrlFilter(order, provider, wl.getNames(), AuthorizedByUrlFilter.Target.NAME));
-                log.debug("Added name whitelist for provider {}: {}", provider.getName(), wl.getNames());
+            if (!rule.getNames().isEmpty()) {
+                filters.add(new UrlRuleFilter(order, provider, rule.getNames(), UrlRuleFilter.Target.NAME));
+                log.debug("Added name allow rule for provider {}: {}", provider.getName(), rule.getNames());
             }
         }
 
@@ -376,21 +372,21 @@ public class JettyConfigurationBuilder {
     }
 
     /**
-     * Builds a {@link RepoRegistry}, seeding it with rules derived from the YAML whitelist config. JDBC backends share
-     * the same {@link DataSource} as the push store.
+     * Builds a {@link RepoRegistry}, seeding it with rules derived from the YAML allow rules config. JDBC backends
+     * share the same {@link DataSource} as the push store.
      */
     public RepoRegistry buildRepoRegistry() {
         // CONFIG rules live only in memory — never written to DB, no stale duplicates on restart.
         InMemoryRepoRegistry configRegistry = new InMemoryRepoRegistry();
-        for (WhitelistConfig wl : config.getFilters().getWhitelists()) {
-            if (!wl.isEnabled()) continue;
-            AccessRule.Operations ops = toOperations(wl.getOperations());
-            // A whitelist entry with no providers means "all providers" — one rule with provider=null.
-            // An entry scoped to N providers produces N rules, one per provider name.
+        for (RuleConfig rule : config.getRules().getAllow()) {
+            if (!rule.isEnabled()) continue;
+            AccessRule.Operations ops = toOperations(rule.getOperations());
+            // A rule with no providers means "all providers" — one rule with provider=null.
+            // A rule scoped to N providers produces N rules, one per provider name.
             List<String> providers =
-                    wl.getProviders().isEmpty() ? java.util.Collections.singletonList(null) : wl.getProviders();
+                    rule.getProviders().isEmpty() ? java.util.Collections.singletonList(null) : rule.getProviders();
             for (String provider : providers) {
-                for (String rawSlug : wl.getSlugs()) {
+                for (String rawSlug : rule.getSlugs()) {
                     String slug = rawSlug.startsWith("/") ? rawSlug : "/" + rawSlug;
                     configRegistry.save(AccessRule.builder()
                             .provider(provider)
@@ -398,27 +394,27 @@ public class JettyConfigurationBuilder {
                             .access(AccessRule.Access.ALLOW)
                             .operations(ops)
                             .source(AccessRule.Source.CONFIG)
-                            .ruleOrder(wl.getOrder())
+                            .ruleOrder(rule.getOrder())
                             .build());
                 }
-                for (String owner : wl.getOwners()) {
+                for (String owner : rule.getOwners()) {
                     configRegistry.save(AccessRule.builder()
                             .provider(provider)
                             .owner(owner)
                             .access(AccessRule.Access.ALLOW)
                             .operations(ops)
                             .source(AccessRule.Source.CONFIG)
-                            .ruleOrder(wl.getOrder())
+                            .ruleOrder(rule.getOrder())
                             .build());
                 }
-                for (String name : wl.getNames()) {
+                for (String name : rule.getNames()) {
                     configRegistry.save(AccessRule.builder()
                             .provider(provider)
                             .name(name)
                             .access(AccessRule.Access.ALLOW)
                             .operations(ops)
                             .source(AccessRule.Source.CONFIG)
-                            .ruleOrder(wl.getOrder())
+                            .ruleOrder(rule.getOrder())
                             .build());
                 }
             }

@@ -30,7 +30,7 @@ import org.finos.gitproxy.jetty.config.ReloadConfig;
  *
  * <p>On every reload the full config POJO is rebuilt, but only {@link CommitConfig} (commit rules, auth settings) is
  * propagated to the live {@link ConfigHolder}. Changes to {@code providers}, {@code server}, {@code database}, or
- * {@code filters.whitelists} log a WARNING — those sections require a restart or the UI-driven provider hot-swap
+ * {@code rules.allow} log a WARNING — those sections require a restart or the UI-driven provider hot-swap
  * (coopernetes/jgit-proxy#75).
  *
  * <p>A concurrent reload guard prevents overlapping reloads.
@@ -280,9 +280,9 @@ public class LiveConfigLoader {
                 .equals(startupConfig.getDatabase().getType())) {
             log.warn("Config reload: database.type changed — restart required");
         }
-        if (!newConfig.getFilters().equals(startupConfig.getFilters())) {
+        if (!newConfig.getRules().equals(startupConfig.getRules())) {
             log.warn(
-                    "Config reload: filters/whitelists changed — whitelist changes take effect on restart (provider hot-swap not yet supported)");
+                    "Config reload: rules.allow changed — URL rule changes take effect on restart (provider hot-swap not yet supported)");
         }
         log.info("Config reload complete — commit rules, auth config now active");
     }

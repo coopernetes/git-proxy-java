@@ -29,7 +29,7 @@ import org.finos.gitproxy.git.HttpOperation;
  * </ol>
  *
  * <p>Runs at order 50 (authorization range) - after {@code ParseGitRequestFilter} (which populates
- * {@link GitRequestDetails}) but before whitelist and content validation filters.
+ * {@link GitRequestDetails}) but before URL rule and content validation filters.
  */
 @Slf4j
 public class AllowApprovedPushFilter extends AbstractGitProxyFilter {

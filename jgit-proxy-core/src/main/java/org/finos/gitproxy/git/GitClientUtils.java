@@ -239,7 +239,7 @@ public class GitClientUtils {
 
         // Human-readable label for each step name (header line)
         Map<String, String> labels = new java.util.HashMap<>(Map.of(
-                "checkWhitelist", "Checking repository whitelist",
+                "checkUrlRules", "Checking URL allow rules",
                 "checkUserPermission", "Checking user permission",
                 "identityVerification", "Verifying commit identity",
                 "checkEmptyBranch", "Checking branch",
@@ -252,7 +252,7 @@ public class GitClientUtils {
 
         // Short pass-result text shown on the second line
         Map<String, String> passResults = new java.util.HashMap<>(Map.of(
-                "checkWhitelist", "repository allowed",
+                "checkUrlRules", "repository allowed",
                 "checkUserPermission", "user authorized",
                 "identityVerification", "identity verified",
                 "checkEmptyBranch", "branch OK",

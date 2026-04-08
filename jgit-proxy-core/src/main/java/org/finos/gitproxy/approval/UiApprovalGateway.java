@@ -40,6 +40,7 @@ public class UiApprovalGateway implements ApprovalGateway {
             }
 
             try {
+                //noinspection BusyWait
                 Thread.sleep(POLL_INTERVAL.toMillis());
                 elapsedSecs += POLL_INTERVAL.toSeconds();
                 long remainingSecs = (deadlineMs - System.currentTimeMillis()) / 1000;
