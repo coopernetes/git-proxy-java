@@ -1,5 +1,6 @@
 [![CI](https://github.com/coopernetes/git-proxy-java/actions/workflows/ci.yml/badge.svg)](https://github.com/coopernetes/git-proxy-java/actions/workflows/ci.yml)
 [![CVE Scanning](https://github.com/coopernetes/git-proxy-java/actions/workflows/cve.yml/badge.svg)](https://github.com/coopernetes/git-proxy-java/actions/workflows/cve.yml)
+[![License](https://img.shields.io/github/license/coopernetes/git-proxy-java)](https://github.com/coopernetes/git-proxy-java/blob/main/LICENSE)
 
 # git-proxy-java
 
@@ -162,7 +163,6 @@ FORWARDED, or BLOCKED/ERROR) is written as a separate row, enabling full push hi
 | ------------ | ------------ | ------------------------------------------ |
 | H2 in-memory | `h2-mem`     | SQL schema, data lost on restart. Default. |
 | H2 file      | `h2-file`    | Persistent, zero external dependencies     |
-| SQLite       | `sqlite`     | Persistent, zero external dependencies     |
 | PostgreSQL   | `postgres`   | Production-grade                           |
 | MongoDB      | `mongo`      | Compatible with finos/git-proxy data model |
 

@@ -113,7 +113,8 @@ public class JdbcPushStore implements PushStore {
             params.addValue("authorEmail", query.getAuthorEmail());
         }
         if (query.getSearch() != null && !query.getSearch().isBlank()) {
-            sql.append(" AND (LOWER(project) LIKE :search OR LOWER(repo_name) LIKE :search)");
+            sql.append(
+                    " AND (LOWER(provider) LIKE :search OR LOWER(project) LIKE :search OR LOWER(repo_name) LIKE :search)");
             params.addValue("search", "%" + query.getSearch().toLowerCase() + "%");
         }
 

@@ -88,24 +88,35 @@ export function Nav({ currentUser }: NavProps) {
         )}
       </nav>
 
-      {currentUser && (
-        <div className="ml-auto flex items-center gap-3 text-sm text-slate-300">
-          <NavLink
-            to="/profile"
-            className={({ isActive }) =>
-              'transition-colors ' + (isActive ? 'text-white' : 'hover:text-white')
-            }
-          >
-            {currentUser.username}
-          </NavLink>
-          <button
-            onClick={logout}
-            className="px-2 py-1 rounded text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
-      )}
+      <div className="ml-auto flex items-center gap-3 text-sm text-slate-300">
+        <a
+          href="https://github.com/coopernetes/git-proxy-java/blob/main/docs/CONFIGURATION.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-slate-400 hover:text-white transition-colors"
+          title="Documentation"
+        >
+          Docs
+        </a>
+        {currentUser && (
+          <>
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                'transition-colors ' + (isActive ? 'text-white' : 'hover:text-white')
+              }
+            >
+              {currentUser.username}
+            </NavLink>
+            <button
+              onClick={logout}
+              className="px-2 py-1 rounded text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
+            >
+              Sign out
+            </button>
+          </>
+        )}
+      </div>
     </header>
   )
 }

@@ -2,18 +2,9 @@
 # Demo: Simple store-and-forward push that passes validation
 set -euo pipefail
 
-GIT_USERNAME=${GIT_USERNAME:-"me"}
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
+resolve_pat ~/.github-pat
 GIT_REPO=${GIT_REPO:-"github.com/coopernetes/test-repo.git"}
-
-# Resolve GIT_PASSWORD from env var or PAT file
-GIT_PASSWORD="${GIT_PASSWORD:-}"
-if [ -z "${GIT_PASSWORD}" ] && [ -f ~/.github-pat ]; then
-    GIT_PASSWORD="$(cat ~/.github-pat)"
-fi
-if [ -z "${GIT_PASSWORD}" ]; then
-    echo "ERROR: GIT_PASSWORD not set and ~/.github-pat not found" >&2
-    exit 1
-fi
 
 PUSH_URL="http://${GIT_USERNAME}:${GIT_PASSWORD}@localhost:8080/push/${GIT_REPO}"
 TEST_BRANCH="test/push-simple-$(date +%s)"
@@ -41,8 +32,8 @@ echo "→ Creating feature branch..."
 git checkout -b "${TEST_BRANCH}"
 sleep 1
 
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 
 echo "→ Making a valid commit..."
 echo "feature - $(date)" >> test-file.txt

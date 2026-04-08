@@ -40,15 +40,15 @@ git add test-file.txt
 git commit -m "test: commit 1 — noreply author email"
 
 # Commit 2: WIP message — targeting commit message filter
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 echo "wip message test - $(date)" >> test-file.txt
 git add test-file.txt
 git commit -m "WIP: commit 2 — bad commit message"
 
 # Commit 3: GitHub PAT in file — targeting secret scanning filter
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 cat > ci-config.env << 'EOF'
 GITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef01234567
 EOF
@@ -56,8 +56,8 @@ git add ci-config.env
 git commit -m "test: commit 3 — github pat in diff"
 
 # Commit 4: internal hostname literal — targeting diff content filter
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 cat > config.yml << 'EOF'
 upstream:
   api: https://internal.corp.example.com/api/v1

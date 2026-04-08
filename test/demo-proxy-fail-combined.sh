@@ -41,8 +41,8 @@ git commit -m "test: commit 1 — noreply author email"
 sleep 1
 
 echo "→ Commit 2: WIP commit message..."
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 echo "wip message test - $(date)" >> test-file.txt
 git add test-file.txt
 git commit -m "WIP: commit 2 — bad commit message"

@@ -22,8 +22,8 @@ trap cleanup EXIT
 git clone "${PUSH_URL}" "${REPO_DIR}"
 cd "${REPO_DIR}"
 git checkout -b "${TEST_BRANCH}"
-git config user.name "Test Developer"
-git config user.email "developer@example.com"
+git config user.name "${GIT_AUTHOR_NAME}"
+git config user.email "${GIT_EMAIL}"
 
 echo "pass - $(date)" >> test-file.txt
 git add test-file.txt
