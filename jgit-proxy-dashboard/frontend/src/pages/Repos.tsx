@@ -96,9 +96,12 @@ type Tab = 'active' | 'rules'
 
 type TargetType = 'slug' | 'owner' | 'name'
 
+type PatternType = 'LITERAL' | 'GLOB' | 'REGEX'
+
 interface AddRuleForm {
   access: 'ALLOW' | 'DENY'
   targetType: TargetType
+  patternType: PatternType
   pattern: string
   provider: string
   operations: 'ALL' | 'PUSH' | 'FETCH'
@@ -108,6 +111,7 @@ interface AddRuleForm {
 const DEFAULT_FORM: AddRuleForm = {
   access: 'ALLOW',
   targetType: 'slug',
+  patternType: 'LITERAL',
   pattern: '',
   provider: '',
   operations: 'ALL',
@@ -123,6 +127,7 @@ function AddRuleModal({
 }) {
   const [form, setForm] = useState<AddRuleForm>(DEFAULT_FORM)
   const [error, setError] = useState<string | null>(null)
+  const [regexError, setRegexError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [providerNames, setProviderNames] = useState<string[]>([])
 
@@ -135,23 +140,58 @@ function AddRuleModal({
   const set = <K extends keyof AddRuleForm>(key: K, value: AddRuleForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
 
+  function handlePatternChange(value: string) {
+    set('pattern', value)
+    if (form.patternType === 'REGEX') {
+      try {
+        new RegExp(value)
+        setRegexError(null)
+      } catch (e) {
+        setRegexError(e instanceof SyntaxError ? e.message : 'Invalid regex')
+      }
+    }
+  }
+
+  function handlePatternTypeChange(value: PatternType) {
+    set('patternType', value)
+    if (value === 'REGEX' && form.pattern) {
+      try {
+        new RegExp(form.pattern)
+        setRegexError(null)
+      } catch (e) {
+        setRegexError(e instanceof SyntaxError ? e.message : 'Invalid regex')
+      }
+    } else {
+      setRegexError(null)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!form.pattern.trim()) {
       setError('Pattern is required')
       return
     }
+    if (form.patternType === 'REGEX' && regexError) {
+      setError('Fix the regex error before saving')
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
+      // Encode the pattern as the filter expects: regex: prefix for REGEX,
+      // raw string for GLOB (glob chars trigger detection), raw for LITERAL.
+      const raw = form.pattern.trim()
+      const encoded = form.patternType === 'REGEX' ? `regex:${raw}` : raw
+
       const payload: Parameters<typeof createAccessRule>[0] = {
         access: form.access,
         operations: form.operations,
-        provider: form.provider.trim() || undefined,
+        provider: form.provider || undefined,
         description: form.description.trim() || undefined,
       }
-      if (form.targetType === 'slug') payload.slug = form.pattern.trim()
-      else if (form.targetType === 'owner') payload.owner = form.pattern.trim()
-      else payload.name = form.pattern.trim()
+      if (form.targetType === 'slug') payload.slug = encoded
+      else if (form.targetType === 'owner') payload.owner = encoded
+      else payload.name = encoded
 
       const created = await createAccessRule(payload)
       onCreated(created)
@@ -214,27 +254,54 @@ function AddRuleModal({
             </select>
           </div>
 
-          {/* Pattern */}
+          {/* Pattern type + Pattern */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Pattern{' '}
-              <span className="text-gray-400 font-normal">
-                (literal, glob <code>*</code>, or <code>regex:…</code>)
-              </span>
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Match type</label>
+            <select
+              value={form.patternType}
+              onChange={(e) => handlePatternTypeChange(e.target.value as PatternType)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+            >
+              <option value="LITERAL">Literal — exact match</option>
+              <option value="GLOB">Glob — wildcard (* / **)</option>
+              <option value="REGEX">Regex — Java regular expression</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pattern</label>
             <input
               type="text"
               value={form.pattern}
-              onChange={(e) => set('pattern', e.target.value)}
+              onChange={(e) => handlePatternChange(e.target.value)}
               placeholder={
-                form.targetType === 'slug'
-                  ? 'myorg/myrepo or myorg/*'
-                  : form.targetType === 'owner'
-                    ? 'myorg or myorg-*'
-                    : 'myrepo or regex:^my.*'
+                form.patternType === 'REGEX'
+                  ? form.targetType === 'slug'
+                    ? '^myorg/.*'
+                    : form.targetType === 'owner'
+                      ? '^(myorg|partnerorg)$'
+                      : '^my-service-.*'
+                  : form.patternType === 'GLOB'
+                    ? form.targetType === 'slug'
+                      ? 'myorg/*'
+                      : form.targetType === 'owner'
+                        ? 'myorg-*'
+                        : 'feature-*'
+                    : form.targetType === 'slug'
+                      ? 'myorg/myrepo'
+                      : form.targetType === 'owner'
+                        ? 'myorg'
+                        : 'myrepo'
               }
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
+              className={`w-full border rounded px-3 py-1.5 text-sm font-mono ${
+                regexError ? 'border-amber-400' : 'border-gray-300'
+              }`}
             />
+            {regexError && <p className="mt-1 text-xs text-amber-600">⚠ {regexError}</p>}
+            {form.patternType === 'REGEX' && !regexError && form.pattern && (
+              <p className="mt-1 text-xs text-gray-400">
+                Stored as <code className="font-mono">regex:{form.pattern}</code>
+              </p>
+            )}
           </div>
 
           {/* Provider */}
