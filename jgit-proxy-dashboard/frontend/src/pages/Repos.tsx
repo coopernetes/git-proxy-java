@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { createAccessRule } from '../api'
+import { createAccessRule, fetchProviders } from '../api'
 
 interface ActiveRepo {
   provider: string
@@ -124,6 +124,13 @@ function AddRuleModal({
   const [form, setForm] = useState<AddRuleForm>(DEFAULT_FORM)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [providerNames, setProviderNames] = useState<string[]>([])
+
+  useEffect(() => {
+    fetchProviders()
+      .then((data: { name: string }[]) => setProviderNames(data.map((p) => p.name)))
+      .catch(() => {})
+  }, [])
 
   const set = <K extends keyof AddRuleForm>(key: K, value: AddRuleForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -232,17 +239,19 @@ function AddRuleModal({
 
           {/* Provider */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Provider{' '}
-              <span className="text-gray-400 font-normal">(leave blank for all providers)</span>
-            </label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+            <select
               value={form.provider}
               onChange={(e) => set('provider', e.target.value)}
-              placeholder="github, gitlab, …"
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
-            />
+            >
+              <option value="">— All providers (applies to any) —</option>
+              {providerNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Operations */}

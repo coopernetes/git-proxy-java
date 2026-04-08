@@ -174,3 +174,40 @@ rules:
         - github
       owners:
         - finos
+
+  deny:
+    # Deny a specific repo inside the otherwise-allowed otherorg/* owner glob.
+    # Demonstrates that deny wins: user2 has GLOB permission on /otherorg/* and
+    # the allow rule covers all of otherorg, but this repo is explicitly off-limits.
+    - enabled: true
+      order: 100
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - gitea
+      slugs:
+        - /otherorg/other-secret
+
+    # Deny repos whose name ends in -readonly or -archived — these are archival
+    # copies that should not receive new commits through the proxy.
+    - enabled: true
+      order: 101
+      operations:
+        - PUSH
+      providers:
+        - gitea
+      names:
+        - "*-readonly"
+        - "*-archived"
+
+    # Regex deny: block any repo whose name contains the word "secret" as a
+    # distinct segment (e.g. secret-store, my-secret-keys, not "secretariat").
+    - enabled: true
+      order: 102
+      operations:
+        - PUSH
+      providers:
+        - gitea
+      names:
+        - "regex:(?i)(^|-)secret(-|$).*"

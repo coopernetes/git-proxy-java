@@ -38,11 +38,13 @@ USER_PASSWORD="Test1234!"
 
 # Repos
 ORG1="test-owner"
-REPO1="test-repo"      # test-user (literal) and user3 (regex) can push
-REPO2="test-repo-2"    # user3 (regex) can push; test-user cannot (literal too narrow)
+REPO1="test-repo"           # test-user (literal) and user3 (regex) can push
+REPO2="test-repo-2"         # user3 (regex) can push; test-user cannot (literal too narrow)
+REPO5="test-repo-readonly"  # blocked by deny rule: name matches *-readonly
 ORG2="otherorg"
-REPO3="other-foo"      # user2 (glob) can push
-REPO4="other-bar"      # user2 (glob) can push
+REPO3="other-foo"           # user2 (glob) can push
+REPO4="other-bar"           # user2 (glob) can push
+REPO6="other-secret"        # blocked by deny rule: slug /otherorg/other-secret
 
 TOKENS_FILE="$(dirname "${BASH_SOURCE[0]}")/../test/gitea/tokens.env"
 
@@ -147,8 +149,10 @@ create_org "${ORG2}"
 
 create_repo "${ORG1}" "${REPO1}"
 create_repo "${ORG1}" "${REPO2}"
+create_repo "${ORG1}" "${REPO5}"
 create_repo "${ORG2}" "${REPO3}"
 create_repo "${ORG2}" "${REPO4}"
+create_repo "${ORG2}" "${REPO6}"
 
 # ---------------------------------------------------------------------------
 # Collaborator access — each user gets write on the repos their permissions cover
@@ -202,11 +206,14 @@ printf "      %-16s  password: %s\n" "${TEST_USER}" "${USER_PASSWORD}"
 printf "      %-16s  password: %s\n" "${USER2}"     "${USER_PASSWORD}"
 printf "      %-16s  password: %s\n" "${USER3}"     "${USER_PASSWORD}"
 echo ""
-echo "    Repos:"
-echo "      ${ORG1}/${REPO1}   — test-user (LITERAL) + user3 (REGEX)"
-echo "      ${ORG1}/${REPO2}   — user3 (REGEX) only"
-echo "      ${ORG2}/${REPO3}     — user2 (GLOB)"
-echo "      ${ORG2}/${REPO4}     — user2 (GLOB)"
+echo "    Repos (allowed):"
+echo "      ${ORG1}/${REPO1}         — test-user (LITERAL) + user3 (REGEX)"
+echo "      ${ORG1}/${REPO2}       — user3 (REGEX) only"
+echo "      ${ORG2}/${REPO3}           — user2 (GLOB)"
+echo "      ${ORG2}/${REPO4}           — user2 (GLOB)"
+echo "    Repos (deny-rule targets):"
+echo "      ${ORG1}/${REPO5}  — blocked: name matches *-readonly"
+echo "      ${ORG2}/${REPO6}      — blocked: slug deny on /otherorg/other-secret"
 echo ""
 echo "    Tokens written to: ${TOKENS_FILE}"
 echo "    Source before running smoke tests:"

@@ -170,3 +170,26 @@ rules:
         - finos
       providers:
         - github
+
+  deny:
+    # Guard: never allow pushes to this proxy's own source repository through the proxy.
+    # /finos/git-proxy is allowed above (for dev testing), but jgit-proxy itself is not.
+    - enabled: true
+      order: 100
+      operations:
+        - PUSH
+      providers:
+        - github
+      slugs:
+        - /coopernetes/jgit-proxy
+
+    # GitHub Pages repositories are presentation sites — block pushes even if the
+    # owner is covered by an allow rule (e.g. a future finos/* allow entry).
+    - enabled: true
+      order: 101
+      operations:
+        - PUSH
+      providers:
+        - github
+      names:
+        - "*.github.io"
