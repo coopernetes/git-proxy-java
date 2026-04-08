@@ -118,7 +118,8 @@ public class ScanDiffFilter extends AbstractProviderAwareGitProxyFilter {
             }
 
         } catch (Exception e) {
-            log.error("Failed to generate/scan diff for push {}..{}", fromCommit, toCommit, e);
+            log.warn("Skipping diff scan for push {}..{}: {}", fromCommit, toCommit, e.getMessage());
+            recordStep(request, StepStatus.SKIPPED, null, e.getMessage());
         }
     }
 }

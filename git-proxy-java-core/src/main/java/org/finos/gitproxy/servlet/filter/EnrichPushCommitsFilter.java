@@ -93,7 +93,7 @@ public class EnrichPushCommitsFilter extends AbstractProviderAwareGitProxyFilter
             }
 
         } catch (Exception e) {
-            log.error("Failed to enrich push commits", e);
+            log.warn("Failed to enrich push commits: {}", e.getMessage());
             addFallbackCommit(requestDetails);
         }
     }

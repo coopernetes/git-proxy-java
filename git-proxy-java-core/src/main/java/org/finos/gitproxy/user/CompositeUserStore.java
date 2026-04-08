@@ -1,10 +1,12 @@
 package org.finos.gitproxy.user;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A {@link MutableUserStore} that combines a read-only config store (YAML-defined users) with a mutable JDBC store
@@ -64,70 +66,102 @@ public class CompositeUserStore implements MutableUserStore {
 
     @Override
     public List<Map<String, Object>> findEmailsWithVerified(String username) {
+        var configUser = configStore.findByUsername(username);
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        // Config emails are always included as locked
+        configUser.ifPresent(u -> u.getEmails()
+                .forEach(e -> result.add(Map.of("email", e, "verified", false, "locked", true, "source", "config"))));
+
+        // Supplemental JDBC emails (skip any that overlap with config)
+        Set<String> configEmails =
+                configUser.<Set<String>>map(u -> new HashSet<>(u.getEmails())).orElse(Set.of());
         if (jdbcStore.findByUsername(username).isPresent()) {
-            return jdbcStore.findEmailsWithVerified(username);
+            jdbcStore.findEmailsWithVerified(username).stream()
+                    .filter(e -> !configEmails.contains(e.get("email")))
+                    .forEach(result::add);
         }
-        return configStore
-                .findByUsername(username)
-                .map(u -> u.getEmails().stream()
-                        .<Map<String, Object>>map(
-                                e -> Map.of("email", e, "verified", false, "locked", true, "source", "config"))
-                        .toList())
-                .orElse(List.of());
+
+        return result;
     }
 
     @Override
     public List<Map<String, Object>> findScmIdentitiesWithVerified(String username) {
-        if (jdbcStore.findByUsername(username).isPresent()) {
-            return jdbcStore.findScmIdentitiesWithVerified(username);
-        }
-        return configStore
-                .findByUsername(username)
+        var configUser = configStore.findByUsername(username);
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        // Config identities are always included as locked
+        configUser.ifPresent(u -> u.getScmIdentities().stream()
+                .filter(id -> !"proxy".equals(id.getProvider()))
+                .forEach(id -> result.add(Map.of(
+                        "provider",
+                        id.getProvider(),
+                        "username",
+                        id.getUsername(),
+                        "verified",
+                        false,
+                        "source",
+                        "config"))));
+
+        // Supplemental JDBC identities (skip any that overlap with config)
+        Set<String> configKeys = configUser
                 .map(u -> u.getScmIdentities().stream()
-                        .filter(id -> !"proxy".equals(id.getProvider()))
-                        .<Map<String, Object>>map(id -> Map.of(
-                                "provider",
-                                id.getProvider(),
-                                "username",
-                                id.getUsername(),
-                                "verified",
-                                false,
-                                "source",
-                                "config"))
-                        .toList())
-                .orElse(List.of());
+                        .map(id -> id.getProvider() + ":" + id.getUsername())
+                        .collect(java.util.stream.Collectors.toSet()))
+                .orElse(Set.of());
+        if (jdbcStore.findByUsername(username).isPresent()) {
+            jdbcStore.findScmIdentitiesWithVerified(username).stream()
+                    .filter(id -> !configKeys.contains(id.get("provider") + ":" + id.get("username")))
+                    .forEach(result::add);
+        }
+
+        return result;
     }
 
-    // ── writes — JDBC only (config users are immutable at runtime) ──────────────
+    // ── writes ──────────────────────────────────────────────────────────────────
+    // Config users can add supplemental emails/identities (stored in JDBC).
+    // Config-defined values are locked and cannot be removed.
 
     @Override
     public void addEmail(String username, String email) {
-        requireMutable(username);
+        var configUser = configStore.findByUsername(username);
+        if (configUser.isPresent()) {
+            if (configUser.get().getEmails().contains(email)) return; // already present, no-op
+            jdbcStore.upsertUser(username); // ensure JDBC row exists for supplemental data
+        }
         jdbcStore.addEmail(username, email);
     }
 
     @Override
     public void removeEmail(String username, String email) {
-        requireMutable(username);
+        configStore.findByUsername(username).ifPresent(u -> {
+            if (u.getEmails().contains(email)) throw new LockedEmailException(email);
+        });
         jdbcStore.removeEmail(username, email);
     }
 
     @Override
     public void addScmIdentity(String username, String provider, String scmUsername) {
-        requireMutable(username);
+        var configUser = configStore.findByUsername(username);
+        if (configUser.isPresent()) {
+            boolean alreadyInConfig = configUser.get().getScmIdentities().stream()
+                    .anyMatch(id -> id.getProvider().equals(provider)
+                            && id.getUsername().equals(scmUsername));
+            if (alreadyInConfig) return; // no-op
+            jdbcStore.upsertUser(username);
+        }
         jdbcStore.addScmIdentity(username, provider, scmUsername);
     }
 
     @Override
     public void removeScmIdentity(String username, String provider, String scmUsername) {
-        requireMutable(username);
+        configStore.findByUsername(username).ifPresent(u -> {
+            boolean inConfig = u.getScmIdentities().stream()
+                    .anyMatch(id -> id.getProvider().equals(provider)
+                            && id.getUsername().equals(scmUsername));
+            if (inConfig) throw new LockedByConfigException(username);
+        });
         jdbcStore.removeScmIdentity(username, provider, scmUsername);
-    }
-
-    private void requireMutable(String username) {
-        if (configStore.findByUsername(username).isPresent()) {
-            throw new LockedByConfigException(username);
-        }
     }
 
     @Override

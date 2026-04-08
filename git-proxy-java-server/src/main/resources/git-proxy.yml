@@ -30,6 +30,15 @@ database:
 providers:
   github:
     enabled: true
+    attestation-questions:
+      - id: reviewed-content
+        type: checkbox
+        label: "I have reviewed the diff and it contains no sensitive or proprietary information"
+        required: true
+      - id: policy-compliance
+        type: checkbox
+        label: "This push complies with our open source contribution policy"
+        required: true
   gitlab:
     enabled: true
   codeberg:
@@ -112,7 +121,7 @@ commit:
   #   3. bundled JAR binary — always present (DEFAULT_VERSION)
   #   4. system PATH — gitleaks already installed on host/container
   secret-scanning:
-    enabled: false
+    enabled: true
     # version: 8.22.0        # pin a specific version; combined with auto-install: true, downloads it on startup
     # auto-install: true     # allow downloading the version above (default: true); set false to use bundled or PATH only
     # install-dir: ~/.cache/git-proxy-java/gitleaks  # where to cache downloaded versions
@@ -129,11 +138,11 @@ commit:
 #   {noop}plaintext   — no hashing, for local dev only
 #   {bcrypt}$2a$12$.. — bcrypt; generate with: htpasswd -bnBC 12 "" yourpassword | tr -d ':\n'
 #
-# users:
-#   - username: admin
-#     password-hash: "{noop}admin"
-#     roles:
-#       - ADMIN           # grants dashboard admin access (user CRUD, password reset, etc.)
+users:
+ - username: admin
+   password-hash: "{noop}admin"
+   roles:
+     - ADMIN           # grants dashboard admin access (user CRUD, password reset, etc.)
 #   - username: alice
 #     password-hash: "{bcrypt}$2a$12$..."
 #     emails:

@@ -146,26 +146,72 @@ class CompositeUserStoreTest {
         assertEquals("bob-gh", ids.get(0).get("username"));
     }
 
-    // ── config users are immutable ───────────────────────────────────────────────
+    // ── config users: supplemental emails/identities stored in JDBC ─────────────
 
     @Test
-    void addEmail_configUser_throwsLockedByConfigException() {
-        assertThrows(LockedByConfigException.class, () -> store.addEmail("alice", "new@example.com"));
+    void addEmail_configUser_storesInJdbc() {
+        store.addEmail("alice", "alice-extra@example.com");
+        assertTrue(store.findByEmail("alice-extra@example.com").isPresent());
     }
 
     @Test
-    void removeEmail_configUser_throwsLockedByConfigException() {
-        assertThrows(LockedByConfigException.class, () -> store.removeEmail("alice", "alice@config.com"));
+    void addEmail_configUser_configEmailIsNoOp() {
+        assertDoesNotThrow(() -> store.addEmail("alice", "alice@config.com"));
     }
 
     @Test
-    void addScmIdentity_configUser_throwsLockedByConfigException() {
-        assertThrows(LockedByConfigException.class, () -> store.addScmIdentity("alice", "github", "new-handle"));
+    void removeEmail_configUser_configEmail_throwsLockedEmailException() {
+        assertThrows(LockedEmailException.class, () -> store.removeEmail("alice", "alice@config.com"));
     }
 
     @Test
-    void removeScmIdentity_configUser_throwsLockedByConfigException() {
+    void removeEmail_configUser_supplementalEmail_succeeds() {
+        store.addEmail("alice", "alice-extra@example.com");
+        assertDoesNotThrow(() -> store.removeEmail("alice", "alice-extra@example.com"));
+        assertTrue(store.findByEmail("alice-extra@example.com").isEmpty());
+    }
+
+    @Test
+    void addScmIdentity_configUser_storesInJdbc() {
+        store.addScmIdentity("alice", "gitlab", "alice-gl");
+        assertTrue(store.findByScmIdentity("gitlab", "alice-gl").isPresent());
+    }
+
+    @Test
+    void addScmIdentity_configUser_configIdentityIsNoOp() {
+        assertDoesNotThrow(() -> store.addScmIdentity("alice", "github", "alice-config"));
+    }
+
+    @Test
+    void removeScmIdentity_configUser_configIdentity_throwsLockedByConfigException() {
         assertThrows(LockedByConfigException.class, () -> store.removeScmIdentity("alice", "github", "alice-config"));
+    }
+
+    @Test
+    void removeScmIdentity_configUser_supplementalIdentity_succeeds() {
+        store.addScmIdentity("alice", "gitlab", "alice-gl");
+        assertDoesNotThrow(() -> store.removeScmIdentity("alice", "gitlab", "alice-gl"));
+    }
+
+    @Test
+    void findEmailsWithVerified_configUser_withSupplemental_returnsBoth() {
+        store.addEmail("alice", "alice-extra@example.com");
+        var emails = store.findEmailsWithVerified("alice");
+        assertEquals(2, emails.size());
+        assertTrue(emails.stream()
+                .anyMatch(e -> "alice@config.com".equals(e.get("email")) && Boolean.TRUE.equals(e.get("locked"))));
+        assertTrue(emails.stream().anyMatch(e -> "alice-extra@example.com".equals(e.get("email"))));
+    }
+
+    @Test
+    void findScmIdentitiesWithVerified_configUser_withSupplemental_returnsBoth() {
+        store.addScmIdentity("alice", "gitlab", "alice-gl");
+        var ids = store.findScmIdentitiesWithVerified("alice");
+        assertEquals(2, ids.size());
+        assertTrue(ids.stream()
+                .anyMatch(id -> "github".equals(id.get("provider")) && "alice-config".equals(id.get("username"))));
+        assertTrue(ids.stream()
+                .anyMatch(id -> "gitlab".equals(id.get("provider")) && "alice-gl".equals(id.get("username"))));
     }
 
     // ── writes delegate to JDBC ──────────────────────────────────────────────────

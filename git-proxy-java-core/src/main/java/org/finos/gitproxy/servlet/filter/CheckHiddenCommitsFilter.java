@@ -17,6 +17,7 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.finos.gitproxy.db.model.StepStatus;
 import org.finos.gitproxy.git.Commit;
 import org.finos.gitproxy.git.GitClientUtils;
 import org.finos.gitproxy.git.GitRequestDetails;
@@ -107,7 +108,8 @@ public class CheckHiddenCommitsFilter extends AbstractProviderAwareGitProxyFilte
                     request, response, "Hidden commits detected", GitClientUtils.format(title, message, RED, null));
 
         } catch (Exception e) {
-            log.error("Failed to check hidden commits", e);
+            log.warn("Skipping hidden commits check: {}", e.getMessage());
+            recordStep(request, StepStatus.SKIPPED, null, e.getMessage());
         }
     }
 

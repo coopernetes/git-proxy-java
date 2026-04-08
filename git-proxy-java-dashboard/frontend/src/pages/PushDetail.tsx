@@ -21,21 +21,21 @@ const NON_VALIDATION_STEPS = new Set([
 ])
 
 const STEP_DISPLAY_NAMES: Record<string, string> = {
-  checkAuthorEmails: 'Author & committer email addresses',
-  AuthorEmail: 'Author & committer email addresses',
-  CheckAuthorEmailsFilter: 'Author & committer email addresses',
-  checkCommitMessages: 'Commit message(s)',
-  CommitMessage: 'Commit message(s)',
-  CheckCommitMessagesFilter: 'Commit message(s)',
-  CheckEmptyBranchHook: 'Check empty branch',
-  CheckEmptyBranchFilter: 'Check empty branch',
-  CheckHiddenCommitsHook: 'Check hidden commits',
-  CheckHiddenCommitsFilter: 'Check hidden commits',
-  scanDiff: 'Scan diff',
-  DiffContent: 'Scan diff',
-  ScanDiffFilter: 'Scan diff',
-  GpgSignatureFilter: 'GPG signature',
-  GpgSignatureHook: 'GPG signature',
+  checkAuthorEmails: 'Author emails',
+  AuthorEmail: 'Author emails',
+  CheckAuthorEmailsFilter: 'Author emails',
+  checkCommitMessages: 'Commit messages',
+  CommitMessage: 'Commit messages',
+  CheckCommitMessagesFilter: 'Commit messages',
+  CheckEmptyBranchHook: 'Empty branch',
+  CheckEmptyBranchFilter: 'Empty branch',
+  CheckHiddenCommitsHook: 'Hidden commits',
+  CheckHiddenCommitsFilter: 'Hidden commits',
+  scanDiff: 'Diff scan',
+  DiffContent: 'Diff scan',
+  ScanDiffFilter: 'Diff scan',
+  GpgSignatureFilter: 'GPG signatures',
+  GpgSignatureHook: 'GPG signatures',
   scanSecrets: 'Secret scanning',
   SecretScanningFilter: 'Secret scanning',
   identityVerification: 'Identity verification',
@@ -87,6 +87,7 @@ function stepDisplayName(name: string): string {
       .replace(/Filter$|Hook$/, '')
       .replace(/([A-Z])/g, ' $1')
       .trim()
+      .replace(/^./, (c) => c.toUpperCase())
   )
 }
 
@@ -722,6 +723,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
               <div className="space-y-1">
                 {validationSteps.map((s) => {
                   const isFailed = s.status === 'FAIL' || s.status === 'BLOCKED'
+                  const isSkipped = s.status === 'SKIPPED'
                   const isOpen = openSteps[s.id]
                   return (
                     <div key={s.id}>
@@ -735,18 +737,20 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                               ? 'text-green-500'
                               : isFailed
                                 ? 'text-red-500'
-                                : 'text-gray-400'
+                                : isSkipped
+                                  ? 'text-yellow-500'
+                                  : 'text-gray-400'
                           }
                         >
-                          {s.status === 'PASS' ? '✓' : isFailed ? '✗' : '–'}
+                          {s.status === 'PASS' ? '✓' : isFailed ? '✗' : isSkipped ? '⚠' : '–'}
                         </span>
                         <span className="text-sm text-gray-700 w-56 shrink-0">
                           {stepDisplayName(s.stepName)}
                         </span>
                         <span className="text-gray-500 text-xs truncate flex-1">
-                          {s.errorMessage ?? s.blockedMessage ?? ''}
+                          {s.errorMessage ?? s.blockedMessage ?? (isSkipped ? 'skipped' : '')}
                         </span>
-                        {isFailed && s.content && (
+                        {(isFailed || isSkipped) && s.content && (
                           <span className="text-xs text-gray-400 shrink-0">
                             {isOpen ? '▲ hide' : '▼ details'}
                           </span>

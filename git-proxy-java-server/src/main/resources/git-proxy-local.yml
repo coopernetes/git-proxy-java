@@ -112,6 +112,10 @@ permissions:
     path: /coopernetes/testing-123
     operations: PUSH
   - username: thomas-cooper
+    provider: github
+    path: /coopernetes/git-proxy-java
+    operations: PUSH
+  - username: thomas-cooper
     provider: gitlab
     path: /coopernetes/*
     path-type: GLOB
@@ -155,6 +159,7 @@ rules:
         - github
       slugs:
         - /finos/git-proxy
+        - /coopernetes/git-proxy-java
         - /coopernetes/test-repo
         - /coopernetes/testing-123
     - enabled: true
