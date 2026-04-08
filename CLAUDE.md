@@ -1,12 +1,12 @@
-# jgit-proxy — Claude context
+# git-proxy-java — Claude context
 
 ## Repository layout
 
-| Module                 | Purpose                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `jgit-proxy-core`      | Shared library: filter chain, JGit hooks, push store, provider model, approval abstraction                          |
-| `jgit-proxy-server`    | Standalone proxy-only server (`GitProxyJettyApplication`) — no dashboard, no Spring                                 |
-| `jgit-proxy-dashboard` | Dashboard + REST API (`GitProxyWithDashboardApplication`) — Spring MVC, approval UI, depends on `jgit-proxy-server` |
+| Module                     | Purpose                                                                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `git-proxy-java-core`      | Shared library: filter chain, JGit hooks, push store, provider model, approval abstraction                              |
+| `git-proxy-java-server`    | Standalone proxy-only server (`GitProxyJettyApplication`) — no dashboard, no Spring                                     |
+| `git-proxy-java-dashboard` | Dashboard + REST API (`GitProxyWithDashboardApplication`) — Spring MVC, approval UI, depends on `git-proxy-java-server` |
 
 ## Architecture
 
@@ -49,27 +49,27 @@ model, Sink interface, and filter chain patterns when porting features.
 ```
 
 Unit tests live under each module's `src/test/`. E2e tests are in
-`jgit-proxy-server/src/test/java/org/finos/gitproxy/e2e/` and tagged `@Tag("e2e")`.
+`git-proxy-java-server/src/test/java/org/finos/gitproxy/e2e/` and tagged `@Tag("e2e")`.
 
 ## Running the server locally
 
 ```bash
 # Proxy only (no dashboard, no API):
-./gradlew :jgit-proxy-server:run &
-./gradlew :jgit-proxy-server:stop
+./gradlew :git-proxy-java-server:run &
+./gradlew :git-proxy-java-server:stop
 
 # Proxy + dashboard + REST API (http://localhost:8080/):
-./gradlew :jgit-proxy-dashboard:run &
-./gradlew :jgit-proxy-dashboard:stop
+./gradlew :git-proxy-java-dashboard:run &
+./gradlew :git-proxy-java-dashboard:stop
 
-# Logs: jgit-proxy-server/logs/application.log  (DEBUG for org.finos.gitproxy)
-# Default DB: h2-file — persisted to jgit-proxy-server/.data/gitproxy.mv.db
+# Logs: git-proxy-java-server/logs/application.log  (DEBUG for org.finos.gitproxy)
+# Default DB: h2-file — persisted to git-proxy-java-server/.data/gitproxy.mv.db
 ```
 
 ## Docker Compose
 
 ```bash
-docker compose up -d          # jgit-proxy + Gitea (h2-mem database)
+docker compose up -d          # git-proxy-java + Gitea (h2-mem database)
 bash docker/gitea-setup.sh          # one-time: create admin user + test repo in Gitea
 
 # Optional database backends:

@@ -17,7 +17,7 @@ COMPOSE="${COMPOSE:-docker compose}"
 COMPOSE_FILE="$(dirname "${BASH_SOURCE[0]}")/../docker-compose.yml"
 GITEA_URL="http://localhost:3000"
 
-# Gitea admin — owns orgs/repos; NOT mapped in jgit-proxy (tests identity-not-linked)
+# Gitea admin — owns orgs/repos; NOT mapped in git-proxy-java (tests identity-not-linked)
 ADMIN_USER="gitproxyadmin"
 ADMIN_PASSWORD="Admin1234!"
 ADMIN_EMAIL="gitproxyadmin@example.com"
@@ -219,5 +219,5 @@ echo "    Tokens written to: ${TOKENS_FILE}"
 echo "    Source before running smoke tests:"
 echo "      source test/gitea/tokens.env"
 echo ""
-echo "    jgit-proxy push path:  http://localhost:8080/push/gitea/${ORG1}/${REPO1}.git"
-echo "    jgit-proxy proxy path: http://localhost:8080/proxy/gitea/${ORG1}/${REPO1}.git"
+echo "    git-proxy-java push path:  http://localhost:8080/push/gitea/${ORG1}/${REPO1}.git"
+echo "    git-proxy-java proxy path: http://localhost:8080/proxy/gitea/${ORG1}/${REPO1}.git"

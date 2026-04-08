@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spin up jgit-proxy + Gitea + PostgreSQL, run the full test/... suite, then tear down.
+# Spin up git-proxy-java + Gitea + PostgreSQL, run the full test/... suite, then tear down.
 #
 # Usage:
 #   bash test/run-postgres.sh               # build, test, tear down
@@ -41,7 +41,7 @@ echo "==> Cleaning up any previous run..."
 $COMPOSE down -v --remove-orphans 2>/dev/null || true
 
 echo "==> Building image..."
-$COMPOSE build jgit-proxy
+$COMPOSE build git-proxy-java
 
 echo "==> Starting services..."
 $COMPOSE up -d
@@ -49,13 +49,13 @@ $COMPOSE up -d
 echo "==> Running Gitea setup..."
 bash "${REPO_ROOT}/docker/gitea-setup.sh"
 
-echo "==> Waiting for jgit-proxy to be healthy..."
+echo "==> Waiting for git-proxy-java to be healthy..."
 for i in $(seq 1 30); do
     if curl -sf "http://localhost:8080/login.html" -o /dev/null 2>&1; then
-        echo "    jgit-proxy is up."
+        echo "    git-proxy-java is up."
         break
     fi
-    [ "$i" -eq 30 ] && { echo "ERROR: jgit-proxy did not become healthy"; exit 1; }
+    [ "$i" -eq 30 ] && { echo "ERROR: git-proxy-java did not become healthy"; exit 1; }
     sleep 3
 done
 

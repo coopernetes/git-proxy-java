@@ -53,8 +53,8 @@ memory/
 test/gitea/tokens.env
 
 ### Frontend build output ###
-jgit-proxy-dashboard/frontend/node_modules/
-jgit-proxy-dashboard/frontend/dist/
+git-proxy-java-dashboard/frontend/node_modules/
+git-proxy-java-dashboard/frontend/dist/
 # Generated static assets copied from Vite dist (excluded except login.html)
-jgit-proxy-dashboard/src/main/resources/static/assets/
-jgit-proxy-dashboard/src/main/resources/static/index.html
+git-proxy-java-dashboard/src/main/resources/static/assets/
+git-proxy-java-dashboard/src/main/resources/static/index.html

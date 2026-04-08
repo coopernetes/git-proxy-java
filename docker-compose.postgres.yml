@@ -16,7 +16,7 @@
 #
 # Adminer (database UI) is available at http://localhost:8082.
 services:
-  jgit-proxy:
+  git-proxy-java:
     environment:
       GITPROXY_DATABASE_TYPE: postgres
       GITPROXY_DATABASE_HOST: postgres

@@ -1,5 +1,5 @@
-rootProject.name = 'gitproxy'
+rootProject.name = 'git-proxy-java'
 
-include 'jgit-proxy-core'
-include 'jgit-proxy-server'
-include 'jgit-proxy-dashboard'
+include 'git-proxy-java-core'
+include 'git-proxy-java-server'
+include 'git-proxy-java-dashboard'

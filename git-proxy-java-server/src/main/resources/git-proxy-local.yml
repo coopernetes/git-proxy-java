@@ -1,0 +1,208 @@
+logging:
+  level:
+    org.finos.gitproxy: DEBUG
+
+providers:
+  github:
+    attestation-questions:
+      - id: reviewed-content
+        type: checkbox
+        label: "I have reviewed the diff and it contains no sensitive or proprietary information"
+        required: true
+      - id: policy-compliance
+        type: checkbox
+        label: "This push complies with our open source contribution policy"
+        required: true
+      - id: ticket-ref
+        type: text
+        label: "Internal ticket or justification reference"
+        required: false
+
+server:
+  # Allow the Vite dev server to make cross-origin requests to the backend.
+  # Vite defaults to port 5173; adjust if you've changed it.
+  allowed-origins:
+    - http://localhost:5173
+
+# Three users:
+#   admin          — ADMIN role, no SCM identity; for dashboard/user-management testing
+#   thomas-cooper  — personal push account linked to real SCM handles (github/gitlab)
+#   reviewer       — dummy approve-only account; no SCM identity, used to test
+#                    the approval flow independently of the pusher identity
+#
+# Codeberg is intentionally absent from thomas-cooper's scm-identities —
+# push-identity-codeberg.sh expects "Identity Not Linked" as the failure scenario.
+#
+# Password format: {noop}plaintext (dev only).
+users:
+  - username: admin
+    password-hash: "{noop}admin"
+    roles: [ADMIN]
+    emails:
+      - admin@example.com
+
+  - username: thomas-cooper
+    password-hash: "{noop}password"
+    scm-identities:
+      - provider: github
+        username: coopernetes
+      - provider: gitlab
+        username: coopernetes
+      # codeberg intentionally omitted — used to test unresolved-identity scenario
+    emails:
+      - thomas-cooper@example.com
+
+  - username: reviewer
+    password-hash: "{noop}password"
+
+commit:
+  author:
+    email:
+      # Domains allowed for commit authors.
+      # Used by the local test-*.sh scripts — replace with your corporate domain in production.
+      domain:
+        allow: "(proton\\.me|gmail\\.com|outlook\\.com|yahoo\\.com|example\\.com)$"
+      # Local-parts (before @) that are always blocked regardless of domain.
+      local:
+        block: "^(noreply|no-reply|bot|nobody)$"
+  message:
+    block:
+      # Commit messages containing any of these strings (case-insensitive) are rejected.
+      literals:
+        - "WIP"
+        - "DO NOT MERGE"
+        - "fixup!"
+        - "squash!"
+      # Commit messages matching any of these patterns are rejected.
+      patterns:
+        - '(?i)(password|secret|token)\s*[=:]\s*\S+'
+  diff:
+    block:
+      # Example: block internal hostnames/URLs from leaking into public repos.
+      literals:
+        - "internal.corp.example.com"
+      patterns:
+        - '(?i)https?://[a-z0-9.-]*\.corp\.example\.com\b'
+  secret-scanning:
+    enabled: true
+
+# Repo permissions for local dev / smoke testing.
+#
+# thomas-cooper: push access on all allowed repos (exercises LITERAL/GLOB/REGEX).
+# reviewer:      approve-only — dummy account for testing the approval flow
+#                independently of the pusher identity; no SCM identity needed.
+# (admin can also approve via the dashboard by virtue of its ADMIN role.)
+#
+# Path types intentionally exercise all three matching modes:
+#   GitHub   → LITERAL (exact repo path)
+#   GitLab   → GLOB   (/coopernetes/* matches any repo under that owner)
+#   Codeberg → REGEX  (anchored Java regex — permission exists but identity will
+#                      block before it's evaluated in push-identity-codeberg.sh)
+permissions:
+  - username: thomas-cooper
+    provider: github
+    path: /finos/git-proxy
+    operations: PUSH
+  - username: thomas-cooper
+    provider: github
+    path: /coopernetes/test-repo
+    operations: PUSH
+  - username: thomas-cooper
+    provider: github
+    path: /coopernetes/testing-123
+    operations: PUSH
+  - username: thomas-cooper
+    provider: gitlab
+    path: /coopernetes/*
+    path-type: GLOB
+    operations: PUSH
+  - username: thomas-cooper
+    provider: codeberg
+    path: \/coopernetes\/test\-repo\-([\w]+) # matches /coopernetes/test-repo-codeberg & any test-repo-<something>
+    path-type: REGEX
+    operations: PUSH
+  - username: reviewer
+    provider: github
+    path: /finos/git-proxy
+    operations: APPROVE
+  - username: reviewer
+    provider: github
+    path: /coopernetes/test-repo
+    operations: APPROVE
+  - username: reviewer
+    provider: github
+    path: /coopernetes/testing-123
+    operations: APPROVE
+  - username: reviewer
+    provider: gitlab
+    path: /coopernetes/*
+    path-type: GLOB
+    operations: APPROVE
+  - username: reviewer
+    provider: codeberg
+    path: /coopernetes/test-repo-codeberg
+    path-type: REGEX
+    operations: APPROVE
+
+rules:
+  allow:
+    - enabled: true
+      order: 110
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - github
+      slugs:
+        - /finos/git-proxy
+        - /coopernetes/test-repo
+        - /coopernetes/testing-123
+    - enabled: true
+      order: 111
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - gitlab
+      slugs:
+        - /coopernetes/test-repo-gitlab
+    - enabled: true
+      order: 112
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - codeberg
+      slugs:
+        - /coopernetes/test-repo-codeberg
+    - enabled: true
+      order: 120
+      operations:
+        - FETCH
+      owners:
+        - finos
+      providers:
+        - github
+
+  deny:
+    # Guard: never allow pushes to this proxy's own source repository through the proxy.
+    # /finos/git-proxy is allowed above (for dev testing), but git-proxy-java itself is not.
+    - enabled: true
+      order: 100
+      operations:
+        - PUSH
+      providers:
+        - github
+      slugs:
+        - /coopernetes/git-proxy-java
+
+    # GitHub Pages repositories are presentation sites — block pushes even if the
+    # owner is covered by an allow rule (e.g. a future finos/* allow entry).
+    - enabled: true
+      order: 101
+      operations:
+        - PUSH
+      providers:
+        - github
+      names:
+        - "*.github.io"

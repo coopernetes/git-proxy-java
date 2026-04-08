@@ -1,7 +1,7 @@
-[![CI](https://github.com/coopernetes/jgit-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/coopernetes/jgit-proxy/actions/workflows/ci.yml)
-[![CVE Scanning](https://github.com/coopernetes/jgit-proxy/actions/workflows/cve.yml/badge.svg)](https://github.com/coopernetes/jgit-proxy/actions/workflows/cve.yml)
+[![CI](https://github.com/coopernetes/git-proxy-java/actions/workflows/ci.yml/badge.svg)](https://github.com/coopernetes/git-proxy-java/actions/workflows/ci.yml)
+[![CVE Scanning](https://github.com/coopernetes/git-proxy-java/actions/workflows/cve.yml/badge.svg)](https://github.com/coopernetes/git-proxy-java/actions/workflows/cve.yml)
 
-# jgit-proxy
+# git-proxy-java
 
 A Java-based git proxy implementing the same compliance and security controls as
 [finos/git-proxy](https://github.com/finos/git-proxy). Designed for OSS contribution gateways (employees in regulated
@@ -19,8 +19,8 @@ or more git providers). Built on [JGit](https://github.com/eclipse-jgit/jgit),
 ### Clone and build
 
 ```shell
-git clone https://github.com/coopernetes/jgit-proxy.git
-cd jgit-proxy
+git clone https://github.com/coopernetes/git-proxy-java.git
+cd git-proxy-java
 ./gradlew build
 ```
 
@@ -29,13 +29,13 @@ cd jgit-proxy
 The standalone proxy server (no dashboard, no management API) listens on port 8080 by default:
 
 ```shell
-./gradlew :jgit-proxy-server:run
+./gradlew :git-proxy-java-server:run
 ```
 
-Logs are written to `jgit-proxy-server/logs/application.log`. Stop with:
+Logs are written to `git-proxy-java-server/logs/application.log`. Stop with:
 
 ```shell
-./gradlew :jgit-proxy-server:stop
+./gradlew :git-proxy-java-server:stop
 ```
 
 ### Run the dashboard application
@@ -43,18 +43,18 @@ Logs are written to `jgit-proxy-server/logs/application.log`. Stop with:
 The dashboard module adds a Spring MVC web UI and REST API for reviewing and approving blocked pushes:
 
 ```shell
-./gradlew :jgit-proxy-dashboard:run
+./gradlew :git-proxy-java-dashboard:run
 ```
 
 Open `http://localhost:8080/` in a browser to access the approval dashboard. Stop with:
 
 ```shell
-./gradlew :jgit-proxy-dashboard:stop
+./gradlew :git-proxy-java-dashboard:stop
 ```
 
 ### Configure the proxy
 
-Configuration is YAML-based. Copy `git-proxy.yml` from `jgit-proxy-server/src/main/resources/` and create
+Configuration is YAML-based. Copy `git-proxy.yml` from `git-proxy-java-server/src/main/resources/` and create
 `git-proxy-local.yml` in the same directory (or `/app/conf/` for Docker). The local file takes priority over the bundled
 defaults.
 
@@ -91,15 +91,15 @@ Environment variable overrides use the `GITPROXY_` prefix:
 
 ### URLs
 
-jgit-proxy is capable of proxying arbitrary & multiple upstream Git repositories over HTTPS. For each upstream provider
-(for example, <https://github.com> & <https://gitlab.com>), a distinct URL is mapped for proxying by hostname. The
-remainder of the URL is the specific git repository you wish to connect to. For example:
+git-proxy-java is capable of proxying arbitrary & multiple upstream Git repositories over HTTPS. For each upstream
+provider (for example, <https://github.com> & <https://gitlab.com>), a distinct URL is mapped for proxying by hostname.
+The remainder of the URL is the specific git repository you wish to connect to. For example:
 
 - Original repository: <https://github.com/finos/git-proxy>
-- Proxy: http[s]://{jgit-proxy-server}/{proxy,push\*}/github.com/finos/git-proxy
+- Proxy: http[s]://{git-proxy-java-server}/{proxy,push\*}/github.com/finos/git-proxy
 
 This makes it simple for a developer to simply add a new [git remote](https://git-scm.com/docs/git-remote) and start
-pushing code through jgit-proxy.
+pushing code through git-proxy-java.
 
 ```shell
 git clone https://github.com/finos/git-proxy && cd git-proxy
@@ -220,16 +220,16 @@ docker compose up -d mongo      # port 27017, Mongo Express on 8081
 
 This is a multi-module Gradle project:
 
-| Module                 | Purpose                                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------ |
-| `jgit-proxy-core`      | Shared library: filter chain, JGit hooks, push store, provider model, approval abstraction |
-| `jgit-proxy-server`    | Standalone proxy-only server — no dashboard, no Spring                                     |
-| `jgit-proxy-dashboard` | Dashboard + REST API — Spring MVC, approval UI, depends on `jgit-proxy-server`             |
+| Module                     | Purpose                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `git-proxy-java-core`      | Shared library: filter chain, JGit hooks, push store, provider model, approval abstraction |
+| `git-proxy-java-server`    | Standalone proxy-only server — no dashboard, no Spring                                     |
+| `git-proxy-java-dashboard` | Dashboard + REST API — Spring MVC, approval UI, depends on `git-proxy-java-server`         |
 
 ## Roadmap
 
-The backlog is tracked in [GitHub Issues](https://github.com/coopernetes/jgit-proxy/issues). The following gists cover
-design rationale and reference material:
+The backlog is tracked in [GitHub Issues](https://github.com/coopernetes/git-proxy-java/issues). The following gists
+cover design rationale and reference material:
 
 | Document                                                                                        | Description                                                                                                                                                           |
 | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

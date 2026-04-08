@@ -1,4 +1,4 @@
-# jgit-proxy LDAP auth configuration.
+# git-proxy-java LDAP auth configuration.
 # Loaded when GITPROXY_CONFIG_PROFILES includes "ldap" (after "docker-default").
 #
 # Credentials: testuser / testpass123  (authenticated by OpenLDAP)

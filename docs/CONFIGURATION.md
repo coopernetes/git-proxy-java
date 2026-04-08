@@ -1,6 +1,6 @@
 # Configuration Reference
 
-jgit-proxy uses layered YAML configuration merged at startup. A base file ships with the jar; additional profile files
+git-proxy-java uses layered YAML configuration merged at startup. A base file ships with the jar; additional profile files
 and environment variable overrides are applied on top in a defined order.
 
 ## Configuration files and profiles
@@ -15,7 +15,7 @@ and environment variable overrides are applied on top in a defined order.
 
 ### `GITPROXY_CONFIG_PROFILES`
 
-Set this environment variable to a comma-separated list of profile names. For each name, jgit-proxy looks for
+Set this environment variable to a comma-separated list of profile names. For each name, git-proxy-java looks for
 `git-proxy-{name}.yml` on the classpath (including any files mounted into `/app/conf/` in Docker). Unknown or missing
 profile files are silently skipped.
 
@@ -109,7 +109,7 @@ server:
 
 ### Server HTTPS listener
 
-By default jgit-proxy listens on plain HTTP. To enable HTTPS, add a `server.tls` block.
+By default git-proxy-java listens on plain HTTP. To enable HTTPS, add a `server.tls` block.
 
 **PEM-based (preferred — no keytool required):**
 
@@ -144,7 +144,7 @@ Plain HTTP on `server.port` remains active when HTTPS is configured — both lis
 ### Custom upstream CA trust
 
 Enterprise PKIs typically issue certificates that Java's built-in truststore doesn't include, causing
-`SSLHandshakeException` on upstream connections to internal GitLab/Bitbucket/Forgejo instances. jgit-proxy
+`SSLHandshakeException` on upstream connections to internal GitLab/Bitbucket/Forgejo instances. git-proxy-java
 supports trusting a custom CA bundle without touching the JVM truststore or running `keytool`.
 
 ```yaml
@@ -234,7 +234,7 @@ auth:
     # LDAP filter for group membership. {0} = user full DN, {1} = username.
     group-search-filter: "(member={0})"
 
-  # Map jgit-proxy role names to lists of LDAP group CNs.
+  # Map git-proxy-java role names to lists of LDAP group CNs.
   # When a user is a member of any listed group, the role is granted.
   role-mappings:
     ADMIN:
@@ -294,7 +294,7 @@ auth:
   # which is standard for Keycloak, Okta, and most Entra ID configurations.
   groups-claim: groups
 
-  # Map jgit-proxy role names to lists of OIDC group values from the claim above.
+  # Map git-proxy-java role names to lists of OIDC group values from the claim above.
   role-mappings:
     ADMIN:
       - git-admins
@@ -302,7 +302,7 @@ auth:
 
 #### Entra ID (Azure AD)
 
-Entra ID requires two extra settings. The `jwk-set-uri` field is the key signal — when it is set, jgit-proxy skips OIDC
+Entra ID requires two extra settings. The `jwk-set-uri` field is the key signal — when it is set, git-proxy-java skips OIDC
 discovery and issuer validation. This is necessary because Entra issues tokens with
 `iss=https://sts.windows.net/{tenant}/` rather than the discovery base URL, which would cause Spring Security to reject
 them otherwise.
@@ -457,7 +457,7 @@ commit:
     enabled: false
     # version: 8.22.0
     # auto-install: true
-    # install-dir: ~/.cache/jgit-proxy/gitleaks
+    # install-dir: ~/.cache/git-proxy-java/gitleaks
     # scanner-path: /usr/local/bin/gitleaks
     # config-file: /app/conf/.gitleaks.toml
     # timeout-seconds: 30
@@ -474,11 +474,11 @@ For every push, the proxy runs two independent checks:
 
 1. **SCM login check** — calls the upstream provider's user API with the token supplied in the git credentials (the HTTP
    Basic-auth password). The returned login (e.g. GitHub `login`, GitLab `username`) is matched against the
-   authenticated jgit-proxy user's `scm-identities`. This is the only identity signal the SCM can reliably provide —
+   authenticated git-proxy-java user's `scm-identities`. This is the only identity signal the SCM can reliably provide —
    email is not used here (GitHub omits it when private email visibility is enabled; other providers vary).
 
 2. **Commit email check** — every author and committer email in the pushed commits is checked against the authenticated
-   jgit-proxy user's `emails` list. These emails are populated independently of the SCM: they come from the IdP on
+   git-proxy-java user's `emails` list. These emails are populated independently of the SCM: they come from the IdP on
    LDAP/OIDC login, or from additional associations added via the dashboard. This is what ties commit attribution back
    to a verified real person.
 
@@ -494,7 +494,7 @@ pushed.
 
 | Mode     | Behaviour                                                                                                      | Use when                                                                       |
 | -------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `strict` | Blocks the push if the SCM username or any commit email cannot be matched to the authenticated jgit-proxy user | Production — this is the only mode that actually enforces identity             |
+| `strict` | Blocks the push if the SCM username or any commit email cannot be matched to the authenticated git-proxy-java user | Production — this is the only mode that actually enforces identity             |
 | `warn`   | Allows the push through but emits a sideband warning to the git client and records the mismatch                | Rolling out to an existing team — lets you observe mismatches before enforcing |
 | `off`    | Check is disabled entirely                                                                                     | Migrations or environments where SCM identity data is not yet populated        |
 
@@ -538,7 +538,7 @@ users:
 
 ## URL rules
 
-URL rules control which repositories are accessible through the proxy. jgit-proxy is **default-deny**: if no allow
+URL rules control which repositories are accessible through the proxy. git-proxy-java is **default-deny**: if no allow
 rules are configured for a provider, all pushes and fetches to that provider are rejected. At least one allow rule
 must match for a request to proceed.
 
@@ -605,13 +605,13 @@ rules:
 
 ```bash
 # Proxy only (no dashboard):
-./gradlew :jgit-proxy-server:run
+./gradlew :git-proxy-java-server:run
 
 # Proxy + dashboard + REST API:
-./gradlew :jgit-proxy-dashboard:run
+./gradlew :git-proxy-java-dashboard:run
 
 # Override port via environment variable:
-GITPROXY_SERVER_PORT=9090 ./gradlew :jgit-proxy-server:run
+GITPROXY_SERVER_PORT=9090 ./gradlew :git-proxy-java-server:run
 ```
 
-Logs: `jgit-proxy-server/logs/application.log`
+Logs: `git-proxy-java-server/logs/application.log`

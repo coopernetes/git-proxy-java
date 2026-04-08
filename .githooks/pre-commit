@@ -10,10 +10,10 @@ git diff --name-only | xargs -r git add
 echo "[pre-commit] Spotless: OK"
 
 echo "[pre-commit] Running Prettier..."
-./gradlew :jgit-proxy-dashboard:npmFormat :jgit-proxy-dashboard:prettierDocs --quiet
-git diff --name-only -- jgit-proxy-dashboard/frontend/src '*.md' | xargs -r git add
+./gradlew :git-proxy-java-dashboard:npmFormat :git-proxy-java-dashboard:prettierDocs --quiet
+git diff --name-only -- git-proxy-java-dashboard/frontend/src '*.md' | xargs -r git add
 echo "[pre-commit] Prettier: OK"
 
 echo "[pre-commit] Running ESLint..."
-./gradlew :jgit-proxy-dashboard:npmLint --quiet
+./gradlew :git-proxy-java-dashboard:npmLint --quiet
 echo "[pre-commit] ESLint: OK"

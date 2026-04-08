@@ -16,7 +16,7 @@
 #
 # Mongo Express (database UI) is available at http://localhost:8081.
 services:
-  jgit-proxy:
+  git-proxy-java:
     environment:
       GITPROXY_DATABASE_TYPE: mongo
       GITPROXY_DATABASE_URL: mongodb://gitproxy:gitproxy@mongo:27017

@@ -68,7 +68,7 @@ jobs:
           cache: gradle
 
       - name: Run e2e tests
-        run: ./gradlew :jgit-proxy-server:e2eTest
+        run: ./gradlew :git-proxy-java-server:e2eTest
         timeout-minutes: 5
 
       - name: Publish e2e test results
@@ -76,5 +76,5 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # ratchet:actions/upload-artifact@v7
         with:
           name: e2e-test-reports
-          path: "jgit-proxy-server/build/reports/tests/e2eTest/"
+          path: "git-proxy-java-server/build/reports/tests/e2eTest/"
           retention-days: 14

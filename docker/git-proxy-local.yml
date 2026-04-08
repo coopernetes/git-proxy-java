@@ -1,11 +1,11 @@
-# jgit-proxy configuration for Docker Compose.
+# git-proxy-java configuration for Docker Compose.
 # This file is mounted into the container at /app/conf/git-proxy-local.yml
 # and overrides the defaults in git-proxy.yml.
 
 # API key for the REST approval endpoints (X-Api-Key header).
 # Set GITPROXY_API_KEY=<strong-secret> in your environment or docker-compose env section.
 # Default (dev only): change-me-in-production
-# See: https://github.com/coopernetes/jgit-proxy/issues/57
+# See: https://github.com/coopernetes/git-proxy-java/issues/57
 
 users:
   - username: admin

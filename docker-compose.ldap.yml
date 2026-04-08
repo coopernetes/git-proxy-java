@@ -32,7 +32,7 @@ services:
       retries: 12
       start_period: 10s
 
-  jgit-proxy:
+  git-proxy-java:
     volumes:
       - ./docker/git-proxy-ldap.yml:/app/conf/git-proxy-ldap.yml:ro
     environment:

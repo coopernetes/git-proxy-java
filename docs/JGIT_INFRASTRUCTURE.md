@@ -1,6 +1,6 @@
 # JGit infrastructure
 
-How jgit-proxy uses [Eclipse JGit](https://github.com/eclipse-jgit/jgit) to implement the store-and-forward proxy mode
+How git-proxy-java uses [Eclipse JGit](https://github.com/eclipse-jgit/jgit) to implement the store-and-forward proxy mode
 and to support commit inspection in the transparent proxy mode.
 
 For low-level details on git wire-protocol behaviour and how individual hooks/filters handle edge cases (tags, new

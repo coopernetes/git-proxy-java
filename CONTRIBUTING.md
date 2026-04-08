@@ -1,4 +1,4 @@
-# Contributing to jgit-proxy
+# Contributing to git-proxy-java
 
 ## Prerequisites
 
@@ -30,25 +30,25 @@ Formatting is enforced in CI. Always run `spotlessApply` before pushing.
 ### Proxy only (no dashboard)
 
 ```shell
-./gradlew :jgit-proxy-server:run
+./gradlew :git-proxy-java-server:run
 ```
 
-Listens on `http://localhost:8080`. Logs go to `jgit-proxy-server/logs/application.log`. Stop with:
+Listens on `http://localhost:8080`. Logs go to `git-proxy-java-server/logs/application.log`. Stop with:
 
 ```shell
-./gradlew :jgit-proxy-server:stop
+./gradlew :git-proxy-java-server:stop
 ```
 
 ### Dashboard + REST API
 
 ```shell
-./gradlew :jgit-proxy-dashboard:run
+./gradlew :git-proxy-java-dashboard:run
 ```
 
 Opens the approval dashboard at `http://localhost:8080/`. Stop with:
 
 ```shell
-./gradlew :jgit-proxy-dashboard:stop
+./gradlew :git-proxy-java-dashboard:stop
 ```
 
 The dashboard module always uses UI-mode approval (pushes block until manually approved). The standalone server defaults
@@ -56,7 +56,7 @@ to auto-approve.
 
 ### Local config override
 
-Place overrides in `jgit-proxy-server/src/main/resources/git-proxy-local.yml`. The local file takes priority over
+Place overrides in `git-proxy-java-server/src/main/resources/git-proxy-local.yml`. The local file takes priority over
 `git-proxy.yml`. At minimum, add an allow rule for your test repo and a permission entry for your proxy user:
 
 ```yaml
@@ -95,7 +95,7 @@ Unit tests live under each module's `src/test/`. They run without containers.
 ```
 
 These start a containerised Gitea instance and a live Jetty proxy in-process. They are tagged `@Tag("e2e")` and live in
-`jgit-proxy-server/src/test/java/org/finos/gitproxy/e2e/`.
+`git-proxy-java-server/src/test/java/org/finos/gitproxy/e2e/`.
 
 ### Manual integration test scripts (`test/`)
 
@@ -218,7 +218,7 @@ bash test/push-fail-secrets.sh
 
 #### Full suite runners
 
-Two scripts spin up a complete Docker Compose environment (jgit-proxy + Gitea + database), run all test groups, then
+Two scripts spin up a complete Docker Compose environment (git-proxy-java + Gitea + database), run all test groups, then
 tear down:
 
 ```shell
@@ -233,7 +233,7 @@ These build the Docker image from source, so no pre-existing server is needed.
 
 ## Docker Compose (local Gitea)
 
-The Compose setup runs jgit-proxy against a local Gitea instance. Overlay files are independent mixins — one for the
+The Compose setup runs git-proxy-java against a local Gitea instance. Overlay files are independent mixins — one for the
 auth provider, one for the database backend. They can be combined freely.
 
 ### Overlay files
@@ -346,7 +346,7 @@ docker compose -f docker-compose.yml -f docker-compose.ldap.yml up -d openldap
 Uses [navikt/mock-oauth2-server](https://github.com/navikt/mock-oauth2-server), which accepts any username with no
 password required.
 
-**One-time `/etc/hosts` entry** — required so the OIDC issuer URL is the same from your browser and from jgit-proxy
+**One-time `/etc/hosts` entry** — required so the OIDC issuer URL is the same from your browser and from git-proxy-java
 inside Docker:
 
 ```text
@@ -392,8 +392,8 @@ Formatting uses [Prettier](https://prettier.io/), lint checks use [ESLint](https
 that use the same Node binary as the build:
 
 ```shell
-./gradlew :jgit-proxy-dashboard:npmFormat   # auto-format src/ with Prettier
-./gradlew :jgit-proxy-dashboard:npmLint     # ESLint check (fails on errors)
+./gradlew :git-proxy-java-dashboard:npmFormat   # auto-format src/ with Prettier
+./gradlew :git-proxy-java-dashboard:npmLint     # ESLint check (fails on errors)
 ```
 
 ### Pre-commit hook
@@ -412,16 +412,16 @@ This sets `core.hooksPath` to `.githooks/`. The hook runs on every `git commit`:
 
 ## Project layout
 
-| Module                 | Purpose                                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------ |
-| `jgit-proxy-core`      | Shared library: filter chain, JGit hooks, push store, provider model, approval abstraction |
-| `jgit-proxy-server`    | Standalone proxy-only server — no dashboard, no Spring                                     |
-| `jgit-proxy-dashboard` | Dashboard + REST API — Spring MVC, approval UI                                             |
+| Module                     | Purpose                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `git-proxy-java-core`      | Shared library: filter chain, JGit hooks, push store, provider model, approval abstraction |
+| `git-proxy-java-server`    | Standalone proxy-only server — no dashboard, no Spring                                     |
+| `git-proxy-java-dashboard` | Dashboard + REST API — Spring MVC, approval UI                                             |
 
 See [docs/JGIT_INFRASTRUCTURE.md](docs/JGIT_INFRASTRUCTURE.md) for the store-and-forward architecture and
 [docs/GIT_INTERNALS.md](docs/GIT_INTERNALS.md) for wire-protocol details.
 
 ## Issues and pull requests
 
-The issue tracker is at [coopernetes/jgit-proxy](https://github.com/coopernetes/jgit-proxy/issues). Reference the
-upstream Node.js implementation at [finos/git-proxy](https://github.com/finos/git-proxy) when porting features.
+The issue tracker is at [coopernetes/git-proxy-java](https://github.com/coopernetes/git-proxy-java/issues). Reference
+the upstream Node.js implementation at [finos/git-proxy](https://github.com/finos/git-proxy) when porting features.
