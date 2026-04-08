@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Diff2HtmlUI } from 'diff2html/lib/ui/js/diff2html-ui-slim'
 import 'diff2html/bundles/css/diff2html.min.css'
-import { approvePush, cancelPush, fetchPush, rejectPush } from '../api'
+import { approvePush, cancelPush, fetchProviders, fetchPush, rejectPush } from '../api'
 import { StatusBadge } from '../components/StatusBadge'
-import type { CurrentUser, PushRecord, Step } from '../types'
+import type { AttestationQuestion, CurrentUser, Provider, PushRecord, Step } from '../types'
 
 // Steps that are infrastructure/pre-processing, not user-visible validation checks
 const NON_VALIDATION_STEPS = new Set([
@@ -174,10 +174,17 @@ function PushTimeline({ record }: { record: PushRecord }) {
     const typeLabel =
       att.type === 'APPROVAL' ? 'Approved' : att.type === 'REJECTION' ? 'Rejected' : 'Canceled'
     const overrideNote = att.selfApproval ? ' [admin self-approval override]' : ''
+    const answerLines =
+      att.answers && Object.keys(att.answers).length > 0
+        ? Object.entries(att.answers)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join('\n')
+        : undefined
+    const detail = [att.reason, answerLines].filter(Boolean).join('\n') || undefined
     events.push({
       icon: att.type === 'APPROVAL' ? '✓' : att.type === 'REJECTION' ? '✗' : '○',
       label: `${typeLabel} by ${att.reviewerUsername}${att.reviewerEmail ? ` (${att.reviewerEmail})` : ''}${overrideNote}`,
-      detail: att.reason ?? undefined,
+      detail,
       time: att.timestamp,
       color:
         att.type === 'APPROVAL'
@@ -243,6 +250,76 @@ function PushTimeline({ record }: { record: PushRecord }) {
           </li>
         ))}
       </ol>
+    </div>
+  )
+}
+
+function AttestationQuestionField({
+  question,
+  value,
+  disabled,
+  onChange,
+}: {
+  question: AttestationQuestion
+  value: string
+  disabled: boolean
+  onChange: (val: string) => void
+}) {
+  const labelEl = (
+    <span className="text-sm text-gray-700">
+      {question.label}
+      {question.required && <span className="ml-1 text-red-500">*</span>}
+    </span>
+  )
+
+  if (question.type === 'checkbox') {
+    return (
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={value === 'true'}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+        />
+        {labelEl}
+      </label>
+    )
+  }
+
+  if (question.type === 'dropdown') {
+    return (
+      <div className="flex flex-col gap-1">
+        {labelEl}
+        <select
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:bg-gray-50 disabled:text-gray-400"
+        >
+          <option value="">— select —</option>
+          {(question.options ?? []).map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+
+  // text
+  return (
+    <div className="flex flex-col gap-1">
+      {labelEl}
+      <input
+        type="text"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={question.tooltip ?? ''}
+        className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:bg-gray-50 disabled:text-gray-400"
+      />
     </div>
   )
 }
@@ -363,6 +440,8 @@ export function PushDetail({ currentUser }: PushDetailProps) {
   const [actionError, setActionError] = useState('')
   const [openSteps, setOpenSteps] = useState<Record<string, boolean>>({})
   const [canceling, setCanceling] = useState(false)
+  const [attestationQuestions, setAttestationQuestions] = useState<AttestationQuestion[]>([])
+  const [attestationAnswers, setAttestationAnswers] = useState<Record<string, string>>({})
 
   async function load(pushId: string) {
     setLoading(true)
@@ -371,9 +450,12 @@ export function PushDetail({ currentUser }: PushDetailProps) {
     setReviewReason('')
     setActionError('')
     setOpenSteps({})
+    setAttestationAnswers({})
     try {
-      const data = await fetchPush(pushId)
+      const [data, providerList] = await Promise.all([fetchPush(pushId), fetchProviders()])
       setRecord(data)
+      const provider = (providerList as Provider[]).find((p) => p.name === data.provider)
+      setAttestationQuestions(provider?.attestationQuestions ?? [])
     } catch (e) {
       setError(String(e))
     } finally {
@@ -428,6 +510,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
         reviewerUsername: currentUser?.username ?? '',
         reviewerEmail: currentUser?.emails[0]?.email ?? '',
         reason: reviewReason,
+        attestations: attestationQuestions.length > 0 ? attestationAnswers : undefined,
       })
       await load(record.id)
     } catch (e) {
@@ -708,6 +791,14 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                 currentUser.username === record.resolvedUser
               const isSelfReview = isPusher && !isAdmin
               const canCancel = isAdmin || isPusher
+              const attestationsComplete = attestationQuestions
+                .filter((q) => q.required)
+                .every((q) => {
+                  const answer = attestationAnswers[q.id]
+                  if (!answer || answer === '') return false
+                  if (q.type === 'checkbox') return answer === 'true'
+                  return true
+                })
               return (
                 <div className="bg-white rounded-lg shadow border border-gray-200 px-6 py-5">
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -746,6 +837,24 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                       </span>
                     </div>
                   )}
+                  {attestationQuestions.length > 0 && (
+                    <div className="mb-4 space-y-3">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Attestation
+                      </div>
+                      {attestationQuestions.map((q) => (
+                        <AttestationQuestionField
+                          key={q.id}
+                          question={q}
+                          value={attestationAnswers[q.id] ?? ''}
+                          disabled={isSelfReview}
+                          onChange={(val) =>
+                            setAttestationAnswers((prev) => ({ ...prev, [q.id]: val }))
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
                   <textarea
                     value={reviewReason}
                     onChange={(e) => setReviewReason(e.target.value)}
@@ -760,7 +869,13 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                   <div className="flex gap-3">
                     <button
                       onClick={handleApprove}
-                      disabled={isSelfReview || saving || canceling || !reviewReason.trim()}
+                      disabled={
+                        isSelfReview ||
+                        saving ||
+                        canceling ||
+                        !reviewReason.trim() ||
+                        !attestationsComplete
+                      }
                       className="px-4 py-2 text-sm font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
                       ✓ Approve

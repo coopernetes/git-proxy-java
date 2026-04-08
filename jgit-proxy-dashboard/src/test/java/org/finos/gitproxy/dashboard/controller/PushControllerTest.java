@@ -15,6 +15,7 @@ import java.util.Optional;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.db.model.PushStatus;
+import org.finos.gitproxy.jetty.config.GitProxyConfig;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
@@ -38,8 +39,16 @@ class PushControllerTest {
     @Mock
     PushStore pushStore;
 
+    @Mock
+    GitProxyConfig gitProxyConfig;
+
     // Not injected by default — individual tests that need it set it on the controller directly.
     RepoPermissionService repoPermissionService;
+
+    /** Empty approve body — no attestations, mirrors previous Map.of() usage. */
+    private static PushController.ApproveBody approveBody() {
+        return new PushController.ApproveBody(null, null, null, null);
+    }
 
     @AfterEach
     void clearSecurityContext() {
@@ -169,7 +178,8 @@ class PushControllerTest {
         @Test
         void notFound_returns404() {
             when(pushStore.findById("x")).thenReturn(Optional.empty());
-            assertEquals(HttpStatus.NOT_FOUND, controller.approve("x", Map.of()).getStatusCode());
+            assertEquals(
+                    HttpStatus.NOT_FOUND, controller.approve("x", approveBody()).getStatusCode());
         }
 
         @Test
@@ -177,7 +187,8 @@ class PushControllerTest {
             when(pushStore.findById("p1")).thenReturn(Optional.of(approvedPush("p1")));
             loginAs("reviewer", false);
             assertEquals(
-                    HttpStatus.BAD_REQUEST, controller.approve("p1", Map.of()).getStatusCode());
+                    HttpStatus.BAD_REQUEST,
+                    controller.approve("p1", approveBody()).getStatusCode());
         }
 
         @Test
@@ -185,7 +196,8 @@ class PushControllerTest {
             when(pushStore.findById("p1")).thenReturn(Optional.of(blockedPush("p1", "alice")));
             loginAs("alice", false);
             assertEquals(
-                    HttpStatus.FORBIDDEN, controller.approve("p1", Map.of()).getStatusCode());
+                    HttpStatus.FORBIDDEN,
+                    controller.approve("p1", approveBody()).getStatusCode());
         }
 
         @Test
@@ -194,7 +206,8 @@ class PushControllerTest {
             when(pushStore.findById("p1")).thenReturn(Optional.of(push));
             loginAs("reviewer", false);
             assertEquals(
-                    HttpStatus.FORBIDDEN, controller.approve("p1", Map.of()).getStatusCode());
+                    HttpStatus.FORBIDDEN,
+                    controller.approve("p1", approveBody()).getStatusCode());
         }
 
         @Test
@@ -203,7 +216,7 @@ class PushControllerTest {
             when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));
             loginAs("alice", true); // same user as pusher — admin bypass
 
-            assertEquals(HttpStatus.OK, controller.approve("p1", Map.of()).getStatusCode());
+            assertEquals(HttpStatus.OK, controller.approve("p1", approveBody()).getStatusCode());
         }
 
         @Test
@@ -212,7 +225,7 @@ class PushControllerTest {
             when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));
             loginAs("alice", true);
 
-            controller.approve("p1", Map.of());
+            controller.approve("p1", approveBody());
 
             verify(pushStore).approve(eq("p1"), argThat(a -> a.isSelfApproval()));
         }
@@ -223,7 +236,7 @@ class PushControllerTest {
             when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));
             loginAs("reviewer", false);
 
-            assertEquals(HttpStatus.OK, controller.approve("p1", Map.of()).getStatusCode());
+            assertEquals(HttpStatus.OK, controller.approve("p1", approveBody()).getStatusCode());
             verify(pushStore).approve(eq("p1"), argThat(a -> !a.isSelfApproval()));
         }
 
@@ -242,7 +255,8 @@ class PushControllerTest {
             field.set(controller, repoPermissionService);
 
             assertEquals(
-                    HttpStatus.FORBIDDEN, controller.approve("p1", Map.of()).getStatusCode());
+                    HttpStatus.FORBIDDEN,
+                    controller.approve("p1", approveBody()).getStatusCode());
         }
 
         @Test
@@ -259,7 +273,7 @@ class PushControllerTest {
             field.setAccessible(true);
             field.set(controller, repoPermissionService);
 
-            assertEquals(HttpStatus.OK, controller.approve("p1", Map.of()).getStatusCode());
+            assertEquals(HttpStatus.OK, controller.approve("p1", approveBody()).getStatusCode());
         }
 
         @Test
@@ -274,7 +288,7 @@ class PushControllerTest {
             field.setAccessible(true);
             field.set(controller, repoPermissionService);
 
-            assertEquals(HttpStatus.OK, controller.approve("p1", Map.of()).getStatusCode());
+            assertEquals(HttpStatus.OK, controller.approve("p1", approveBody()).getStatusCode());
             // isAllowedToApprove must never have been called
             org.mockito.Mockito.verifyNoInteractions(repoPermissionService);
         }

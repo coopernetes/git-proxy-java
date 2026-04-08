@@ -81,7 +81,15 @@ async function parseErrorResponse(res: Response, fallback: string): Promise<neve
   }
 }
 
-export async function approvePush(id: string, body: Record<string, string>) {
+export async function approvePush(
+  id: string,
+  body: {
+    reviewerUsername: string
+    reviewerEmail: string
+    reason: string
+    attestations?: Record<string, string>
+  },
+) {
   const res = await apiFetch(`/api/push/${id}/authorise`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

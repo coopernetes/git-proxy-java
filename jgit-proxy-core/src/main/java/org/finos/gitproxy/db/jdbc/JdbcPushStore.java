@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * JDBC-based {@link PushStore} implementation. Works with H2 (in-memory and file) and PostgreSQL.
@@ -29,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class JdbcPushStore implements PushStore {
 
     private static final Logger log = LoggerFactory.getLogger(JdbcPushStore.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final DataSource dataSource;
     private final NamedParameterJdbcTemplate jdbc;
@@ -271,11 +273,19 @@ public class JdbcPushStore implements PushStore {
     // --- Attestation ---
 
     private void saveAttestation(String pushId, Attestation att) {
+        String answersJson = null;
+        if (att.getAnswers() != null && !att.getAnswers().isEmpty()) {
+            try {
+                answersJson = MAPPER.writeValueAsString(att.getAnswers());
+            } catch (Exception e) {
+                log.warn("Failed to serialize attestation answers for push {}: {}", pushId, e.getMessage());
+            }
+        }
         jdbc.update(
                 """
                 INSERT INTO push_attestations (push_id, type, reviewer_username, reviewer_email,
-                    reason, automated, self_approval, timestamp)
-                VALUES (:pushId, :type, :reviewerUsername, :reviewerEmail, :reason, :automated, :selfApproval, :timestamp)
+                    reason, automated, self_approval, timestamp, answers)
+                VALUES (:pushId, :type, :reviewerUsername, :reviewerEmail, :reason, :automated, :selfApproval, :timestamp, :answers)
                 """,
                 new MapSqlParameterSource()
                         .addValue("pushId", pushId)
@@ -285,7 +295,8 @@ public class JdbcPushStore implements PushStore {
                         .addValue("reason", att.getReason())
                         .addValue("automated", att.isAutomated())
                         .addValue("selfApproval", att.isSelfApproval())
-                        .addValue("timestamp", Timestamp.from(att.getTimestamp())));
+                        .addValue("timestamp", Timestamp.from(att.getTimestamp()))
+                        .addValue("answers", answersJson));
     }
 
     private Attestation loadAttestation(String pushId) {

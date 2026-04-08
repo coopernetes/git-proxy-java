@@ -8,6 +8,9 @@ import org.finos.gitproxy.db.model.Attestation;
 import org.finos.gitproxy.db.model.PushQuery;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.db.model.PushStatus;
+import org.finos.gitproxy.jetty.config.AttestationQuestion;
+import org.finos.gitproxy.jetty.config.GitProxyConfig;
+import org.finos.gitproxy.jetty.config.ProviderConfig;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,6 +29,9 @@ public class PushController {
 
     @Autowired(required = false)
     private RepoPermissionService repoPermissionService;
+
+    @Autowired
+    private GitProxyConfig gitProxyConfig;
 
     /** Returns the authenticated username, falling back to {@code body.reviewerUsername}, then {@code "system"}. */
     private static String resolveReviewer(Map<String, String> body) {
@@ -113,9 +119,19 @@ public class PushController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /** Approve a push. Body: { "reviewerUsername": "...", "reviewerEmail": "...", "reason": "..." } */
+    /**
+     * Request body for the approve endpoint. Extends the basic reviewer fields with an optional map of attestation
+     * question answers keyed by question ID.
+     */
+    public record ApproveBody(
+            String reviewerUsername, String reviewerEmail, String reason, Map<String, String> attestations) {}
+
+    /**
+     * Approve a push. Body: { "reviewerUsername": "...", "reviewerEmail": "...", "reason": "...", "attestations": {
+     * "question-id": "answer", ... } }
+     */
     @PostMapping("/{id}/authorise")
-    public ResponseEntity<?> approve(@PathVariable String id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> approve(@PathVariable String id, @RequestBody ApproveBody body) {
         return pushStore
                 .findById(id)
                 .map(record -> {
@@ -125,19 +141,62 @@ public class PushController {
                     }
                     ResponseEntity<?> identityError = checkReviewerIdentity(record);
                     if (identityError != null) return identityError;
+
+                    // Validate required attestation questions are answered
+                    ResponseEntity<?> attestationError = checkAttestationAnswers(record, body.attestations());
+                    if (attestationError != null) return attestationError;
+
                     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
                     var attestation = Attestation.builder()
                             .pushId(id)
                             .type(Attestation.Type.APPROVAL)
-                            .reviewerUsername(resolveReviewer(body))
-                            .reviewerEmail(body.get("reviewerEmail"))
-                            .reason(body.get("reason"))
+                            .reviewerUsername(resolveReviewerFromApproveBody(body, auth))
+                            .reviewerEmail(body.reviewerEmail())
+                            .reason(body.reason())
                             .selfApproval(isSelfApproval(record, auth))
+                            .answers(body.attestations())
                             .build();
                     var updated = pushStore.approve(id, attestation);
                     return ResponseEntity.ok(updated);
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Checks that all required attestation questions for the push's provider have been answered.
+     *
+     * @return a 400 response if a required question is missing, {@code null} if all required questions are answered
+     */
+    private ResponseEntity<?> checkAttestationAnswers(PushRecord record, Map<String, String> answers) {
+        String providerName = record.getProvider();
+        if (providerName == null) return null;
+        var providerCfgs = gitProxyConfig.getProviders();
+        if (providerCfgs == null) return null;
+        ProviderConfig cfg = providerCfgs.get(providerName);
+        if (cfg == null || cfg.getAttestationQuestions().isEmpty()) return null;
+
+        Map<String, String> submitted = answers != null ? answers : Map.of();
+        for (AttestationQuestion question : cfg.getAttestationQuestions()) {
+            if (!question.isRequired()) continue;
+            String answer = submitted.get(question.getId());
+            if (answer == null || answer.isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Required attestation question not answered: " + question.getId()));
+            }
+            // For checkboxes, "true" is the only accepted value for a required question
+            if ("checkbox".equals(question.getType()) && !"true".equals(answer)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Required attestation checkbox must be checked: " + question.getId()));
+            }
+        }
+        return null;
+    }
+
+    private static String resolveReviewerFromApproveBody(ApproveBody body, Authentication auth) {
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            return auth.getName();
+        }
+        return body != null && body.reviewerUsername() != null ? body.reviewerUsername() : "system";
     }
 
     /** Reject a push. Body: { "reviewerUsername": "...", "reviewerEmail": "...", "reason": "..." } (reason required) */

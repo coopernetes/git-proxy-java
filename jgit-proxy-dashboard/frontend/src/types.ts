@@ -28,6 +28,15 @@ export interface Commit {
   signedOffBy?: string[]
 }
 
+export interface AttestationQuestion {
+  id: string
+  type: 'checkbox' | 'text' | 'dropdown'
+  label: string
+  required: boolean
+  options?: string[]
+  tooltip?: string
+}
+
 export interface Attestation {
   type?: 'APPROVAL' | 'REJECTION' | 'CANCELLATION'
   reviewerUsername: string
@@ -35,6 +44,7 @@ export interface Attestation {
   reason?: string
   timestamp?: string
   selfApproval?: boolean
+  answers?: Record<string, string>
 }
 
 export interface PushRecord {
@@ -69,6 +79,7 @@ export interface Provider {
   host: string
   pushPath: string
   proxyPath: string
+  attestationQuestions: AttestationQuestion[]
 }
 
 export interface EmailEntry {

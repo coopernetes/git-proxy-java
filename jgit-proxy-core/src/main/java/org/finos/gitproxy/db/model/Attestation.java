@@ -1,6 +1,7 @@
 package org.finos.gitproxy.db.model;
 
 import java.time.Instant;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Data;
 
@@ -41,4 +42,11 @@ public class Attestation {
     /** When the attestation was made. */
     @Builder.Default
     private Instant timestamp = Instant.now();
+
+    /**
+     * Reviewer's answers to the provider's attestation questions. Keys are question IDs; values are the submitted
+     * answer (e.g. {@code "true"} for a checked checkbox, the text value for free-text, the selected option for
+     * dropdowns). {@code null} when no attestation questions are configured for the provider.
+     */
+    private Map<String, String> answers;
 }

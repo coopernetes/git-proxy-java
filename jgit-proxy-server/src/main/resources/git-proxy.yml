@@ -43,6 +43,24 @@ providers:
 #    type: gitlab
 #    servlet-path: /enterprise
 #    uri: https://gitlab.internal.example.com
+#
+# Attestation questions example — shown to reviewers before they can approve a push.
+# Configure per-provider under providers.<name>.attestation-questions.
+# Supported types: checkbox (default), text, dropdown.
+#  github:
+#    attestation-questions:
+#      - id: reviewed-content
+#        type: checkbox
+#        label: "I have reviewed the diff and it contains no sensitive or proprietary information"
+#        required: true
+#      - id: policy-compliance
+#        type: checkbox
+#        label: "This push complies with our open source contribution policy"
+#        required: true
+#      - id: ticket-ref
+#        type: text
+#        label: "Internal ticket or justification reference"
+#        required: false
 #  debian-gitlab:
 #    enabled: true
 #    servlet-path: /debian

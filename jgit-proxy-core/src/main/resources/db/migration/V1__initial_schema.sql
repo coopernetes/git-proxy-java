@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS push_attestations (
     automated           BOOLEAN NOT NULL DEFAULT FALSE,
     self_approval       BOOLEAN NOT NULL DEFAULT FALSE,
     timestamp           TIMESTAMP NOT NULL,
+    answers             TEXT,
     PRIMARY KEY (push_id, type, timestamp)
 );
 

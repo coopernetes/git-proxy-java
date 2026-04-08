@@ -2,6 +2,22 @@ logging:
   level:
     org.finos.gitproxy: DEBUG
 
+providers:
+  github:
+    attestation-questions:
+      - id: reviewed-content
+        type: checkbox
+        label: "I have reviewed the diff and it contains no sensitive or proprietary information"
+        required: true
+      - id: policy-compliance
+        type: checkbox
+        label: "This push complies with our open source contribution policy"
+        required: true
+      - id: ticket-ref
+        type: text
+        label: "Internal ticket or justification reference"
+        required: false
+
 server:
   # Allow the Vite dev server to make cross-origin requests to the backend.
   # Vite defaults to port 5173; adjust if you've changed it.
