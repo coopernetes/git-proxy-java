@@ -18,7 +18,14 @@ review workflow. It is a Java reimplementation of [finos/git-proxy](https://gith
 ### Prerequisites
 
 - Java 21+
+- Node 24+ (for the dashboard frontend)
 - Gradle (wrapper included)
+
+The easiest way to get the right versions is [mise](https://mise.jdx.dev/):
+
+```shell
+mise install   # installs Java 21 (Temurin) and Node 24 from mise.toml
+```
 
 ### Clone and build
 
