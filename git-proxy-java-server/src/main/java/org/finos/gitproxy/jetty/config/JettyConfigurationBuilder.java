@@ -19,13 +19,13 @@ import org.finos.gitproxy.approval.UiApprovalGateway;
 import org.finos.gitproxy.config.CommitConfig;
 import org.finos.gitproxy.db.CompositeRepoRegistry;
 import org.finos.gitproxy.db.FetchStore;
+import org.finos.gitproxy.db.MongoStoreFactory;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.PushStoreFactory;
 import org.finos.gitproxy.db.RepoRegistry;
 import org.finos.gitproxy.db.jdbc.DataSourceFactory;
 import org.finos.gitproxy.db.jdbc.JdbcFetchStore;
 import org.finos.gitproxy.db.jdbc.JdbcRepoRegistry;
-import org.finos.gitproxy.db.memory.InMemoryFetchStore;
 import org.finos.gitproxy.db.memory.InMemoryRepoRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.git.LocalRepositoryCache;
@@ -59,6 +59,7 @@ public class JettyConfigurationBuilder {
 
     private final GitProxyConfig config;
     private DataSource cachedDataSource;
+    private MongoStoreFactory cachedMongoStoreFactory;
     private PushStore cachedPushStore;
     private FetchStore cachedFetchStore;
     private UserStore cachedUserStore;
@@ -393,7 +394,7 @@ public class JettyConfigurationBuilder {
         log.info("Initializing push store: type={}", db.getType());
         cachedPushStore = switch (db.getType()) {
             case "h2-mem", "h2-file", "postgres" -> PushStoreFactory.fromDataSource(requireJdbcDataSource());
-            case "mongo" -> PushStoreFactory.mongo(db.getUrl(), mongoDbName(db));
+            case "mongo" -> requireMongoStoreFactory().pushStore();
             default ->
                 throw new IllegalArgumentException(
                         "Unknown database type: " + db.getType() + ". Supported: h2-mem, h2-file, postgres, mongo");
@@ -434,7 +435,7 @@ public class JettyConfigurationBuilder {
         String type = config.getDatabase().getType();
         FetchStore store;
         if ("mongo".equals(type)) {
-            store = new InMemoryFetchStore();
+            store = requireMongoStoreFactory().fetchStore();
         } else {
             store = new JdbcFetchStore(requireJdbcDataSource());
         }
@@ -573,6 +574,14 @@ public class JettyConfigurationBuilder {
                 .orElse(7L);
         log.info("SCM token identity cache enabled (max age {} days)", maxAgeDays);
         return new JdbcScmTokenCache(requireJdbcDataSource(), Duration.ofDays(maxAgeDays));
+    }
+
+    private MongoStoreFactory requireMongoStoreFactory() {
+        if (cachedMongoStoreFactory == null) {
+            DatabaseConfig db = config.getDatabase();
+            cachedMongoStoreFactory = new MongoStoreFactory(db.getUrl(), mongoDbName(db));
+        }
+        return cachedMongoStoreFactory;
     }
 
     private DataSource requireJdbcDataSource() {

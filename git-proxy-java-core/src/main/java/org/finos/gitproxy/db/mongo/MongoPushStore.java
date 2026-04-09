@@ -9,13 +9,17 @@ import com.mongodb.client.model.Sorts;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * MongoDB implementation of {@link PushStore}. Stores each push as a single document with embedded steps, commits, and
@@ -25,6 +29,8 @@ public class MongoPushStore implements PushStore {
 
     private static final Logger log = LoggerFactory.getLogger(MongoPushStore.class);
     private static final String COLLECTION_NAME = "pushes";
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final TypeReference<Map<String, String>> ANSWERS_TYPE = new TypeReference<>() {};
 
     private final MongoClient mongoClient;
     private final MongoDatabase database;
@@ -79,12 +85,27 @@ public class MongoPushStore implements PushStore {
         if (query.getAuthorEmail() != null) {
             filters.add(Filters.eq("authorEmail", query.getAuthorEmail()));
         }
+        if (query.getCommitTo() != null) {
+            filters.add(Filters.eq("commitTo", query.getCommitTo()));
+        }
+        if (query.getSearch() != null && !query.getSearch().isBlank()) {
+            String pattern = "(?i).*" + Pattern.quote(query.getSearch()) + ".*";
+            filters.add(Filters.or(
+                    Filters.regex("provider", pattern),
+                    Filters.regex("project", pattern),
+                    Filters.regex("repoName", pattern)));
+        }
 
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
         Bson sort = query.isNewestFirst() ? Sorts.descending("timestamp") : Sorts.ascending("timestamp");
 
         List<PushRecord> results = new ArrayList<>();
-        getCollection().find(filter).sort(sort).limit(query.getLimit()).forEach(doc -> results.add(fromDocument(doc)));
+        getCollection()
+                .find(filter)
+                .sort(sort)
+                .skip(query.getOffset())
+                .limit(query.getLimit())
+                .forEach(doc -> results.add(fromDocument(doc)));
         return results;
     }
 
@@ -142,6 +163,7 @@ public class MongoPushStore implements PushStore {
                 .append("timestamp", Date.from(r.getTimestamp()))
                 .append("url", r.getUrl())
                 .append("upstreamUrl", r.getUpstreamUrl())
+                .append("provider", r.getProvider())
                 .append("project", r.getProject())
                 .append("repoName", r.getRepoName())
                 .append("branch", r.getBranch())
@@ -189,6 +211,7 @@ public class MongoPushStore implements PushStore {
                 .timestamp(doc.getDate("timestamp").toInstant())
                 .url(doc.getString("url"))
                 .upstreamUrl(doc.getString("upstreamUrl"))
+                .provider(doc.getString("provider"))
                 .project(doc.getString("project"))
                 .repoName(doc.getString("repoName"))
                 .branch(doc.getString("branch"))
@@ -265,14 +288,16 @@ public class MongoPushStore implements PushStore {
     }
 
     private static Document commitToDocument(PushCommit c) {
-        Document doc = new Document("sha", c.getSha())
+        Document doc = new Document("pushId", c.getPushId())
+                .append("sha", c.getSha())
                 .append("parentSha", c.getParentSha())
                 .append("authorName", c.getAuthorName())
                 .append("authorEmail", c.getAuthorEmail())
                 .append("committerName", c.getCommitterName())
                 .append("committerEmail", c.getCommitterEmail())
                 .append("message", c.getMessage())
-                .append("signature", c.getSignature());
+                .append("signature", c.getSignature())
+                .append("signedOffBy", c.getSignedOffBy() != null ? c.getSignedOffBy() : List.of());
         if (c.getCommitDate() != null) {
             doc.append("commitDate", Date.from(c.getCommitDate()));
         }
@@ -281,6 +306,7 @@ public class MongoPushStore implements PushStore {
 
     private static PushCommit commitFromDocument(Document doc) {
         PushCommit.PushCommitBuilder builder = PushCommit.builder()
+                .pushId(doc.getString("pushId"))
                 .sha(doc.getString("sha"))
                 .parentSha(doc.getString("parentSha"))
                 .authorName(doc.getString("authorName"))
@@ -288,7 +314,8 @@ public class MongoPushStore implements PushStore {
                 .committerName(doc.getString("committerName"))
                 .committerEmail(doc.getString("committerEmail"))
                 .message(doc.getString("message"))
-                .signature(doc.getString("signature"));
+                .signature(doc.getString("signature"))
+                .signedOffBy(doc.getList("signedOffBy", String.class, new ArrayList<>()));
         Date commitDate = doc.getDate("commitDate");
         if (commitDate != null) {
             builder.commitDate(commitDate.toInstant());
@@ -297,22 +324,44 @@ public class MongoPushStore implements PushStore {
     }
 
     private static Document attestationToDocument(Attestation a) {
-        return new Document("type", a.getType().name())
+        Document doc = new Document("pushId", a.getPushId())
+                .append("type", a.getType().name())
                 .append("reviewerUsername", a.getReviewerUsername())
                 .append("reviewerEmail", a.getReviewerEmail())
                 .append("reason", a.getReason())
                 .append("automated", a.isAutomated())
+                .append("selfApproval", a.isSelfApproval())
                 .append("timestamp", Date.from(a.getTimestamp()));
+        if (a.getAnswers() != null && !a.getAnswers().isEmpty()) {
+            try {
+                doc.append("answers", Document.parse(MAPPER.writeValueAsString(a.getAnswers())));
+            } catch (Exception e) {
+                log.warn("Failed to serialize attestation answers for push {}: {}", a.getPushId(), e.getMessage());
+            }
+        }
+        return doc;
     }
 
     private static Attestation attestationFromDocument(Document doc) {
+        Map<String, String> answers = null;
+        Document answersDoc = doc.get("answers", Document.class);
+        if (answersDoc != null) {
+            try {
+                answers = MAPPER.readValue(answersDoc.toJson(), ANSWERS_TYPE);
+            } catch (Exception e) {
+                // leave answers null
+            }
+        }
         return Attestation.builder()
+                .pushId(doc.getString("pushId"))
                 .type(Attestation.Type.valueOf(doc.getString("type")))
                 .reviewerUsername(doc.getString("reviewerUsername"))
                 .reviewerEmail(doc.getString("reviewerEmail"))
                 .reason(doc.getString("reason"))
                 .automated(doc.getBoolean("automated", false))
+                .selfApproval(doc.getBoolean("selfApproval", false))
                 .timestamp(doc.getDate("timestamp").toInstant())
+                .answers(answers)
                 .build();
     }
 }
