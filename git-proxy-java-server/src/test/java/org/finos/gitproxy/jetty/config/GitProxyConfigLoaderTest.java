@@ -87,8 +87,8 @@ class GitProxyConfigLoaderTest {
     void commitConfig_secretScanning_hasDefault() throws GestaltException {
         var ss = GitProxyConfigLoader.load().getCommit().getSecretScanning();
         assertNotNull(ss);
-        // base config ships with secret scanning disabled
-        assertFalse(ss.isEnabled());
+        // base config ships with secret scanning enabled
+        assertTrue(ss.isEnabled());
     }
 
     // --- rules ---
