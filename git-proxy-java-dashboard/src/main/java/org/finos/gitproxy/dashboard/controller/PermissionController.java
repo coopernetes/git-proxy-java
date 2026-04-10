@@ -54,7 +54,7 @@ public class PermissionController {
         try {
             operations = req.operations() != null
                     ? RepoPermission.Operations.valueOf(req.operations().toUpperCase())
-                    : RepoPermission.Operations.ALL;
+                    : RepoPermission.Operations.PUSH;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "invalid operations: " + req.operations()));
         }

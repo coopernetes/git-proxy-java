@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS scm_token_cache (
 --
 -- A grant says "username may perform operations on repos matching path at provider".
 -- path is a /owner/repo pattern; path_type controls matching: LITERAL, GLOB, or REGEX.
--- operations: PUSH, APPROVE, or ALL.
+-- operations: PUSH, REVIEW, PUSH_AND_REVIEW, or SELF_CERTIFY.
 -- Fail-closed: if no grant rows exist for a (provider, path) the request is denied.
 -- ---------------------------------------------------------------------------
 
@@ -164,9 +164,9 @@ CREATE TABLE IF NOT EXISTS repo_permissions (
     username    VARCHAR(255) NOT NULL,
     provider    VARCHAR(100) NOT NULL,
     path        VARCHAR(512) NOT NULL,
-    path_type   VARCHAR(10)  NOT NULL DEFAULT 'LITERAL',  -- LITERAL | GLOB | REGEX
-    operations  VARCHAR(10)  NOT NULL DEFAULT 'ALL',      -- PUSH | APPROVE | ALL
-    source      VARCHAR(10)  NOT NULL DEFAULT 'DB'        -- CONFIG | DB
+    path_type   VARCHAR(10)  NOT NULL DEFAULT 'LITERAL',      -- LITERAL | GLOB | REGEX
+    operations  VARCHAR(20)  NOT NULL DEFAULT 'PUSH',         -- PUSH | REVIEW | PUSH_AND_REVIEW | SELF_CERTIFY
+    source      VARCHAR(10)  NOT NULL DEFAULT 'DB'            -- CONFIG | DB
 );
 
 CREATE INDEX IF NOT EXISTS idx_repo_permissions_username ON repo_permissions(username);

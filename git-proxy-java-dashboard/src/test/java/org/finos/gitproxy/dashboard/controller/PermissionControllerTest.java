@@ -54,7 +54,7 @@ class PermissionControllerTest {
             .provider("github")
             .path("/acme/*")
             .pathType(RepoPermission.PathType.GLOB)
-            .operations(RepoPermission.Operations.ALL)
+            .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
             .source(RepoPermission.Source.CONFIG)
             .build();
 
@@ -132,7 +132,7 @@ class PermissionControllerTest {
     }
 
     @Test
-    void add_defaults_literalAndAll() {
+    void add_defaults_literalAndPush() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
         var captor = ArgumentCaptor.forClass(RepoPermission.class);
 
@@ -145,7 +145,7 @@ class PermissionControllerTest {
         assertEquals("github", saved.getProvider());
         assertEquals("/a/b", saved.getPath());
         assertEquals(RepoPermission.PathType.LITERAL, saved.getPathType());
-        assertEquals(RepoPermission.Operations.ALL, saved.getOperations());
+        assertEquals(RepoPermission.Operations.PUSH, saved.getOperations());
         assertEquals(RepoPermission.Source.DB, saved.getSource());
     }
 

@@ -27,7 +27,7 @@ class RepoPermissionServiceTest {
                 .provider(provider)
                 .path(path)
                 .pathType(RepoPermission.PathType.LITERAL)
-                .operations(RepoPermission.Operations.ALL)
+                .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
                 .source(RepoPermission.Source.DB)
                 .build();
     }
@@ -57,7 +57,7 @@ class RepoPermissionServiceTest {
 
     @Test
     void noGrants_approve_denied() {
-        assertFalse(svc.isAllowedToApprove("alice", "github", "/owner/repo"));
+        assertFalse(svc.isAllowedToReview("alice", "github", "/owner/repo"));
     }
 
     // ---- literal match: user present ----
@@ -90,23 +90,27 @@ class RepoPermissionServiceTest {
         svc.save(grant(
                 "alice", "github", "/owner/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH));
         assertTrue(svc.isAllowedToPush("alice", "github", "/owner/repo"));
-        assertFalse(svc.isAllowedToApprove("alice", "github", "/owner/repo"));
+        assertFalse(svc.isAllowedToReview("alice", "github", "/owner/repo"));
     }
 
     @Test
     void approveOnlyGrant_allowsApprove_deniesPush() {
         svc.save(grant(
-                "alice", "github", "/owner/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.APPROVE));
+                "alice", "github", "/owner/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.REVIEW));
         assertFalse(svc.isAllowedToPush("alice", "github", "/owner/repo"));
-        assertTrue(svc.isAllowedToApprove("alice", "github", "/owner/repo"));
+        assertTrue(svc.isAllowedToReview("alice", "github", "/owner/repo"));
     }
 
     @Test
     void allGrant_allowsBothOperations() {
         svc.save(grant(
-                "alice", "github", "/owner/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.ALL));
+                "alice",
+                "github",
+                "/owner/repo",
+                RepoPermission.PathType.LITERAL,
+                RepoPermission.Operations.PUSH_AND_REVIEW));
         assertTrue(svc.isAllowedToPush("alice", "github", "/owner/repo"));
-        assertTrue(svc.isAllowedToApprove("alice", "github", "/owner/repo"));
+        assertTrue(svc.isAllowedToReview("alice", "github", "/owner/repo"));
     }
 
     // ---- provider isolation ----
@@ -121,20 +125,31 @@ class RepoPermissionServiceTest {
 
     @Test
     void globGrant_matchesAllReposUnderOwner_allowed() {
-        svc.save(grant("alice", "github", "/owner/*", RepoPermission.PathType.GLOB, RepoPermission.Operations.ALL));
+        svc.save(grant(
+                "alice",
+                "github",
+                "/owner/*",
+                RepoPermission.PathType.GLOB,
+                RepoPermission.Operations.PUSH_AND_REVIEW));
         assertTrue(svc.isAllowedToPush("alice", "github", "/owner/repo-a"));
         assertTrue(svc.isAllowedToPush("alice", "github", "/owner/repo-b"));
     }
 
     @Test
     void globGrant_doesNotMatchOtherOwner() {
-        svc.save(grant("alice", "github", "/owner/*", RepoPermission.PathType.GLOB, RepoPermission.Operations.ALL));
+        svc.save(grant(
+                "alice",
+                "github",
+                "/owner/*",
+                RepoPermission.PathType.GLOB,
+                RepoPermission.Operations.PUSH_AND_REVIEW));
         assertFalse(svc.isAllowedToPush("alice", "github", "/other/repo"));
     }
 
     @Test
     void globGrant_doubleWildcard_matchesAnyPath() {
-        svc.save(grant("alice", "github", "/**", RepoPermission.PathType.GLOB, RepoPermission.Operations.ALL));
+        svc.save(grant(
+                "alice", "github", "/**", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH_AND_REVIEW));
         assertTrue(svc.isAllowedToPush("alice", "github", "/owner/repo"));
         assertTrue(svc.isAllowedToPush("alice", "github", "/other/thing"));
     }
@@ -148,7 +163,7 @@ class RepoPermissionServiceTest {
                 "github",
                 "/coopernetes/test-repo-.*",
                 RepoPermission.PathType.REGEX,
-                RepoPermission.Operations.ALL));
+                RepoPermission.Operations.PUSH_AND_REVIEW));
         assertTrue(svc.isAllowedToPush("alice", "github", "/coopernetes/test-repo-codeberg"));
         assertTrue(svc.isAllowedToPush("alice", "github", "/coopernetes/test-repo-gitlab"));
         assertFalse(svc.isAllowedToPush("alice", "github", "/coopernetes/test-repo"));
@@ -157,7 +172,12 @@ class RepoPermissionServiceTest {
 
     @Test
     void regexGrant_invalidPattern_treatedAsNoMatch() {
-        svc.save(grant("alice", "github", "[invalid", RepoPermission.PathType.REGEX, RepoPermission.Operations.ALL));
+        svc.save(grant(
+                "alice",
+                "github",
+                "[invalid",
+                RepoPermission.PathType.REGEX,
+                RepoPermission.Operations.PUSH_AND_REVIEW));
         assertFalse(svc.isAllowedToPush("alice", "github", "/owner/repo"));
     }
 
@@ -170,7 +190,7 @@ class RepoPermissionServiceTest {
                 .username("bob")
                 .provider("github")
                 .path("/owner/repo")
-                .operations(RepoPermission.Operations.ALL)
+                .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
                 .source(RepoPermission.Source.DB)
                 .build();
         svc.save(dbRow);
@@ -180,7 +200,7 @@ class RepoPermissionServiceTest {
                 .username("alice")
                 .provider("github")
                 .path("/owner/repo")
-                .operations(RepoPermission.Operations.ALL)
+                .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
                 .source(RepoPermission.Source.CONFIG)
                 .build();
         svc.seedFromConfig(List.of(configRow));

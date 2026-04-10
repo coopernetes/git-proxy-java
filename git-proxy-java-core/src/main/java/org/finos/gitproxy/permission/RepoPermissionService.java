@@ -48,11 +48,38 @@ public class RepoPermissionService {
     }
 
     /**
-     * Returns {@code true} when {@code username} is authorised to approve a push for {@code path} at {@code provider}.
-     * Fail-closed: returns {@code false} if no grants exist for the path.
+     * Returns {@code true} when {@code username} is authorised to review (approve or reject) a push for {@code path} at
+     * {@code provider}. Fail-closed: returns {@code false} if no grants exist for the path.
      */
-    public boolean isAllowedToApprove(String username, String provider, String path) {
-        return isAllowed(username, provider, path, RepoPermission.Operations.APPROVE);
+    public boolean isAllowedToReview(String username, String provider, String path) {
+        return isAllowed(username, provider, path, RepoPermission.Operations.REVIEW);
+    }
+
+    /**
+     * Returns {@code true} when {@code username} has an explicit {@link RepoPermission.Operations#BYPASS_REVIEW} grant
+     * for {@code path} at {@code provider}. Unlike push/approve checks, {@link RepoPermission.Operations#ALL} does
+     * <em>not</em> imply bypass — the grant must be explicit.
+     */
+    public boolean isBypassReviewAllowed(String username, String provider, String path) {
+        List<RepoPermission> forProvider = store.findByProvider(provider);
+        List<RepoPermission> forPath =
+                forProvider.stream().filter(p -> matchesPath(p, path)).toList();
+
+        if (forPath.isEmpty()) {
+            return false;
+        }
+
+        boolean allowed = forPath.stream()
+                .filter(p -> p.getOperations() == RepoPermission.Operations.SELF_CERTIFY)
+                .anyMatch(p -> username.equals(p.getUsername()));
+
+        log.debug(
+                "Bypass review check: user={} provider={} path={} → {}",
+                username,
+                provider,
+                path,
+                allowed ? "ALLOW" : "DENY");
+        return allowed;
     }
 
     // ---- store delegation ----
@@ -110,7 +137,7 @@ public class RepoPermissionService {
         }
 
         boolean allowed = forPath.stream()
-                .filter(p -> p.getOperations() == op || p.getOperations() == RepoPermission.Operations.ALL)
+                .filter(p -> p.getOperations() == op || p.getOperations() == RepoPermission.Operations.PUSH_AND_REVIEW)
                 .anyMatch(p -> username.equals(p.getUsername()));
 
         log.debug(

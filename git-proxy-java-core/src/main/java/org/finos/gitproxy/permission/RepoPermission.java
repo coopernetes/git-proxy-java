@@ -31,7 +31,7 @@ public class RepoPermission {
     private PathType pathType = PathType.LITERAL;
 
     @Builder.Default
-    private Operations operations = Operations.ALL;
+    private Operations operations = Operations.PUSH;
 
     @Builder.Default
     private Source source = Source.DB;
@@ -43,9 +43,18 @@ public class RepoPermission {
     }
 
     public enum Operations {
+        /** Can submit pushes for review. */
         PUSH,
-        APPROVE,
-        ALL
+        /** Can review (approve or reject) pushes submitted by others. */
+        REVIEW,
+        /** Shorthand for {@link #PUSH} + {@link #REVIEW}. Does not include {@link #SELF_CERTIFY}. */
+        PUSH_AND_REVIEW,
+        /**
+         * Trusted contributor: can certify their own clean pushes without a separate peer reviewer. All validation
+         * still runs; the automated attestation is recorded in the audit log. Does not imply {@link #PUSH} or
+         * {@link #REVIEW} — those must be granted separately if also needed.
+         */
+        SELF_CERTIFY
     }
 
     public enum Source {

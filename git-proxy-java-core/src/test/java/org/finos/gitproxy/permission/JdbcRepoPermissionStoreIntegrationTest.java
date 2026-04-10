@@ -32,7 +32,7 @@ class JdbcRepoPermissionStoreIntegrationTest {
                 .provider(provider)
                 .path(path)
                 .pathType(RepoPermission.PathType.LITERAL)
-                .operations(RepoPermission.Operations.ALL)
+                .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
                 .source(RepoPermission.Source.DB)
                 .build();
     }
@@ -50,7 +50,7 @@ class JdbcRepoPermissionStoreIntegrationTest {
         assertEquals("github", found.get().getProvider());
         assertEquals("/owner/repo", found.get().getPath());
         assertEquals(RepoPermission.PathType.LITERAL, found.get().getPathType());
-        assertEquals(RepoPermission.Operations.ALL, found.get().getOperations());
+        assertEquals(RepoPermission.Operations.PUSH_AND_REVIEW, found.get().getOperations());
         assertEquals(RepoPermission.Source.DB, found.get().getSource());
     }
 

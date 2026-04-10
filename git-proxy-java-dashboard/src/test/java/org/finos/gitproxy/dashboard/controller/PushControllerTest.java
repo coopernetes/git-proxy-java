@@ -247,7 +247,7 @@ class PushControllerTest {
             loginAs("reviewer", false);
 
             repoPermissionService = mock(RepoPermissionService.class);
-            when(repoPermissionService.isAllowedToApprove("reviewer", "github", "github.com/acme/repo.git"))
+            when(repoPermissionService.isAllowedToReview("reviewer", "github", "github.com/acme/repo.git"))
                     .thenReturn(false);
             // inject into controller
             var field = PushController.class.getDeclaredField("repoPermissionService");
@@ -267,7 +267,7 @@ class PushControllerTest {
             loginAs("reviewer", false);
 
             repoPermissionService = mock(RepoPermissionService.class);
-            when(repoPermissionService.isAllowedToApprove("reviewer", "github", "github.com/acme/repo.git"))
+            when(repoPermissionService.isAllowedToReview("reviewer", "github", "github.com/acme/repo.git"))
                     .thenReturn(true);
             var field = PushController.class.getDeclaredField("repoPermissionService");
             field.setAccessible(true);
@@ -289,7 +289,7 @@ class PushControllerTest {
             field.set(controller, repoPermissionService);
 
             assertEquals(HttpStatus.OK, controller.approve("p1", approveBody()).getStatusCode());
-            // isAllowedToApprove must never have been called
+            // isAllowedToReview must never have been called
             org.mockito.Mockito.verifyNoInteractions(repoPermissionService);
         }
     }

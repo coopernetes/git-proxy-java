@@ -236,7 +236,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             hooks.add(persistenceHook.preReceiveHook());
             hooks.addAll(validationHooks);
             hooks.add(persistenceHook.validationResultHook(validationContext));
-            hooks.add(new ApprovalPreReceiveHook(pushStore, approvalGateway, serviceUrl));
+            hooks.add(new ApprovalPreReceiveHook(pushStore, approvalGateway, serviceUrl, repoPermissionService));
             preHooks = hooks.toArray(PreReceiveHook[]::new);
         } else {
             preHooks = validationHooks.toArray(PreReceiveHook[]::new);

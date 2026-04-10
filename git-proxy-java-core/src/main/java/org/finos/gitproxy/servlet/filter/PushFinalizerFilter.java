@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.finos.gitproxy.approval.ApprovalGateway;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
+import org.finos.gitproxy.permission.RepoPermissionService;
 
 /**
  * Terminal filter for push operations that determines the final result:
@@ -46,11 +47,18 @@ public class PushFinalizerFilter extends AbstractGitProxyFilter {
 
     private final String serviceUrl;
     private final ApprovalGateway approvalGateway;
+    private final RepoPermissionService repoPermissionService;
 
     public PushFinalizerFilter(String serviceUrl, ApprovalGateway approvalGateway) {
+        this(serviceUrl, approvalGateway, null);
+    }
+
+    public PushFinalizerFilter(
+            String serviceUrl, ApprovalGateway approvalGateway, RepoPermissionService repoPermissionService) {
         super(ORDER, Set.of(HttpOperation.PUSH));
         this.serviceUrl = serviceUrl;
         this.approvalGateway = approvalGateway;
+        this.repoPermissionService = repoPermissionService;
     }
 
     /**
@@ -113,6 +121,22 @@ public class PushFinalizerFilter extends AbstractGitProxyFilter {
         if (approvalGateway.approvesImmediately()) {
             details.setResult(GitRequestDetails.GitResult.ALLOWED);
             return;
+        }
+
+        // Trusted contributor bypass: auto-approve without human review
+        if (repoPermissionService != null) {
+            String username = details.getResolvedUser();
+            String provider =
+                    details.getProvider() != null ? details.getProvider().getName() : null;
+            String path = details.getRepoRef() != null ? details.getRepoRef().getSlug() : null;
+            if (username != null
+                    && provider != null
+                    && path != null
+                    && repoPermissionService.isBypassReviewAllowed(username, provider, path)) {
+                request.setAttribute(SELF_CERTIFY_USER_ATTR, username);
+                details.setResult(GitRequestDetails.GitResult.ALLOWED);
+                return;
+            }
         }
 
         // First push that passed validation - block pending review (dashboard/ServiceNow mode)

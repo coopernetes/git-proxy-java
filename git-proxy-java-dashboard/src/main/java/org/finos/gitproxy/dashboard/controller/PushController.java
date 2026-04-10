@@ -250,7 +250,7 @@ public class PushController {
         if (repoPermissionService != null && record.getProvider() != null && record.getUrl() != null) {
             String reviewer = auth != null ? auth.getName() : null;
             if (reviewer != null
-                    && !repoPermissionService.isAllowedToApprove(reviewer, record.getProvider(), record.getUrl())) {
+                    && !repoPermissionService.isAllowedToReview(reviewer, record.getProvider(), record.getUrl())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(Map.of("error", "You do not have permission to approve pushes for this repository"));
             }

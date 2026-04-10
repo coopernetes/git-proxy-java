@@ -22,7 +22,9 @@ import org.eclipse.jgit.transport.ReceivePack;
 import org.finos.gitproxy.approval.ApprovalGateway;
 import org.finos.gitproxy.approval.ApprovalResult;
 import org.finos.gitproxy.db.PushStore;
+import org.finos.gitproxy.db.model.Attestation;
 import org.finos.gitproxy.db.model.PushStatus;
+import org.finos.gitproxy.permission.RepoPermissionService;
 
 /**
  * Pre-receive hook that implements the approval gate. For clean pushes (no validation issues) it passes immediately.
@@ -42,25 +44,44 @@ public class ApprovalPreReceiveHook implements PreReceiveHook {
     private final ApprovalGateway approvalGateway;
     private final Duration timeout;
     private final String serviceUrl;
+    private final RepoPermissionService repoPermissionService;
 
     public ApprovalPreReceiveHook(PushStore pushStore, ApprovalGateway approvalGateway) {
-        this(pushStore, approvalGateway, DEFAULT_TIMEOUT, null);
+        this(pushStore, approvalGateway, DEFAULT_TIMEOUT, null, null);
     }
 
     public ApprovalPreReceiveHook(PushStore pushStore, ApprovalGateway approvalGateway, String serviceUrl) {
-        this(pushStore, approvalGateway, DEFAULT_TIMEOUT, serviceUrl);
+        this(pushStore, approvalGateway, DEFAULT_TIMEOUT, serviceUrl, null);
+    }
+
+    public ApprovalPreReceiveHook(
+            PushStore pushStore,
+            ApprovalGateway approvalGateway,
+            String serviceUrl,
+            RepoPermissionService repoPermissionService) {
+        this(pushStore, approvalGateway, DEFAULT_TIMEOUT, serviceUrl, repoPermissionService);
     }
 
     public ApprovalPreReceiveHook(PushStore pushStore, ApprovalGateway approvalGateway, Duration timeout) {
-        this(pushStore, approvalGateway, timeout, null);
+        this(pushStore, approvalGateway, timeout, null, null);
     }
 
     public ApprovalPreReceiveHook(
             PushStore pushStore, ApprovalGateway approvalGateway, Duration timeout, String serviceUrl) {
+        this(pushStore, approvalGateway, timeout, serviceUrl, null);
+    }
+
+    public ApprovalPreReceiveHook(
+            PushStore pushStore,
+            ApprovalGateway approvalGateway,
+            Duration timeout,
+            String serviceUrl,
+            RepoPermissionService repoPermissionService) {
         this.pushStore = pushStore;
         this.approvalGateway = approvalGateway;
         this.timeout = timeout;
         this.serviceUrl = serviceUrl;
+        this.repoPermissionService = repoPermissionService;
     }
 
     @Override
@@ -92,6 +113,34 @@ public class ApprovalPreReceiveHook implements PreReceiveHook {
                 // Auto-approval: approve silently, no waiting messages or dashboard links
                 approvalGateway.waitForApproval(validationRecordId, msg -> {}, timeout);
                 return;
+            }
+
+            // Trusted contributor bypass: auto-approve without human review
+            if (repoPermissionService != null) {
+                String username = record.getUser();
+                String provider = record.getProvider();
+                String path = record.getUrl();
+                if (username != null
+                        && provider != null
+                        && path != null
+                        && repoPermissionService.isBypassReviewAllowed(username, provider, path)) {
+                    pushStore.approve(
+                            validationRecordId,
+                            Attestation.builder()
+                                    .pushId(validationRecordId)
+                                    .type(Attestation.Type.APPROVAL)
+                                    .reviewerUsername(username)
+                                    .reason("Self-certified by " + username)
+                                    .automated(true)
+                                    .build());
+                    sendAndFlush(
+                            rp,
+                            msgOut,
+                            color(
+                                    GREEN,
+                                    "" + sym(HEAVY_CHECK_MARK) + "  Self-certified — push approved automatically"));
+                    return;
+                }
             }
 
             sendAndFlush(
