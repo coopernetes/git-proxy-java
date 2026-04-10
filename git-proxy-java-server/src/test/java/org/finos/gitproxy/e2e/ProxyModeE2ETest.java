@@ -269,4 +269,51 @@ class ProxyModeE2ETest {
     // pushed tip in the pack, and those are always a subset of the introduced commit range.
     // The check is a defensive measure against maliciously crafted packs; it is covered by the
     // passing tests above (which confirm the filter does not disrupt normal pushes).
+
+    // ---- tag push tests ----
+
+    @Test
+    @Order(60)
+    void tagPush_blockedThenApproved() throws Exception {
+        GitHelper git = helper();
+        Path repo = git.clone(repoUrl(), "proxy-tag-annotated");
+        git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.VALID_AUTHOR_EMAIL);
+
+        git.writeAndStage(repo, "tag-test.txt", "proxy tag test - " + Instant.now());
+        git.commit(repo, "feat: commit for proxy tag test");
+
+        // Push the branch first (blocked → approve → re-push)
+        var branchPush = git.pushWithResult(repo);
+        assertFalse(branchPush.succeeded(), "branch push should be blocked pending review");
+        String branchPushId = branchPush.extractPushId();
+        pushStore()
+                .approve(
+                        branchPushId,
+                        Attestation.builder()
+                                .pushId(branchPushId)
+                                .type(Attestation.Type.APPROVAL)
+                                .reviewerUsername("e2e-test-reviewer")
+                                .reason("Approved for tag test")
+                                .build());
+        assertTrue(git.pushWithResult(repo).succeeded(), "branch re-push should succeed");
+
+        // Tag the commit and push the tag
+        git.annotatedTag(repo, "proxy-v0.1.0", "Release proxy-v0.1.0");
+        var tagPush = git.pushRefWithResult(repo, "proxy-v0.1.0");
+        assertFalse(tagPush.succeeded(), "tag push should be blocked pending review");
+
+        String tagPushId = tagPush.extractPushId();
+        pushStore()
+                .approve(
+                        tagPushId,
+                        Attestation.builder()
+                                .pushId(tagPushId)
+                                .type(Attestation.Type.APPROVAL)
+                                .reviewerUsername("e2e-test-reviewer")
+                                .reason("Approved tag")
+                                .build());
+
+        var tagRePush = git.pushRefWithResult(repo, "proxy-v0.1.0");
+        assertTrue(tagRePush.succeeded(), "tag re-push after approval should succeed. Output:\n" + tagRePush.output());
+    }
 }

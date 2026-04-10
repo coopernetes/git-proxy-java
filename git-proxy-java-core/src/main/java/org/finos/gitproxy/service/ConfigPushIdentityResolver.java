@@ -4,8 +4,8 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.finos.gitproxy.provider.GitProxyProvider;
+import org.finos.gitproxy.user.ReadOnlyUserStore;
 import org.finos.gitproxy.user.UserEntry;
-import org.finos.gitproxy.user.UserStore;
 
 /**
  * Resolves push identity by matching the HTTP Basic-auth username against proxy usernames in the user store.
@@ -20,7 +20,7 @@ import org.finos.gitproxy.user.UserStore;
 @RequiredArgsConstructor
 public class ConfigPushIdentityResolver implements PushIdentityResolver {
 
-    private final UserStore userStore;
+    private final ReadOnlyUserStore userStore;
 
     @Override
     public Optional<UserEntry> resolve(GitProxyProvider provider, String pushUsername, String token) {

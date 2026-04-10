@@ -218,6 +218,39 @@ class StoreForwardModeE2ETest {
     // The check is a defensive measure against maliciously crafted packs; it is covered by the
     // passing tests above (which confirm the hook does not disrupt normal pushes).
 
+    // ---- tag push tests ----
+
+    @Test
+    @Order(60)
+    void lightweightTagPush_passes() throws Exception {
+        GitHelper git = new GitHelper(tempDir);
+        Path repo = git.clone(repoUrl(), "sf-tag-lightweight");
+        git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.VALID_AUTHOR_EMAIL);
+
+        git.writeAndStage(repo, "tag-test.txt", "lightweight tag test - " + Instant.now());
+        git.commit(repo, "feat: commit for lightweight tag test");
+        assertTrue(git.tryPush(repo), "branch push before tagging should succeed");
+
+        // Tag the commit and push the tag
+        git.lightweightTag(repo, "sf-v0.1.0");
+        assertTrue(git.tryPushRef(repo, "sf-v0.1.0"), "lightweight tag push should succeed");
+    }
+
+    @Test
+    @Order(61)
+    void annotatedTagPush_passes() throws Exception {
+        GitHelper git = new GitHelper(tempDir);
+        Path repo = git.clone(repoUrl(), "sf-tag-annotated");
+        git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.VALID_AUTHOR_EMAIL);
+
+        git.writeAndStage(repo, "tag-test.txt", "annotated tag test - " + Instant.now());
+        git.commit(repo, "feat: commit for annotated tag test");
+        assertTrue(git.tryPush(repo), "branch push before tagging should succeed");
+
+        git.annotatedTag(repo, "sf-v0.2.0", "Release sf-v0.2.0");
+        assertTrue(git.tryPushRef(repo, "sf-v0.2.0"), "annotated tag push should succeed");
+    }
+
     // ---- Identity resolution tests ----
 
     @Test

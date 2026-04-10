@@ -122,6 +122,43 @@ class GitHelper {
         }
     }
 
+    /** Creates a lightweight tag in {@code repoDir}. */
+    void lightweightTag(Path repoDir, String tagName) throws IOException, InterruptedException {
+        git(repoDir, "tag", tagName);
+    }
+
+    /** Creates an annotated tag in {@code repoDir}. */
+    void annotatedTag(Path repoDir, String tagName, String message) throws IOException, InterruptedException {
+        git(repoDir, "tag", "-a", tagName, "-m", message);
+    }
+
+    /**
+     * Attempts to push a specific ref (branch or tag name) to {@code origin}.
+     *
+     * @return {@code true} if the push exited 0, {@code false} otherwise.
+     */
+    boolean tryPushRef(Path repoDir, String ref) throws IOException, InterruptedException {
+        ProcessBuilder pb = buildGitCommand(repoDir, "push", "origin", ref);
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        String output = new String(p.getInputStream().readAllBytes());
+        int exitCode = p.waitFor();
+        if (exitCode != 0) {
+            System.out.println("[GitHelper] push ref rejected: " + output);
+        }
+        return exitCode == 0;
+    }
+
+    /** Attempts to push a specific ref and returns the full result (exit code + output). */
+    PushResult pushRefWithResult(Path repoDir, String ref) throws IOException, InterruptedException {
+        ProcessBuilder pb = buildGitCommand(repoDir, "push", "origin", ref);
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        String output = new String(p.getInputStream().readAllBytes());
+        int exitCode = p.waitFor();
+        return new PushResult(exitCode, output);
+    }
+
     // ---- private helpers ----
 
     private String currentBranch(Path repoDir) throws IOException, InterruptedException {

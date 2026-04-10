@@ -20,7 +20,9 @@ import org.finos.gitproxy.config.GpgConfig;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.PushStoreFactory;
 import org.finos.gitproxy.git.*;
+import org.finos.gitproxy.permission.RepoPermissionService;
 import org.finos.gitproxy.provider.GenericProxyProvider;
+import org.finos.gitproxy.service.PushIdentityResolver;
 import org.finos.gitproxy.servlet.GitProxyServlet;
 import org.finos.gitproxy.servlet.filter.*;
 
@@ -52,6 +54,38 @@ class JettyProxyFixture implements AutoCloseable {
      * shared {@link PushStore} and returns the gateway to use in {@link PushFinalizerFilter}.
      */
     JettyProxyFixture(URI giteaUri, Function<PushStore, ApprovalGateway> proxyGatewayFactory) throws Exception {
+        this(giteaUri, proxyGatewayFactory, null, null);
+    }
+
+    /**
+     * Create a fixture with optional identity and permission filters enabled on the transparent proxy path. When
+     * {@code identityResolver} is non-null, {@link CheckUserPushPermissionFilter} and
+     * {@link IdentityVerificationFilter} are added to the filter chain (matching production order). The
+     * {@code permissionService} must also be non-null when identity checking is enabled. Uses
+     * {@link CommitConfig.IdentityVerificationMode#WARN} by default.
+     */
+    JettyProxyFixture(
+            URI giteaUri,
+            Function<PushStore, ApprovalGateway> proxyGatewayFactory,
+            PushIdentityResolver identityResolver,
+            RepoPermissionService permissionService)
+            throws Exception {
+        this(
+                giteaUri,
+                proxyGatewayFactory,
+                identityResolver,
+                permissionService,
+                CommitConfig.IdentityVerificationMode.WARN);
+    }
+
+    /** Create a fixture with identity and permission filters enabled, using an explicit identity verification mode. */
+    JettyProxyFixture(
+            URI giteaUri,
+            Function<PushStore, ApprovalGateway> proxyGatewayFactory,
+            PushIdentityResolver identityResolver,
+            RepoPermissionService permissionService,
+            CommitConfig.IdentityVerificationMode identityVerificationMode)
+            throws Exception {
         server = new Server();
         var connector = new ServerConnector(server);
         connector.setPort(0); // ephemeral
@@ -110,6 +144,11 @@ class JettyProxyFixture implements AutoCloseable {
         addFilter(context, proxyMapping, new ParseGitRequestFilter(provider, PROXY_PREFIX));
         addFilter(context, proxyMapping, new EnrichPushCommitsFilter(provider, proxyCache, PROXY_PREFIX));
         addFilter(context, proxyMapping, new AllowApprovedPushFilter(pushStore, serviceUrl));
+        if (identityResolver != null && permissionService != null) {
+            addFilter(context, proxyMapping, new CheckUserPushPermissionFilter(identityResolver, permissionService));
+            addFilter(
+                    context, proxyMapping, new IdentityVerificationFilter(identityResolver, identityVerificationMode));
+        }
         addFilter(context, proxyMapping, new CheckEmptyBranchFilter());
         addFilter(context, proxyMapping, new CheckHiddenCommitsFilter(provider));
         addFilter(context, proxyMapping, new CheckAuthorEmailsFilter(commitConfig));
