@@ -28,8 +28,7 @@ import org.finos.gitproxy.git.HttpOperation;
  *   <li>If {@code preApproved} is set (re-push of an approved push), marks the request as
  *       {@link GitRequestDetails.GitResult#ALLOWED} and lets it through to the upstream proxy.
  *   <li>If the push passed all validation (result is still {@link GitRequestDetails.GitResult#PENDING}), marks it as
- *       {@link GitRequestDetails.GitResult#BLOCKED} (pending review) and sends a git error with a link to the
- *       dashboard.
+ *       {@link GitRequestDetails.GitResult#REVIEW} (pending review) and sends a git error with a link to the dashboard.
  *   <li>If validation already rejected the push ({@code REJECTED} or {@code ERROR}), does nothing - the response was
  *       already committed by {@link ValidationSummaryFilter}.
  * </ul>
@@ -117,7 +116,7 @@ public class PushFinalizerFilter extends AbstractGitProxyFilter {
         }
 
         // First push that passed validation - block pending review (dashboard/ServiceNow mode)
-        details.setResult(GitRequestDetails.GitResult.BLOCKED);
+        details.setResult(GitRequestDetails.GitResult.REVIEW);
         String pushId = details.getId().toString();
         String summary = buildValidationSummary(details.getSteps());
         String divider = "\n────────────────────────────────────────\n";

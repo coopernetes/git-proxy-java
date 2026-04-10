@@ -27,7 +27,7 @@ import org.junit.jupiter.api.io.TempDir;
  * Integration tests for {@link PushStorePersistenceHook}.
  *
  * <p>Exercises the pre-receive hook (creates initial RECEIVED record) and the validation-result hook (transitions to
- * BLOCKED or REJECTED based on the {@link ValidationContext}).
+ * PENDING or REJECTED based on the {@link ValidationContext}).
  *
  * <p>Uses a real JGit repository (via {@code @TempDir}) and the in-memory push store so there are no external
  * dependencies.
@@ -104,7 +104,7 @@ class PushStorePersistenceHookTest {
         assertEquals(commitId.name(), record.getCommitTo());
     }
 
-    // ---- validation-result hook: no issues → BLOCKED ----
+    // ---- validation-result hook: no issues → PENDING ----
 
     @Test
     void validationResultHook_noIssues_transitionsToBlocked() {
@@ -119,11 +119,11 @@ class PushStorePersistenceHookTest {
 
         String pushId = repo.getConfig().getString("gitproxy", null, "pushId");
         // The validation-result hook creates a new record with a fresh UUID (copyBase pattern);
-        // we verify by querying for BLOCKED status rather than by ID.
+        // we verify by querying for PENDING status rather than by ID.
         var records = pushStore.find(org.finos.gitproxy.db.model.PushQuery.builder()
-                .status(PushStatus.BLOCKED)
+                .status(PushStatus.PENDING)
                 .build());
-        assertFalse(records.isEmpty(), "a BLOCKED record should exist");
+        assertFalse(records.isEmpty(), "a PENDING record should exist");
     }
 
     @Test
@@ -231,13 +231,13 @@ class PushStorePersistenceHookTest {
 
         hook.preReceiveHook().onPreReceive(rp, List.of(cmd));
 
-        // Clean push → BLOCKED with dashboard link (verified indirectly through record status)
+        // Clean push → PENDING with dashboard link (verified indirectly through record status)
         hook.validationResultHook(new ValidationContext()).onPreReceive(rp, List.of(cmd));
 
         var records = pushStore.find(org.finos.gitproxy.db.model.PushQuery.builder()
-                .status(PushStatus.BLOCKED)
+                .status(PushStatus.PENDING)
                 .build());
-        assertFalse(records.isEmpty(), "should have a BLOCKED record");
+        assertFalse(records.isEmpty(), "should have a PENDING record");
     }
 
     // ---- email validation config ----

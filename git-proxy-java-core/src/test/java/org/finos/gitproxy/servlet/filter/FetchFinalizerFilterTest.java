@@ -50,12 +50,12 @@ class FetchFinalizerFilterTest {
     @Test
     void blockedFetch_isLeftAlone() throws Exception {
         GitRequestDetails details = pendingFetchDetails();
-        details.setResult(GitRequestDetails.GitResult.BLOCKED);
+        details.setResult(GitRequestDetails.GitResult.REVIEW);
         FetchFinalizerFilter filter = new FetchFinalizerFilter();
 
         filter.doHttpFilter(mockFetchRequest(details), mock(HttpServletResponse.class));
 
-        assertEquals(GitRequestDetails.GitResult.BLOCKED, details.getResult());
+        assertEquals(GitRequestDetails.GitResult.REVIEW, details.getResult());
     }
 
     @Test

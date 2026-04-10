@@ -89,7 +89,7 @@ class MongoPushStoreIntegrationTest {
         store.save(record(id1)); // RECEIVED
         PushRecord blocked = PushRecord.builder()
                 .id(id2)
-                .status(PushStatus.BLOCKED)
+                .status(PushStatus.PENDING)
                 .repoName("repo")
                 .project("org")
                 .branch("refs/heads/main")

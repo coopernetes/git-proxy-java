@@ -60,7 +60,7 @@ class PushControllerTest {
     private static PushRecord blockedPush(String id, String pusher) {
         return PushRecord.builder()
                 .id(id)
-                .status(PushStatus.BLOCKED)
+                .status(PushStatus.PENDING)
                 .resolvedUser(pusher)
                 .provider("github")
                 .url("github.com/acme/repo.git")
@@ -102,8 +102,8 @@ class PushControllerTest {
         @Test
         void validStatus_passedToQuery() {
             when(pushStore.find(any())).thenReturn(java.util.List.of());
-            controller.list("BLOCKED", null, null, null, null, 50, 0, true);
-            verify(pushStore).find(argThat(q -> q.getStatus() == PushStatus.BLOCKED));
+            controller.list("PENDING", null, null, null, null, 50, 0, true);
+            verify(pushStore).find(argThat(q -> q.getStatus() == PushStatus.PENDING));
         }
     }
 
@@ -132,7 +132,7 @@ class PushControllerTest {
         void shortShaFallback_matchesByPrefix() {
             var push = PushRecord.builder()
                     .id("p1")
-                    .status(PushStatus.BLOCKED)
+                    .status(PushStatus.PENDING)
                     .commitTo("abc12345fullsha")
                     .build();
             // First call (exact commitTo) returns empty; second call (fallback scan) returns full list
@@ -202,7 +202,7 @@ class PushControllerTest {
 
         @Test
         void unresolvedPusher_returns403() {
-            var push = PushRecord.builder().id("p1").status(PushStatus.BLOCKED).build(); // no resolvedUser
+            var push = PushRecord.builder().id("p1").status(PushStatus.PENDING).build(); // no resolvedUser
             when(pushStore.findById("p1")).thenReturn(Optional.of(push));
             loginAs("reviewer", false);
             assertEquals(
@@ -385,7 +385,7 @@ class PushControllerTest {
 
         @Test
         void unresolvedPusher_nonAdminCannotCancel() {
-            var push = PushRecord.builder().id("p1").status(PushStatus.BLOCKED).build();
+            var push = PushRecord.builder().id("p1").status(PushStatus.PENDING).build();
             when(pushStore.findById("p1")).thenReturn(Optional.of(push));
             loginAs("alice", false);
             assertEquals(HttpStatus.FORBIDDEN, controller.cancel("p1", null).getStatusCode());

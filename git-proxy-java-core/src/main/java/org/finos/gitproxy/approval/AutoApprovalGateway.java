@@ -9,8 +9,8 @@ import org.finos.gitproxy.db.model.Attestation;
  * Approval gateway that immediately approves every clean push without waiting for human review. Suitable for standalone
  * deployments where no approval UI is available.
  *
- * <p>This gateway is only ever invoked for pushes that passed all validation checks (status {@code BLOCKED} pending
- * review). Pushes that fail validation are rejected before the approval gate is reached.
+ * <p>This gateway is only ever invoked for pushes that passed all validation checks (status {@code PENDING} review).
+ * Pushes that fail validation are rejected before the approval gate is reached.
  */
 @Slf4j
 public class AutoApprovalGateway implements ApprovalGateway {

@@ -28,9 +28,9 @@ import org.finos.gitproxy.git.HttpOperation;
  *
  * <p>If no issues were recorded the request is passed through to the upstream proxy servlet unchanged.
  *
- * <p>Blocked pushes are persisted with status {@link GitRequestDetails.GitResult#BLOCKED} and enter the manual approval
- * queue. When an admin approves the push in the UI, the user can re-push the same commit to have it pass through
- * automatically (detected by {@link AllowApprovedPushFilter}).
+ * <p>Pushes pending review are persisted with status {@link GitRequestDetails.GitResult#REVIEW} and enter the manual
+ * approval queue. When an admin approves the push in the UI, the user can re-push the same commit to have it pass
+ * through automatically (detected by {@link AllowApprovedPushFilter}).
  *
  * <p>This filter runs at order {@code Integer.MAX_VALUE - 3}, after all content filters, ensuring every validation
  * filter has had a chance to record issues before the combined response is sent.

@@ -1,5 +1,5 @@
 export type PushStatus =
-  | 'BLOCKED'
+  | 'PENDING'
   | 'APPROVED'
   | 'FORWARDED'
   | 'REJECTED'

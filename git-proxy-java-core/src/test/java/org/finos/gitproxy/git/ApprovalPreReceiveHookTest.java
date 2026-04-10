@@ -115,7 +115,7 @@ class ApprovalPreReceiveHookTest {
         repo.getConfig().setString("gitproxy", null, "validationRecordId", recordId);
         repo.getConfig().save();
         PushRecord record =
-                PushRecord.builder().id(recordId).status(PushStatus.BLOCKED).build();
+                PushRecord.builder().id(recordId).status(PushStatus.PENDING).build();
         when(pushStore.findById(recordId)).thenReturn(Optional.of(record));
         when(approvalGateway.waitForApproval(eq(recordId), any(), any(Duration.class)))
                 .thenReturn(ApprovalResult.APPROVED);
@@ -136,7 +136,7 @@ class ApprovalPreReceiveHookTest {
         repo.getConfig().setString("gitproxy", null, "validationRecordId", recordId);
         repo.getConfig().save();
         PushRecord record =
-                PushRecord.builder().id(recordId).status(PushStatus.BLOCKED).build();
+                PushRecord.builder().id(recordId).status(PushStatus.PENDING).build();
         PushRecord updatedRecord =
                 PushRecord.builder().id(recordId).status(PushStatus.REJECTED).build();
         when(pushStore.findById(recordId)).thenReturn(Optional.of(record)).thenReturn(Optional.of(updatedRecord));
@@ -159,7 +159,7 @@ class ApprovalPreReceiveHookTest {
         repo.getConfig().setString("gitproxy", null, "validationRecordId", recordId);
         repo.getConfig().save();
         PushRecord record =
-                PushRecord.builder().id(recordId).status(PushStatus.BLOCKED).build();
+                PushRecord.builder().id(recordId).status(PushStatus.PENDING).build();
         when(pushStore.findById(recordId)).thenReturn(Optional.of(record));
         when(approvalGateway.waitForApproval(eq(recordId), any(), any(Duration.class)))
                 .thenReturn(ApprovalResult.TIMED_OUT);

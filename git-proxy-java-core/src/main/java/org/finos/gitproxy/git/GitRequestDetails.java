@@ -82,7 +82,7 @@ public class GitRequestDetails {
     public enum GitResult {
         PENDING,
         ALLOWED,
-        BLOCKED,
+        REVIEW, // push passed validation, awaiting human review
         REJECTED, // hard reject with no review queue (transparent proxy mode)
         ACCEPTED, // for async where a push or fetch is accepted but not yet complete
         ERROR;

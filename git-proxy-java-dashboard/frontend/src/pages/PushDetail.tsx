@@ -156,13 +156,13 @@ function PushTimeline({ record }: { record: PushRecord }) {
     })
   }
 
-  // 3. Blocked event — show if currently blocked, or if there was a review
+  // 3. Pending event — show if currently pending review, or if there was a review
   //    (attestation present means it went through the approval gate)
-  const wasBlocked = record.status === 'BLOCKED' || record.attestation != null
+  const wasBlocked = record.status === 'PENDING' || record.attestation != null
   if (wasBlocked) {
     events.push({
       icon: '⏸',
-      label: 'Blocked — pending review',
+      label: 'Pending review',
       detail: record.blockedMessage ?? undefined,
       time: record.timestamp,
       color: 'text-amber-500',
@@ -786,7 +786,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
             record.status === 'APPROVED') && <RePushGuidance record={record} />}
 
           {/* Approve / Reject / Cancel */}
-          {record.status === 'BLOCKED' &&
+          {record.status === 'PENDING' &&
             (() => {
               const isAdmin = currentUser?.authorities?.includes('ROLE_ADMIN') ?? false
               const isPusher =

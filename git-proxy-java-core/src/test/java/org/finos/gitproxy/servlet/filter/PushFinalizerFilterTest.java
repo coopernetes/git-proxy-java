@@ -109,7 +109,7 @@ class PushFinalizerFilterTest {
 
         filter.doHttpFilter(mockPushRequest(details), fakeResponse.mock);
 
-        assertEquals(GitRequestDetails.GitResult.BLOCKED, details.getResult());
+        assertEquals(GitRequestDetails.GitResult.REVIEW, details.getResult());
         assertTrue(fakeResponse.committed.get(), "Response must be committed to send git error to client");
     }
 

@@ -5,14 +5,23 @@ import { StatusBadge } from '../components/StatusBadge'
 import type { CurrentUser, PushRecord, PushStatus } from '../types'
 
 const PAGE_SIZE = 25
-const STATUSES: PushStatus[] = ['BLOCKED', 'APPROVED', 'REJECTED', 'FORWARDED', 'RECEIVED', 'ERROR']
+const STATUSES: PushStatus[] = [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'FORWARDED',
+  'RECEIVED',
+  'CANCELED',
+  'ERROR',
+]
 
 const STATUS_COLORS: Record<string, string> = {
-  BLOCKED: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+  PENDING: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
   APPROVED: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
   FORWARDED: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
   REJECTED: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100',
   RECEIVED: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100',
+  CANCELED: 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100',
   ERROR: 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100',
 }
 
@@ -47,8 +56,8 @@ export function PushList({ currentUser }: PushListProps) {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Only allow selection when viewing BLOCKED pushes
-  const selectionEnabled = filterStatus === 'BLOCKED'
+  // Only allow selection when viewing PENDING pushes
+  const selectionEnabled = filterStatus === 'PENDING'
 
   function toggleSelect(id: string, e: React.MouseEvent) {
     e.stopPropagation()
@@ -64,7 +73,7 @@ export function PushList({ currentUser }: PushListProps) {
   }
 
   function toggleSelectAll() {
-    const blockedIds = pushes.filter((p) => p.status === 'BLOCKED').map((p) => p.id)
+    const blockedIds = pushes.filter((p) => p.status === 'PENDING').map((p) => p.id)
     setSelectedIds((prev) => (prev.size === blockedIds.length ? new Set() : new Set(blockedIds)))
   }
 
@@ -145,9 +154,9 @@ export function PushList({ currentUser }: PushListProps) {
     setCounts(results)
   }, [])
 
-  // Clear selection when leaving BLOCKED filter
+  // Clear selection when leaving PENDING filter
   useEffect(() => {
-    if (filterStatus !== 'BLOCKED') setSelectedIds(new Set())
+    if (filterStatus !== 'PENDING') setSelectedIds(new Set())
   }, [filterStatus])
 
   // Load data when filters or page changes
@@ -260,7 +269,7 @@ export function PushList({ currentUser }: PushListProps) {
               type="checkbox"
               checked={
                 selectedIds.size > 0 &&
-                selectedIds.size === pushes.filter((p) => p.status === 'BLOCKED').length
+                selectedIds.size === pushes.filter((p) => p.status === 'PENDING').length
               }
               onChange={toggleSelectAll}
               className="rounded border-gray-300"
@@ -334,7 +343,7 @@ export function PushList({ currentUser }: PushListProps) {
             }`}
           >
             <div className="flex items-center gap-4 px-5 py-3">
-              {selectionEnabled && push.status === 'BLOCKED' && (
+              {selectionEnabled && push.status === 'PENDING' && (
                 <input
                   type="checkbox"
                   checked={selectedIds.has(push.id)}

@@ -24,7 +24,7 @@ class AutoApprovalGatewayTest {
 
     private PushRecord blockedRecord() {
         PushRecord r = PushRecord.builder().build();
-        r.setStatus(PushStatus.BLOCKED);
+        r.setStatus(PushStatus.PENDING);
         pushStore.save(r);
         return r;
     }

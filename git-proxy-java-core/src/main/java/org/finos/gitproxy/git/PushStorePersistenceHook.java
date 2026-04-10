@@ -32,7 +32,7 @@ import org.finos.gitproxy.provider.GitProxyProvider;
  * hook chain. It also stores the push ID in the ReceivePack so downstream hooks and the post-receive hook can update
  * it.
  *
- * <p>The post-receive hook updates the record based on the final command results (FORWARDED, BLOCKED, or ERROR).
+ * <p>The post-receive hook updates the record based on the final command results (FORWARDED, PENDING, or ERROR).
  */
 @Slf4j
 public class PushStorePersistenceHook {
@@ -195,8 +195,8 @@ public class PushStorePersistenceHook {
                         return;
                     }
 
-                    // No validation issues → BLOCKED, pending human review
-                    record.setStatus(PushStatus.BLOCKED);
+                    // No validation issues → PENDING human review
+                    record.setStatus(PushStatus.PENDING);
 
                     // Steps from push context (diffs, scans, etc.)
                     if (pushContext != null) {
@@ -223,7 +223,7 @@ public class PushStorePersistenceHook {
                     pushStore.save(record);
                     rp.getRepository().getConfig().setString("gitproxy", null, "validationRecordId", record.getId());
                     log.debug(
-                            "Saved validation result record: id={}, status=BLOCKED (awaiting review)", record.getId());
+                            "Saved validation result record: id={}, status=PENDING (awaiting review)", record.getId());
                 });
             } catch (Exception e) {
                 log.error("Failed to save validation result record", e);

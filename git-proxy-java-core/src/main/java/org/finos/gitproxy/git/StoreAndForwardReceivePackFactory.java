@@ -194,7 +194,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         //
         // Pinned lifecycle hooks (not orderable):
         //   [pre]  PushStorePersistenceHook.preReceive      - record RECEIVED
-        //   [post-validation] PushStorePersistenceHook.validationResult - save APPROVED/BLOCKED
+        //   [post-validation] PushStorePersistenceHook.validationResult - save APPROVED/PENDING
         //   [post-validation] ApprovalPreReceiveHook        - blocks until approved or timeout
         //
         // Post-receive:

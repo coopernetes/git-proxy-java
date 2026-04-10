@@ -6,8 +6,8 @@ public enum PushStatus {
     RECEIVED,
     /** Push is being validated by hooks/filters. */
     PROCESSING,
-    /** Push blocked by a validation hook, awaiting manual review. */
-    BLOCKED,
+    /** Push passed validation and is awaiting manual review. */
+    PENDING,
     /** Push approved (manually or automatically). */
     APPROVED,
     /** Push rejected (manually or automatically). */

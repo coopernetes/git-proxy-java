@@ -12,7 +12,7 @@ import org.finos.gitproxy.git.HttpOperation;
 
 // A filter that sets a git request to be ALLOWED for fetch requests so long as the request
 // has passed through all applicable fetch filters unmodified (ie. request is still in PENDING
-// initial state & not a mutated result such as ERROR, REJECTED or BLOCKED)
+// initial state & not a mutated result such as ERROR, REJECTED or REVIEW)
 public class FetchFinalizerFilter extends AbstractGitProxyFilter {
 
     private static final int ORDER = Integer.MAX_VALUE - 2;

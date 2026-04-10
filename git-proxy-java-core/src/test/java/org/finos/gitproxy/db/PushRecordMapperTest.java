@@ -42,7 +42,7 @@ class PushRecordMapperTest {
     void mapResult_allValues_mappedCorrectly() {
         assertEquals(PushStatus.PROCESSING, PushRecordMapper.mapResult(GitRequestDetails.GitResult.PENDING));
         assertEquals(PushStatus.APPROVED, PushRecordMapper.mapResult(GitRequestDetails.GitResult.ALLOWED));
-        assertEquals(PushStatus.BLOCKED, PushRecordMapper.mapResult(GitRequestDetails.GitResult.BLOCKED));
+        assertEquals(PushStatus.PENDING, PushRecordMapper.mapResult(GitRequestDetails.GitResult.REVIEW));
         assertEquals(PushStatus.REJECTED, PushRecordMapper.mapResult(GitRequestDetails.GitResult.REJECTED));
         assertEquals(PushStatus.RECEIVED, PushRecordMapper.mapResult(GitRequestDetails.GitResult.ACCEPTED));
         assertEquals(PushStatus.ERROR, PushRecordMapper.mapResult(GitRequestDetails.GitResult.ERROR));
@@ -98,7 +98,7 @@ class PushRecordMapperTest {
     @Test
     void fromRequestDetails_blockedResult_setsBlockedMessage() {
         GitRequestDetails details = new GitRequestDetails();
-        details.setResult(GitRequestDetails.GitResult.BLOCKED);
+        details.setResult(GitRequestDetails.GitResult.REVIEW);
         details.setReason("Policy violation");
 
         PushRecord record = PushRecordMapper.fromRequestDetails(details);

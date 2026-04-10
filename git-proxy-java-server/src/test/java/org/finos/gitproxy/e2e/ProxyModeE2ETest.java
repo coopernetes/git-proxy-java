@@ -99,10 +99,10 @@ class ProxyModeE2ETest {
         String pushId = firstPush.extractPushId();
         assertNotNull(pushId, "push ID should be present in blocked message");
 
-        // Verify push record was persisted as BLOCKED
+        // Verify push record was persisted as PENDING
         var record = pushStore().findById(pushId);
         assertTrue(record.isPresent(), "push record should exist in store");
-        assertEquals(PushStatus.BLOCKED, record.get().getStatus(), "push should be BLOCKED pending review");
+        assertEquals(PushStatus.PENDING, record.get().getStatus(), "push should be PENDING review");
 
         // Approve the push
         pushStore()

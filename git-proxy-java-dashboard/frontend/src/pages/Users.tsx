@@ -26,8 +26,8 @@ const PUSH_STAT_CONFIG: {
     classes: 'bg-green-50 text-green-700 border-green-200',
   },
   {
-    status: 'BLOCKED',
-    label: 'Blocked',
+    status: 'PENDING',
+    label: 'Pending',
     icon: '⊘',
     classes: 'bg-amber-50 text-amber-700 border-amber-200',
   },

@@ -90,7 +90,7 @@ public class PushController {
         }
         String commitTo = parts[1];
 
-        // Find by commitTo (most selective) - pick the most recent BLOCKED or APPROVED record
+        // Find by commitTo (most selective) - pick the most recent PENDING or APPROVED record
         List<PushRecord> records = pushStore.find(PushQuery.builder()
                 .commitTo(commitTo)
                 .newestFirst(true)
@@ -135,9 +135,9 @@ public class PushController {
         return pushStore
                 .findById(id)
                 .map(record -> {
-                    if (record.getStatus() != PushStatus.BLOCKED) {
+                    if (record.getStatus() != PushStatus.PENDING) {
                         return ResponseEntity.badRequest()
-                                .body(Map.of("error", "Push is not in BLOCKED status: " + record.getStatus()));
+                                .body(Map.of("error", "Push is not in PENDING status: " + record.getStatus()));
                     }
                     ResponseEntity<?> identityError = checkReviewerIdentity(record);
                     if (identityError != null) return identityError;
@@ -209,9 +209,9 @@ public class PushController {
         return pushStore
                 .findById(id)
                 .map(record -> {
-                    if (record.getStatus() != PushStatus.BLOCKED) {
+                    if (record.getStatus() != PushStatus.PENDING) {
                         return ResponseEntity.badRequest()
-                                .body(Map.of("error", "Push is not in BLOCKED status: " + record.getStatus()));
+                                .body(Map.of("error", "Push is not in PENDING status: " + record.getStatus()));
                     }
                     ResponseEntity<?> identityError = checkReviewerIdentity(record);
                     if (identityError != null) return identityError;
@@ -277,9 +277,9 @@ public class PushController {
         return pushStore
                 .findById(id)
                 .map(record -> {
-                    if (record.getStatus() != PushStatus.BLOCKED) {
+                    if (record.getStatus() != PushStatus.PENDING) {
                         return ResponseEntity.badRequest()
-                                .body(Map.of("error", "Push is not in BLOCKED status: " + record.getStatus()));
+                                .body(Map.of("error", "Push is not in PENDING status: " + record.getStatus()));
                     }
                     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
                     if (!isAdmin(auth)) {
