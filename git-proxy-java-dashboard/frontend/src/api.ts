@@ -239,7 +239,7 @@ export async function addUserPermission(
 
 export async function createAccessRule(rule: {
   access: 'ALLOW' | 'DENY'
-  operations: 'ALL' | 'PUSH' | 'FETCH'
+  operations: 'BOTH' | 'PUSH' | 'FETCH'
   slug?: string
   owner?: string
   name?: string

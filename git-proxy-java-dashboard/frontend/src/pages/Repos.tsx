@@ -17,7 +17,7 @@ interface AccessRule {
   owner: string | null
   name: string | null
   access: 'ALLOW' | 'DENY'
-  operations: 'FETCH' | 'PUSH' | 'ALL'
+  operations: 'FETCH' | 'PUSH' | 'BOTH'
   description: string | null
   enabled: boolean
   ruleOrder: number
@@ -104,7 +104,7 @@ interface AddRuleForm {
   patternType: PatternType
   pattern: string
   provider: string
-  operations: 'ALL' | 'PUSH' | 'FETCH'
+  operations: 'BOTH' | 'PUSH' | 'FETCH'
 }
 
 const DEFAULT_FORM: AddRuleForm = {
@@ -113,7 +113,7 @@ const DEFAULT_FORM: AddRuleForm = {
   patternType: 'LITERAL',
   pattern: '',
   provider: '',
-  operations: 'ALL',
+  operations: 'BOTH',
 }
 
 function AddRuleModal({
@@ -326,7 +326,7 @@ function AddRuleModal({
               onChange={(e) => set('operations', e.target.value as AddRuleForm['operations'])}
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
             >
-              <option value="ALL">Push &amp; Fetch</option>
+              <option value="BOTH">Push &amp; Fetch</option>
               <option value="PUSH">Push only</option>
               <option value="FETCH">Fetch only</option>
             </select>
@@ -525,7 +525,7 @@ export function Repos() {
                             : 'git push / git clone'
                       }
                     >
-                      {rule.operations === 'ALL' ? 'PUSH & FETCH' : rule.operations}
+                      {rule.operations === 'BOTH' ? 'PUSH & FETCH' : rule.operations}
                     </span>
                     <span className="text-xs text-gray-400">
                       {rule.source === 'CONFIG' ? 'config' : 'local'}
