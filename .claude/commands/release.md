@@ -41,7 +41,11 @@ and used for the git tag. It should follow semver or semver-pre format, e.g. `1.
    ```
    No `closes #N`, no co-author trailer needed for version bumps.
 
-7. **Create the annotated tag.**
+7. **Create the signed annotated tag.** Attempt a signed tag first:
+   ```
+   git tag -s v<new-version> -m "Release v<new-version>"
+   ```
+   If signing fails (no GPG/SSH key configured), fall back to an unsigned annotated tag and note that signing was skipped:
    ```
    git tag -a v<new-version> -m "Release v<new-version>"
    ```
