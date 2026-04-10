@@ -38,4 +38,17 @@ public class LdapAuthConfig {
      * member-attribute filter.
      */
     private String groupSearchFilter = "(member={0})";
+
+    /**
+     * LDAP search filter to locate the user entry before binding, e.g. {@code (sAMAccountName={0})}. When set, takes
+     * precedence over {@code userDnPatterns} — a search-first approach is used instead of constructing a DN directly.
+     * Requires bind credentials ({@code bindDn}/{@code bindPassword}) when anonymous search is not permitted.
+     */
+    private String userSearchFilter = "";
+
+    /**
+     * Base DN (relative to the base in {@code url}) to scope the user search. Defaults to {@code ""} (search from the
+     * URL base DN). Example: {@code OU=Accounts}.
+     */
+    private String userSearchBase = "";
 }

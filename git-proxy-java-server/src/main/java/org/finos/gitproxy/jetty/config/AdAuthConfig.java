@@ -29,4 +29,14 @@ public class AdAuthConfig {
      * member-attribute filter.
      */
     private String groupSearchFilter = "(member={0})";
+
+    /**
+     * Bind DN for the service account used to perform group searches, e.g. {@code svc-account@corp.example.com}. Most
+     * corporate AD deployments disable anonymous LDAP search, so this is required when {@code groupSearchBase} is set
+     * and anonymous search is not permitted.
+     */
+    private String bindDn = "";
+
+    /** Password for the bind DN. Ignored when {@code bindDn} is blank. */
+    private String bindPassword = "";
 }

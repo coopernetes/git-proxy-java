@@ -49,6 +49,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.ldap.DefaultSpringSecurityContextSource;
 import org.springframework.security.ldap.authentication.BindAuthenticator;
 import org.springframework.security.ldap.authentication.LdapAuthenticationProvider;
+import org.springframework.security.ldap.search.FilterBasedLdapUserSearch;
 import org.springframework.security.ldap.userdetails.DefaultLdapAuthoritiesPopulator;
 import org.springframework.security.oauth2.client.endpoint.NimbusJwtClientAuthenticationParametersConverter;
 import org.springframework.security.oauth2.client.endpoint.RestClientAuthorizationCodeTokenResponseClient;
@@ -222,7 +223,14 @@ public class SecurityConfig {
         contextSource.afterPropertiesSet();
 
         var authenticator = new BindAuthenticator(contextSource);
-        authenticator.setUserDnPatterns(new String[] {ldapCfg.getUserDnPatterns()});
+        if (!ldapCfg.getUserSearchFilter().isBlank()) {
+            var userSearch = new FilterBasedLdapUserSearch(
+                    ldapCfg.getUserSearchBase(), ldapCfg.getUserSearchFilter(), contextSource);
+            userSearch.setSearchSubtree(true);
+            authenticator.setUserSearch(userSearch);
+        } else {
+            authenticator.setUserDnPatterns(new String[] {ldapCfg.getUserDnPatterns()});
+        }
         authenticator.setUserAttributes(new String[] {"mail"});
         authenticator.afterPropertiesSet();
 
@@ -254,10 +262,18 @@ public class SecurityConfig {
                         .ignoringRequestMatchers("/login")
                         .ignoringRequestMatchers(req -> req.getHeader("X-Api-Key") != null));
 
-        log.info(
-                "LDAP authentication configured: url={}, userDnPatterns={}",
-                ldapCfg.getUrl(),
-                ldapCfg.getUserDnPatterns());
+        if (!ldapCfg.getUserSearchFilter().isBlank()) {
+            log.info(
+                    "LDAP authentication configured: url={}, userSearchFilter={}, userSearchBase={}",
+                    ldapCfg.getUrl(),
+                    ldapCfg.getUserSearchFilter(),
+                    ldapCfg.getUserSearchBase());
+        } else {
+            log.info(
+                    "LDAP authentication configured: url={}, userDnPatterns={}",
+                    ldapCfg.getUrl(),
+                    ldapCfg.getUserDnPatterns());
+        }
     }
 
     // ── Active Directory ────────────────────────────────────────────────────────
@@ -282,6 +298,10 @@ public class SecurityConfig {
             // AD bind uses UPN so we construct a context source bound to the domain controller URL.
             String contextUrl = adUrl != null ? adUrl : "ldap://" + adCfg.getDomain();
             var contextSource = new DefaultSpringSecurityContextSource(contextUrl);
+            if (!adCfg.getBindDn().isBlank()) {
+                contextSource.setUserDn(adCfg.getBindDn());
+                contextSource.setPassword(adCfg.getBindPassword());
+            }
             contextSource.afterPropertiesSet();
 
             var populator = new DefaultLdapAuthoritiesPopulator(contextSource, adCfg.getGroupSearchBase());
