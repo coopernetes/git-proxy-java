@@ -16,12 +16,12 @@ public class GitHubProvider extends AbstractGitProxyProvider implements TokenIde
     public static final URI DEFAULT_URI = URI.create("https://github.com");
 
     @Builder
-    public GitHubProvider(URI uri, String basePath, String customPath) {
-        super(NAME, uri, basePath, customPath);
+    public GitHubProvider(String name, URI uri, String basePath) {
+        super(name != null ? name : NAME, NAME, uri != null ? uri : DEFAULT_URI, basePath);
     }
 
     public GitHubProvider(String basePath) {
-        super(NAME, DEFAULT_URI, basePath);
+        this(NAME, DEFAULT_URI, basePath);
     }
 
     public String getApiUrl() {

@@ -127,7 +127,8 @@ class CheckUserPushPermissionHookTest {
         repo.getConfig().save();
         GitProxyProvider github = new GitHubProvider("/push");
         when(resolver.resolve(eq(github), eq("corp-user"), any())).thenReturn(Optional.of(userEntry("alice")));
-        when(permService.isAllowedToPush("alice", "github", "/owner/repo")).thenReturn(false);
+        when(permService.isAllowedToPush("alice", "github/github.com", "/owner/repo"))
+                .thenReturn(false);
 
         RevCommit c1 = createCommit("init");
         RevCommit c2 = createCommit("second");
@@ -159,7 +160,8 @@ class CheckUserPushPermissionHookTest {
         GitProxyProvider github = new GitHubProvider("/push");
         when(resolver.resolve(eq(github), eq("corp-user"), eq("ghp_secret")))
                 .thenReturn(Optional.of(userEntry("alice")));
-        when(permService.isAllowedToPush("alice", "github", "/owner/repo")).thenReturn(true);
+        when(permService.isAllowedToPush("alice", "github/github.com", "/owner/repo"))
+                .thenReturn(true);
 
         RevCommit c1 = createCommit("init");
         RevCommit c2 = createCommit("second");
@@ -208,7 +210,8 @@ class CheckUserPushPermissionHookTest {
         repo.getConfig().save();
         GitProxyProvider github = new GitHubProvider("/push");
         when(resolver.resolve(eq(github), eq("my-user"), any())).thenReturn(Optional.of(userEntry("my-user")));
-        when(permService.isAllowedToPush("my-user", "github", "/owner/repo")).thenReturn(true);
+        when(permService.isAllowedToPush("my-user", "github/github.com", "/owner/repo"))
+                .thenReturn(true);
 
         RevCommit c1 = createCommit("init");
         RevCommit c2 = createCommit("second");

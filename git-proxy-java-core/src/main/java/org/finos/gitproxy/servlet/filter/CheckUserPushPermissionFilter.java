@@ -91,24 +91,24 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
         }
 
         UserEntry user = resolved.get();
-        String providerName = requestDetails.getProvider() != null
-                ? requestDetails.getProvider().getName()
+        String providerId = requestDetails.getProvider() != null
+                ? requestDetails.getProvider().getProviderId()
                 : null;
         String slug = requestDetails.getRepoRef() != null
                 ? requestDetails.getRepoRef().getSlug()
                 : null;
 
-        if (providerName == null
+        if (providerId == null
                 || slug == null
-                || !repoPermissionService.isAllowedToPush(user.getUsername(), providerName, slug)) {
+                || !repoPermissionService.isAllowedToPush(user.getUsername(), providerId, slug)) {
             log.warn(
                     "Push user '{}' (resolved as '{}') is not authorized to push to {}/{}",
                     pushUsername,
                     user.getUsername(),
-                    providerName,
+                    providerId,
                     slug);
             String repoUrl =
-                    providerName != null && slug != null ? String.format("https://%s%s", providerName, slug) : slug;
+                    providerId != null && slug != null ? String.format("https://%s%s", providerId, slug) : slug;
             String title = sym(NO_ENTRY) + "  Push Blocked - Unauthorized";
             String message = sym(CROSS_MARK) + "  " + user.getUsername() + " is not allowed to push to:\n" + "   "
                     + sym(LINK) + "  " + repoUrl;
@@ -121,12 +121,12 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
                 "Push user '{}' resolved as '{}' and authorized for {}/{}",
                 pushUsername,
                 user.getUsername(),
-                providerName,
+                providerId,
                 slug);
         requestDetails.setResolvedUser(user.getUsername());
         if (requestDetails.getProvider() != null && user.getScmIdentities() != null) {
             user.getScmIdentities().stream()
-                    .filter(id -> requestDetails.getProvider().getName().equalsIgnoreCase(id.getProvider()))
+                    .filter(id -> requestDetails.getProvider().getProviderId().equalsIgnoreCase(id.getProvider()))
                     .map(org.finos.gitproxy.user.ScmIdentity::getUsername)
                     .findFirst()
                     .ifPresent(requestDetails::setScmUsername);

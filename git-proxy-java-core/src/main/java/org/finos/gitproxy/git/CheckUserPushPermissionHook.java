@@ -109,19 +109,19 @@ public class CheckUserPushPermissionHook implements GitProxyHook {
         }
 
         UserEntry user = resolved.get();
-        String providerName = provider != null ? provider.getName() : null;
+        String providerId = provider != null ? provider.getProviderId() : null;
 
-        if (providerName == null
+        if (providerId == null
                 || repoSlug == null
-                || !repoPermissionService.isAllowedToPush(user.getUsername(), providerName, repoSlug)) {
+                || !repoPermissionService.isAllowedToPush(user.getUsername(), providerId, repoSlug)) {
             log.warn(
                     "Push user '{}' (resolved as '{}') is not authorized for {}/{}",
                     pushUser,
                     user.getUsername(),
-                    providerName,
+                    providerId,
                     repoSlug);
-            String repoRef = providerName != null && repoSlug != null
-                    ? String.format("https://%s%s", providerName, repoSlug)
+            String repoRef = providerId != null && repoSlug != null
+                    ? String.format("https://%s%s", providerId, repoSlug)
                     : repoSlug;
             String detail = GitClientUtils.format(
                     sym(NO_ENTRY) + "  Push Blocked - Unauthorized",
@@ -138,12 +138,12 @@ public class CheckUserPushPermissionHook implements GitProxyHook {
                 "Push user '{}' resolved as '{}' and authorized for {}/{}",
                 pushUser,
                 user.getUsername(),
-                providerName,
+                providerId,
                 repoSlug);
         config.setString("gitproxy", null, "resolvedUser", user.getUsername());
         if (provider != null && user.getScmIdentities() != null) {
             user.getScmIdentities().stream()
-                    .filter(id -> provider.getName().equalsIgnoreCase(id.getProvider()))
+                    .filter(id -> provider.getProviderId().equalsIgnoreCase(id.getProvider()))
                     .map(org.finos.gitproxy.user.ScmIdentity::getUsername)
                     .findFirst()
                     .ifPresent(scmUser -> config.setString("gitproxy", null, "scmUsername", scmUser));

@@ -315,7 +315,7 @@ public class PushStorePersistenceHook {
         PushRecord.PushRecordBuilder builder = PushRecord.builder()
                 .id(pushId)
                 .status(PushStatus.RECEIVED)
-                .provider(provider.getName())
+                .provider(provider.getProviderId())
                 .url(providerUri)
                 .project(provider.getUri().getHost());
 

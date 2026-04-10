@@ -19,12 +19,6 @@ class ProviderTest {
     }
 
     @Test
-    void gitHub_customPath_overridesHostname() {
-        var p = new GitHubProvider(GitHubProvider.DEFAULT_URI, "/proxy", "/gh");
-        assertEquals("/proxy/gh", p.servletPath());
-    }
-
-    @Test
     void gitHub_defaultUri_apiUrls() {
         var p = new GitHubProvider("/proxy");
         assertEquals("https://api.github.com", p.getApiUrl());
@@ -94,7 +88,7 @@ class ProviderTest {
 
     @Test
     void bitbucket_hostedUri_apiUrl() {
-        var p = new BitbucketProvider.Builder()
+        var p = BitbucketProvider.builder()
                 .uri(URI.create("https://bitbucket.example.com"))
                 .basePath("/proxy")
                 .build();
@@ -115,19 +109,7 @@ class ProviderTest {
     // --- GenericProxyProvider ---
 
     @Test
-    void generic_servletPath_usesCustomPath() {
-        var p = GenericProxyProvider.builder()
-                .name("internal-git")
-                .uri(URI.create("https://git.internal.example.com"))
-                .basePath("/proxy")
-                .customPath("/internal")
-                .build();
-        assertEquals("/proxy/internal", p.servletPath());
-        assertEquals("internal-git", p.getName());
-    }
-
-    @Test
-    void generic_noCustomPath_usesHostname() {
+    void generic_servletPath_usesHostname() {
         var p = GenericProxyProvider.builder()
                 .name("my-git")
                 .uri(URI.create("https://git.corp.com"))

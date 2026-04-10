@@ -1,10 +1,10 @@
 package org.finos.gitproxy.provider;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.Base64;
 import java.util.Optional;
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.fluent.Request;
 import tools.jackson.databind.json.JsonMapper;
@@ -42,37 +42,13 @@ public class BitbucketProvider extends AbstractGitProxyProvider implements Token
     public static final URI DEFAULT_URI = URI.create("https://bitbucket.org");
     public static final String NAME = "bitbucket";
 
-    public BitbucketProvider(URI uri, String basePath, @Nullable String customPath) {
-        super(NAME, uri, basePath, customPath);
+    @Builder
+    public BitbucketProvider(String name, URI uri, String basePath) {
+        super(name != null ? name : NAME, NAME, uri != null ? uri : DEFAULT_URI, basePath);
     }
 
     public BitbucketProvider(String basePath) {
-        super(NAME, DEFAULT_URI, basePath);
-    }
-
-    public static class Builder {
-        private URI uri = DEFAULT_URI;
-        private String basePath;
-        private String customPath;
-
-        public BitbucketProvider.Builder uri(URI uri) {
-            this.uri = uri;
-            return this;
-        }
-
-        public BitbucketProvider.Builder basePath(String basePath) {
-            this.basePath = basePath;
-            return this;
-        }
-
-        public BitbucketProvider.Builder customPath(String customPath) {
-            this.customPath = customPath;
-            return this;
-        }
-
-        public BitbucketProvider build() {
-            return new BitbucketProvider(this.uri, this.basePath, this.customPath);
-        }
+        this(NAME, DEFAULT_URI, basePath);
     }
 
     /**

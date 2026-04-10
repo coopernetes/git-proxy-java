@@ -111,6 +111,9 @@ class PushFinalizerFilterTest {
         details.setResolvedUser(username);
         GitProxyProvider provider = mock(GitProxyProvider.class);
         when(provider.getName()).thenReturn(providerName);
+        when(provider.getType()).thenReturn(providerName);
+        when(provider.getUri()).thenReturn(java.net.URI.create("https://" + providerName + ".com"));
+        when(provider.getProviderId()).thenReturn(providerName + "/" + providerName + ".com");
         details.setProvider(provider);
         return details;
     }
@@ -196,7 +199,8 @@ class PushFinalizerFilterTest {
     void selfCertify_granted_allowsPushAndSetsAttribute() throws Exception {
         GitRequestDetails details = pendingPushDetailsWithUser("alice", "github");
         RepoPermissionService perms = mock(RepoPermissionService.class);
-        when(perms.isBypassReviewAllowed("alice", "github", "/owner/repo")).thenReturn(true);
+        when(perms.isBypassReviewAllowed("alice", "github/github.com", "/owner/repo"))
+                .thenReturn(true);
         PushFinalizerFilter filter =
                 new PushFinalizerFilter("http://localhost:8080", mock(ApprovalGateway.class), perms);
         HttpServletRequest req = mockPushRequest(details);
@@ -213,7 +217,8 @@ class PushFinalizerFilterTest {
     void selfCertify_notGranted_blocksPendingReview() throws Exception {
         GitRequestDetails details = pendingPushDetailsWithUser("alice", "github");
         RepoPermissionService perms = mock(RepoPermissionService.class);
-        when(perms.isBypassReviewAllowed("alice", "github", "/owner/repo")).thenReturn(false);
+        when(perms.isBypassReviewAllowed("alice", "github/github.com", "/owner/repo"))
+                .thenReturn(false);
         PushFinalizerFilter filter =
                 new PushFinalizerFilter("http://localhost:8080", mock(ApprovalGateway.class), perms);
         FakeResponse fakeResponse = new FakeResponse();
@@ -251,6 +256,9 @@ class PushFinalizerFilterTest {
         details.setResolvedUser("alice");
         GitProxyProvider provider = mock(GitProxyProvider.class);
         when(provider.getName()).thenReturn("github");
+        when(provider.getType()).thenReturn("github");
+        when(provider.getUri()).thenReturn(java.net.URI.create("https://github.com"));
+        when(provider.getProviderId()).thenReturn("github/github.com");
         details.setProvider(provider);
         // repoRef intentionally not set
         RepoPermissionService perms = mock(RepoPermissionService.class);

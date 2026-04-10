@@ -36,14 +36,14 @@ public class CachingTokenPushIdentityResolver implements PushIdentityResolver {
             return delegate.resolve(provider, pushUsername, token);
         }
 
-        String tokenHash = sha512(provider.getName() + ":" + token);
-        Optional<String> cached = cache.lookup(provider.getName(), tokenHash);
+        String tokenHash = sha512(provider.getProviderId() + ":" + token);
+        Optional<String> cached = cache.lookup(provider.getProviderId(), tokenHash);
         if (cached.isPresent()) {
             return userStore.findByUsername(cached.get());
         }
 
         Optional<UserEntry> result = delegate.resolve(provider, pushUsername, token);
-        result.ifPresent(entry -> cache.store(provider.getName(), tokenHash, entry.getUsername()));
+        result.ifPresent(entry -> cache.store(provider.getProviderId(), tokenHash, entry.getUsername()));
         return result;
     }
 

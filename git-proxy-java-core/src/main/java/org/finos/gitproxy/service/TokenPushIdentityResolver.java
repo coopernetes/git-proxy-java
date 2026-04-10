@@ -43,7 +43,7 @@ public class TokenPushIdentityResolver implements PushIdentityResolver {
 
         return tip.fetchScmIdentity(pushUsername, token)
                 .flatMap(id -> userStore
-                        .findByScmIdentity(provider.getName(), id.login())
+                        .findByScmIdentity(provider.getProviderId(), id.login())
                         .or(() -> userStore.findByEmail(id.email().orElse(null))));
     }
 }

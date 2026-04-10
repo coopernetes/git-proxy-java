@@ -125,7 +125,9 @@ class PushRecordMapperTest {
     void fromRequestDetails_withProvider_setsUpstreamUrl() {
         GitProxyProvider provider = mock(GitProxyProvider.class);
         when(provider.getName()).thenReturn("github");
+        when(provider.getType()).thenReturn("github");
         when(provider.getUri()).thenReturn(URI.create("https://github.com/"));
+        when(provider.getProviderId()).thenReturn("github/github.com");
 
         GitRequestDetails details = new GitRequestDetails();
         details.setRepoRef(

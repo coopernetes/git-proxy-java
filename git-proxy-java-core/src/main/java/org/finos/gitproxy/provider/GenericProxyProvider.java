@@ -6,7 +6,7 @@ import lombok.Builder;
 public class GenericProxyProvider extends AbstractGitProxyProvider {
 
     @Builder
-    GenericProxyProvider(String name, URI uri, String basePath, String customPath) {
-        super(name, uri, basePath, customPath);
+    GenericProxyProvider(String name, String type, URI uri, String basePath) {
+        super(name, type != null ? type : name, uri, basePath);
     }
 }

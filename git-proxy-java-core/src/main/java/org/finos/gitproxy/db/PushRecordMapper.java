@@ -39,10 +39,10 @@ public final class PushRecordMapper {
         }
 
         if (details.getProvider() != null) {
-            builder.provider(details.getProvider().getName());
+            builder.provider(details.getProvider().getProviderId());
             String url = builder.build().getUrl();
             if (url == null) {
-                builder.url(details.getProvider().getName());
+                builder.url(details.getProvider().getProviderId());
             }
             // Construct the upstream URL from provider URI + repo slug
             String providerUri = details.getProvider().getUri().toString();

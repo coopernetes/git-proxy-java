@@ -6,7 +6,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -125,6 +127,7 @@ public class JettyConfigurationBuilder {
     /** Creates the list of enabled providers from configuration. */
     public List<GitProxyProvider> buildProviders() {
         List<GitProxyProvider> providers = new ArrayList<>();
+        Map<String, String> seenProviderIds = new LinkedHashMap<>();
 
         config.getProviders().forEach((name, providerConfig) -> {
             if (!providerConfig.isEnabled()) {
@@ -133,8 +136,19 @@ public class JettyConfigurationBuilder {
             }
             GitProxyProvider provider = createProvider(name, providerConfig);
             if (provider != null) {
+                String existingName = seenProviderIds.put(provider.getProviderId(), provider.getName());
+                if (existingName != null) {
+                    throw new IllegalStateException(String.format(
+                            "Provider ID conflict: '%s' and '%s' both resolve to '%s'. "
+                                    + "Each provider must have a unique type/host combination.",
+                            existingName, provider.getName(), provider.getProviderId()));
+                }
                 providers.add(provider);
-                log.info("Configured provider: {} -> {}", provider.getName(), provider.getUri());
+                log.info(
+                        "Configured provider: {} -> {} (id={})",
+                        provider.getName(),
+                        provider.getUri(),
+                        provider.getProviderId());
             }
         });
 
@@ -645,13 +659,25 @@ public class JettyConfigurationBuilder {
 
         switch (resolvedType) {
             case "github" -> {
-                return parsedUri != null ? new GitHubProvider(parsedUri, path, null) : new GitHubProvider(path);
+                return GitHubProvider.builder()
+                        .name(name)
+                        .uri(parsedUri)
+                        .basePath(path)
+                        .build();
             }
             case "gitlab" -> {
-                return parsedUri != null ? new GitLabProvider(parsedUri, path, null) : new GitLabProvider(path);
+                return GitLabProvider.builder()
+                        .name(name)
+                        .uri(parsedUri)
+                        .basePath(path)
+                        .build();
             }
             case "bitbucket" -> {
-                return parsedUri != null ? new BitbucketProvider(parsedUri, path, null) : new BitbucketProvider(path);
+                return BitbucketProvider.builder()
+                        .name(name)
+                        .uri(parsedUri)
+                        .basePath(path)
+                        .build();
             }
             case "codeberg", "gitea" -> {
                 URI defaultUri = ForgejoProvider.WELL_KNOWN.get(resolvedType);

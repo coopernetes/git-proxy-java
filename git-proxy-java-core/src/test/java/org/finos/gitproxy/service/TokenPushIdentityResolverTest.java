@@ -35,7 +35,9 @@ class TokenPushIdentityResolverTest {
         store = mock(ReadOnlyUserStore.class);
         provider = mock(TokenProvider.class);
         when(provider.getName()).thenReturn("github");
+        when(provider.getType()).thenReturn("github");
         when(provider.getUri()).thenReturn(URI.create("https://github.com"));
+        when(provider.getProviderId()).thenReturn("github/github.com");
         resolver = new TokenPushIdentityResolver(store);
     }
 
@@ -90,13 +92,13 @@ class TokenPushIdentityResolverTest {
         UserEntry alice = entry("alice", "alice@example.com");
         when(provider.fetchScmIdentity(anyString(), eq("good-token")))
                 .thenReturn(Optional.of(new ScmUserInfo("alice-gh", Optional.empty())));
-        when(store.findByScmIdentity("github", "alice-gh")).thenReturn(Optional.of(alice));
+        when(store.findByScmIdentity("github/github.com", "alice-gh")).thenReturn(Optional.of(alice));
 
         var result = resolver.resolve(provider, "me", "good-token");
 
         assertTrue(result.isPresent());
         assertEquals("alice", result.get().getUsername());
-        verify(store).findByScmIdentity("github", "alice-gh");
+        verify(store).findByScmIdentity("github/github.com", "alice-gh");
         verify(store, never()).findByEmail(any());
     }
 
@@ -107,14 +109,14 @@ class TokenPushIdentityResolverTest {
         UserEntry alice = entry("alice", "alice@example.com");
         when(provider.fetchScmIdentity(anyString(), anyString()))
                 .thenReturn(Optional.of(new ScmUserInfo("alice-gh", Optional.of("alice@example.com"))));
-        when(store.findByScmIdentity("github", "alice-gh")).thenReturn(Optional.empty());
+        when(store.findByScmIdentity("github/github.com", "alice-gh")).thenReturn(Optional.empty());
         when(store.findByEmail("alice@example.com")).thenReturn(Optional.of(alice));
 
         var result = resolver.resolve(provider, "me", "token");
 
         assertTrue(result.isPresent());
         assertEquals("alice", result.get().getUsername());
-        verify(store).findByScmIdentity("github", "alice-gh");
+        verify(store).findByScmIdentity("github/github.com", "alice-gh");
         verify(store).findByEmail("alice@example.com");
     }
 
@@ -124,7 +126,7 @@ class TokenPushIdentityResolverTest {
     void bothLookupsMiss_returnsEmpty() {
         when(provider.fetchScmIdentity(anyString(), anyString()))
                 .thenReturn(Optional.of(new ScmUserInfo("unknown-gh", Optional.of("unknown@example.com"))));
-        when(store.findByScmIdentity("github", "unknown-gh")).thenReturn(Optional.empty());
+        when(store.findByScmIdentity("github/github.com", "unknown-gh")).thenReturn(Optional.empty());
         when(store.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
 
         var result = resolver.resolve(provider, "me", "token");
@@ -138,7 +140,7 @@ class TokenPushIdentityResolverTest {
     void noEmailInScmInfo_scmIdentityMiss_returnsEmpty() {
         when(provider.fetchScmIdentity(anyString(), anyString()))
                 .thenReturn(Optional.of(new ScmUserInfo("nobody-gh", Optional.empty())));
-        when(store.findByScmIdentity("github", "nobody-gh")).thenReturn(Optional.empty());
+        when(store.findByScmIdentity("github/github.com", "nobody-gh")).thenReturn(Optional.empty());
 
         var result = resolver.resolve(provider, "me", "token");
 

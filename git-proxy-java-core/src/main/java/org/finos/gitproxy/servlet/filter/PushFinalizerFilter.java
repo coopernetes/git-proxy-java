@@ -127,7 +127,7 @@ public class PushFinalizerFilter extends AbstractGitProxyFilter {
         if (repoPermissionService != null) {
             String username = details.getResolvedUser();
             String provider =
-                    details.getProvider() != null ? details.getProvider().getName() : null;
+                    details.getProvider() != null ? details.getProvider().getProviderId() : null;
             String path = details.getRepoRef() != null ? details.getRepoRef().getSlug() : null;
             if (username != null
                     && provider != null

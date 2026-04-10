@@ -26,9 +26,11 @@ public class ForgejoProvider extends AbstractGitProxyProvider implements TokenId
             "codeberg", URI.create("https://codeberg.org"),
             "gitea", URI.create("https://gitea.com"));
 
+    public static final String TYPE = "forgejo";
+
     @Builder
-    public ForgejoProvider(String name, URI uri, String basePath, String customPath) {
-        super(name, uri, basePath, customPath);
+    public ForgejoProvider(String name, URI uri, String basePath) {
+        super(name, TYPE, uri, basePath);
     }
 
     public String getApiUrl() {

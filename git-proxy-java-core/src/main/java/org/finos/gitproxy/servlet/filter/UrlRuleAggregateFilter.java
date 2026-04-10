@@ -141,7 +141,7 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
         }
         // Also evaluate DB deny rules
         if (repoRegistry != null && details != null && request.getAttribute(DENIED_BY_ATTRIBUTE) == null) {
-            List<AccessRule> dbRules = repoRegistry.findEnabledForProvider(provider.getName());
+            List<AccessRule> dbRules = repoRegistry.findEnabledForProvider(provider.getProviderId());
             for (AccessRule rule : dbRules) {
                 if (rule.getAccess() == AccessRule.Access.DENY
                         && matchesDbRule(rule, details.getRepoRef(), operation)) {
@@ -178,7 +178,7 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
         }
         // Also evaluate DB allow rules
         if (repoRegistry != null && details != null && request.getAttribute(MATCHED_BY_ATTRIBUTE) == null) {
-            List<AccessRule> dbRules = repoRegistry.findEnabledForProvider(provider.getName());
+            List<AccessRule> dbRules = repoRegistry.findEnabledForProvider(provider.getProviderId());
             for (AccessRule rule : dbRules) {
                 if (rule.getAccess() == AccessRule.Access.ALLOW
                         && matchesDbRule(rule, details.getRepoRef(), operation)) {

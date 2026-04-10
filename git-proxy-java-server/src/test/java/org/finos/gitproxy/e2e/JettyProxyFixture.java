@@ -99,7 +99,6 @@ class JettyProxyFixture implements AutoCloseable {
                 .name("gitea-e2e")
                 .uri(giteaUri)
                 .basePath("")
-                .customPath(null)
                 .build();
 
         var commitConfig = buildCommitConfig();
