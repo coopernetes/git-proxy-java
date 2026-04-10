@@ -34,7 +34,11 @@ COPY . .
 
 # Build the distribution (all deps bundled in lib/).
 # Node.js is installed above; the node-gradle plugin uses it from PATH (download=false).
-RUN ./gradlew clean :git-proxy-java-dashboard:installDist --no-daemon -q
+# BuildKit cache mounts persist Gradle/npm downloads across builds.
+RUN --mount=type=cache,target=/root/.gradle/caches \
+    --mount=type=cache,target=/root/.gradle/wrapper \
+    --mount=type=cache,target=/root/.npm \
+    ./gradlew clean :git-proxy-java-dashboard:installDist --no-daemon -q
 
 # Prepend a conf/ directory to the classpath so that a mounted git-proxy-local.yml
 # is picked up by JettyConfigurationLoader at runtime.
