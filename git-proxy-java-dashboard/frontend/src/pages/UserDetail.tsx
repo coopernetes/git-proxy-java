@@ -124,10 +124,20 @@ function AddScmIdentityModal({
   onClose: () => void
   onAdded: () => void
 }) {
+  const [providers, setProviders] = useState<Provider[]>([])
   const [provider, setProvider] = useState('')
   const [scmUsername, setScmUsername] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchProviders()
+      .then((list: Provider[]) => {
+        setProviders(list)
+        if (list.length > 0) setProvider(list[0].name)
+      })
+      .catch(console.error)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -151,13 +161,20 @@ function AddScmIdentityModal({
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Provider</label>
-            <input
+            <select
               required
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              placeholder="github"
-              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
-            />
+              disabled={providers.length === 0}
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              {providers.length === 0 && <option value="">Loading…</option>}
+              {providers.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">SCM Username</label>

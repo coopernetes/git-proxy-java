@@ -58,6 +58,13 @@ public class AuthConfig {
      */
     private String groupsClaim = "groups";
 
+    /**
+     * Maximum inactive interval for authenticated sessions, in seconds. Once a session has been idle for this duration
+     * the user is required to re-authenticate. Defaults to {@code 86400} (24 hours); tighten to {@code 28800} (8 hours)
+     * or less for stricter compliance environments.
+     */
+    private long sessionTimeoutSeconds = 86400;
+
     private LdapAuthConfig ldap = new LdapAuthConfig();
     private AdAuthConfig ad = new AdAuthConfig();
     private OidcAuthConfig oidc = new OidcAuthConfig();

@@ -218,6 +218,10 @@ The dashboard supports four authentication providers, selected via `auth.provide
 ```yaml
 auth:
   provider: local   # local | ldap | ad | oidc (default: local)
+
+  # Maximum idle time before a session expires and the user must re-authenticate.
+  # Default: 86400 (24 hours). Tighten to 28800 (8 hours) or less for compliance environments.
+  session-timeout-seconds: 86400
 ```
 
 ### Local (default)

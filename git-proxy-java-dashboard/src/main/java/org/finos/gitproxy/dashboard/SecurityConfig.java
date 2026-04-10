@@ -5,6 +5,8 @@ import com.nimbusds.jose.jwk.RSAKey;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSessionEvent;
+import jakarta.servlet.http.HttpSessionListener;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -168,6 +170,18 @@ public class SecurityConfig {
         }
 
         return http.build();
+    }
+
+    @Bean
+    HttpSessionListener sessionTimeoutListener() {
+        int timeoutSeconds = (int) gitProxyConfig.getAuth().getSessionTimeoutSeconds();
+        log.info("Session timeout: {} seconds", timeoutSeconds);
+        return new HttpSessionListener() {
+            @Override
+            public void sessionCreated(HttpSessionEvent event) {
+                event.getSession().setMaxInactiveInterval(timeoutSeconds);
+            }
+        };
     }
 
     // ── Local (default) ─────────────────────────────────────────────────────────
