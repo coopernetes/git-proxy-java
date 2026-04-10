@@ -26,28 +26,26 @@ import org.junit.jupiter.api.*;
  * <p>Two scenarios are covered, mirroring {@code test/demo-proxy-identity.sh}:
  *
  * <ul>
- *   <li><strong>Linked user</strong> — HTTP Basic-auth username maps to a registered proxy account. The push is blocked
- *       pending review (not rejected by identity check), and can be approved.
- *   <li><strong>Unlinked user</strong> — HTTP Basic-auth username is not in the user store. The push is rejected
- *       immediately with an "Identity Not Linked" error.
+ *   <li><strong>Scenario A — Linked user</strong>: HTTP Basic-auth username maps to a registered proxy account. The
+ *       push is blocked pending review (not rejected by identity check), and can be approved.
+ *   <li><strong>Scenario B — Unlinked user</strong>: HTTP Basic-auth username is not in the user store. The push is
+ *       rejected immediately with an "Identity Not Linked" error.
  * </ul>
  *
  * <p>A third scenario validates {@link IdentityVerificationFilter} in STRICT mode: commit email must match a registered
  * email for the push user, otherwise the push is rejected.
  *
  * <p>Uses {@link ConfigPushIdentityResolver} which maps the HTTP Basic-auth username directly to a proxy user — no
- * external SCM API calls required.
+ * external SCM API calls required. Credentials in the clone URL must be valid Gitea credentials: the linked user is
+ * {@link GiteaContainer#TEST_USER} (a real Gitea user with collaborator access). The unlinked user uses admin
+ * credentials — valid for Gitea but not registered in the proxy user store.
  */
 @Tag("e2e")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class IdentityResolutionE2ETest {
 
-    static final String LINKED_USER = "dev1";
-    static final String UNLINKED_USER = "unlinked-user";
-
     static GiteaContainer gitea;
     static JettyProxyFixture proxy;
-    static InMemoryRepoPermissionStore permissionStore;
     static Path tempDir;
 
     @BeforeAll
@@ -56,28 +54,32 @@ class IdentityResolutionE2ETest {
         gitea.start();
         gitea.createAdminUser();
         gitea.createTestRepo();
+        gitea.createTestUser();
+        gitea.addTestUserAsCollaborator();
 
-        permissionStore = new InMemoryRepoPermissionStore();
-        var permissionService = new RepoPermissionService(permissionStore);
-
+        var permissionStore = new InMemoryRepoPermissionStore();
         // Seed permission grant for the linked user
         permissionStore.save(RepoPermission.builder()
-                .username(LINKED_USER)
+                .username(GiteaContainer.TEST_USER)
                 .provider("gitea-e2e")
                 .path("/" + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO)
                 .pathType(RepoPermission.PathType.LITERAL)
                 .operations(RepoPermission.Operations.PUSH)
                 .build());
 
-        // Registered proxy user with a known email
+        // Only TEST_USER is in the proxy store — admin is intentionally absent (unlinked)
         var userStore = new StaticUserStore(List.of(UserEntry.builder()
-                .username(LINKED_USER)
-                .emails(List.of(GiteaContainer.VALID_AUTHOR_EMAIL))
+                .username(GiteaContainer.TEST_USER)
+                .emails(List.of(GiteaContainer.TEST_USER_EMAIL))
                 .scmIdentities(List.of())
                 .build()));
         var identityResolver = new ConfigPushIdentityResolver(userStore);
 
-        proxy = new JettyProxyFixture(gitea.getBaseUri(), UiApprovalGateway::new, identityResolver, permissionService);
+        proxy = new JettyProxyFixture(
+                gitea.getBaseUri(),
+                UiApprovalGateway::new,
+                identityResolver,
+                new RepoPermissionService(permissionStore));
         tempDir = Files.createTempDirectory("git-proxy-java-ident-e2e-");
     }
 
@@ -89,8 +91,21 @@ class IdentityResolutionE2ETest {
 
     // ── helpers ───────────────────────────────────────────────────────────────────
 
-    private String urlFor(String username) {
-        String creds = URLEncoder.encode(username, StandardCharsets.UTF_8)
+    private String linkedUrl() {
+        String creds = URLEncoder.encode(GiteaContainer.TEST_USER, StandardCharsets.UTF_8)
+                + ":"
+                + URLEncoder.encode(GiteaContainer.TEST_USER_PASSWORD, StandardCharsets.UTF_8);
+        return "http://" + creds + "@localhost:" + proxy.getPort()
+                + "/proxy/localhost/"
+                + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO + ".git";
+    }
+
+    /**
+     * Admin credentials are valid for Gitea but the admin user is NOT registered in the proxy user store, so every push
+     * using them is treated as "unlinked".
+     */
+    private String unlinkedUrl() {
+        String creds = URLEncoder.encode(GiteaContainer.ADMIN_USER, StandardCharsets.UTF_8)
                 + ":"
                 + URLEncoder.encode(GiteaContainer.ADMIN_PASSWORD, StandardCharsets.UTF_8);
         return "http://" + creds + "@localhost:" + proxy.getPort()
@@ -103,23 +118,19 @@ class IdentityResolutionE2ETest {
     @Test
     @Order(1)
     void linkedUser_blockedPendingReview_then_approved() throws Exception {
-        // Clone using the linked user's credentials
         GitHelper git = new GitHelper(tempDir);
-        Path repo = git.clone(urlFor(LINKED_USER), "ident-linked");
+        Path repo = git.clone(linkedUrl(), "ident-linked");
         // Commit with the registered email — identity check should pass
-        git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.VALID_AUTHOR_EMAIL);
+        git.setAuthor(repo, GiteaContainer.VALID_AUTHOR_NAME, GiteaContainer.TEST_USER_EMAIL);
         git.writeAndStage(repo, "test-file.txt", "identity test - " + Instant.now());
         git.commit(repo, "feat: identity demo - linked user");
 
-        // First push: clean push → blocked pending review (not rejected outright)
+        // First push: clean → blocked pending review, not rejected outright
         var firstPush = git.pushWithResult(repo);
         assertFalse(firstPush.succeeded(), "first push should be blocked pending review");
         String pushId = firstPush.extractPushId();
-        assertNotNull(pushId, "push ID should be present in blocked message");
 
-        // Verify push record status
-        var record = proxy.getPushStore().findById(pushId);
-        assertTrue(record.isPresent(), "push record should exist");
+        assertTrue(proxy.getPushStore().findById(pushId).isPresent(), "push record should exist in store");
 
         // Approve and re-push
         proxy.getPushStore()
@@ -142,7 +153,7 @@ class IdentityResolutionE2ETest {
     @Order(2)
     void unlinkedUser_blocked_with_identity_not_linked() throws Exception {
         GitHelper git = new GitHelper(tempDir);
-        Path repo = git.clone(urlFor(UNLINKED_USER), "ident-unlinked");
+        Path repo = git.clone(unlinkedUrl(), "ident-unlinked");
         git.setAuthor(repo, "Unlinked Developer", GiteaContainer.VALID_AUTHOR_EMAIL);
         git.writeAndStage(repo, "test-file.txt", "unlinked identity test - " + Instant.now());
         git.commit(repo, "feat: identity demo - unlinked user");
@@ -159,19 +170,17 @@ class IdentityResolutionE2ETest {
     @Test
     @Order(3)
     void linkedUser_wrongCommitEmail_strictMode_rejected() throws Exception {
-        // Spin up a separate fixture with STRICT identity verification mode
         var strictPermissionStore = new InMemoryRepoPermissionStore();
         strictPermissionStore.save(RepoPermission.builder()
-                .username(LINKED_USER)
+                .username(GiteaContainer.TEST_USER)
                 .provider("gitea-e2e")
                 .path("/" + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO)
                 .pathType(RepoPermission.PathType.LITERAL)
                 .operations(RepoPermission.Operations.PUSH)
                 .build());
-        var strictPermissionService = new RepoPermissionService(strictPermissionStore);
         var strictUserStore = new StaticUserStore(List.of(UserEntry.builder()
-                .username(LINKED_USER)
-                .emails(List.of(GiteaContainer.VALID_AUTHOR_EMAIL))
+                .username(GiteaContainer.TEST_USER)
+                .emails(List.of(GiteaContainer.TEST_USER_EMAIL))
                 .scmIdentities(List.of())
                 .build()));
         var strictResolver = new ConfigPushIdentityResolver(strictUserStore);
@@ -180,28 +189,27 @@ class IdentityResolutionE2ETest {
                 gitea.getBaseUri(),
                 UiApprovalGateway::new,
                 strictResolver,
-                strictPermissionService,
+                new RepoPermissionService(strictPermissionStore),
                 CommitConfig.IdentityVerificationMode.STRICT)) {
 
-            String strictUrl = URLEncoder.encode(LINKED_USER, StandardCharsets.UTF_8)
+            String url = URLEncoder.encode(GiteaContainer.TEST_USER, StandardCharsets.UTF_8)
                     + ":"
-                    + URLEncoder.encode(GiteaContainer.ADMIN_PASSWORD, StandardCharsets.UTF_8);
-            strictUrl = "http://" + strictUrl + "@localhost:" + strictProxy.getPort()
+                    + URLEncoder.encode(GiteaContainer.TEST_USER_PASSWORD, StandardCharsets.UTF_8);
+            url = "http://" + url + "@localhost:" + strictProxy.getPort()
                     + "/proxy/localhost/"
                     + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO + ".git";
 
             GitHelper git = new GitHelper(tempDir);
-            Path repo = git.clone(strictUrl, "ident-wrong-email");
-            // Commit with an email NOT registered to dev1
-            git.setAuthor(repo, "Dev One", "wrong-email@other-domain.com");
+            Path repo = git.clone(url, "ident-wrong-email");
+            // Commit with an email NOT registered to TEST_USER
+            git.setAuthor(repo, "Test Dev", "wrong-email@other-domain.com");
             git.writeAndStage(repo, "test-file.txt", "email mismatch test - " + Instant.now());
             git.commit(repo, "feat: commit from mismatched email");
 
             var result = git.pushWithResult(repo);
             assertFalse(result.succeeded(), "push with mismatched commit email should be rejected in STRICT mode");
             assertTrue(
-                    result.output().contains("Commit Identity")
-                            || result.output().contains("identity"),
+                    result.output().toLowerCase().contains("identity"),
                     "output should mention identity issue. Output:\n" + result.output());
         }
     }

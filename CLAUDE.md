@@ -84,6 +84,13 @@ Config override file mounted at `/app/conf/git-proxy-local.yml` inside the conta
 Refer to [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for detailed docs on YAML config structure, environment variable
 overrides, and provider-specific settings.
 
+## Testing conventions
+
+- Always use JUnit assertions (`org.junit.jupiter.api.Assertions.*`) — not manual `if`/`throw` checks.
+- E2e tests use Testcontainers (Gitea) + `JettyProxyFixture`. Credentials in the clone URL are forwarded to upstream
+  Gitea, so they must be valid Gitea credentials. Use `GiteaContainer.ADMIN_USER`/`ADMIN_PASSWORD` or create test users
+  via `createTestUser()` / `addTestUserAsCollaborator()` — never invent fake usernames that won't authenticate upstream.
+
 ## Roadmap & architecture
 
 There are gists linked in the root README. Only look up these details as necessary for planning refactors or

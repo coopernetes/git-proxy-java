@@ -24,6 +24,10 @@ import org.junit.jupiter.api.*;
  * {@link InMemoryRepoPermissionStore} to exercise
  * {@link org.finos.gitproxy.servlet.filter.CheckUserPushPermissionFilter} without any external SCM API calls.
  *
+ * <p>Credentials in the clone/push URL are forwarded to upstream Gitea, so they must be valid Gitea credentials. The
+ * "authorized" user is {@link GiteaContainer#TEST_USER} (created in Gitea and added as a collaborator). The "unlinked"
+ * user uses admin credentials — valid for Gitea, but not registered in the proxy user store.
+ *
  * <p>Tests cover:
  *
  * <ul>
@@ -38,9 +42,6 @@ import org.junit.jupiter.api.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class PermissionE2ETest {
 
-    static final String PROXY_USER = "dev1";
-    static final String UNREGISTERED_USER = "unknown-user";
-
     static GiteaContainer gitea;
     static JettyProxyFixture proxy;
     static InMemoryRepoPermissionStore permissionStore;
@@ -52,12 +53,16 @@ class PermissionE2ETest {
         gitea.start();
         gitea.createAdminUser();
         gitea.createTestRepo();
+        // Create a non-admin user and grant write access so they can push via the proxy
+        gitea.createTestUser();
+        gitea.addTestUserAsCollaborator();
 
         permissionStore = new InMemoryRepoPermissionStore();
         var permissionService = new RepoPermissionService(permissionStore);
 
+        // Only TEST_USER is registered in the proxy user store — admin is intentionally absent (unlinked)
         var userStore = new StaticUserStore(List.of(UserEntry.builder()
-                .username(PROXY_USER)
+                .username(GiteaContainer.TEST_USER)
                 .emails(List.of(GiteaContainer.VALID_AUTHOR_EMAIL))
                 .scmIdentities(List.of())
                 .build()));
@@ -75,19 +80,22 @@ class PermissionE2ETest {
 
     // ── helpers ──────────────────────────────────────────────────────────────────
 
-    /** URL with {@code dev1} credentials — the registered proxy user. */
+    /** URL with {@link GiteaContainer#TEST_USER} credentials — the registered proxy user. */
     private String authorisedUrl() {
-        String creds = URLEncoder.encode(PROXY_USER, StandardCharsets.UTF_8)
+        String creds = URLEncoder.encode(GiteaContainer.TEST_USER, StandardCharsets.UTF_8)
                 + ":"
-                + URLEncoder.encode(GiteaContainer.ADMIN_PASSWORD, StandardCharsets.UTF_8);
+                + URLEncoder.encode(GiteaContainer.TEST_USER_PASSWORD, StandardCharsets.UTF_8);
         return "http://" + creds + "@localhost:" + proxy.getPort()
                 + "/proxy/localhost/"
                 + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO + ".git";
     }
 
-    /** URL with an unregistered username — should always produce "Identity Not Linked". */
-    private String unauthorisedUrl() {
-        String creds = URLEncoder.encode(UNREGISTERED_USER, StandardCharsets.UTF_8)
+    /**
+     * URL with admin credentials — valid for Gitea authentication but the admin user is NOT registered in the proxy
+     * user store, so it is treated as an "unlinked" identity.
+     */
+    private String unlinkedUrl() {
+        String creds = URLEncoder.encode(GiteaContainer.ADMIN_USER, StandardCharsets.UTF_8)
                 + ":"
                 + URLEncoder.encode(GiteaContainer.ADMIN_PASSWORD, StandardCharsets.UTF_8);
         return "http://" + creds + "@localhost:" + proxy.getPort()
@@ -108,22 +116,21 @@ class PermissionE2ETest {
 
     @Test
     @Order(1)
-    void noGrant_registered_user_blocked() throws Exception {
+    void noGrant_registeredUser_blocked() throws Exception {
         // No grants in the store at all — fail-closed should block even a registered user.
         var result = cloneCommitPush(authorisedUrl(), "perm-no-grant");
         assertFalse(result.succeeded(), "push should be blocked when no grants exist (fail-closed)");
         assertTrue(
                 result.output().contains("not allowed to push")
-                        || result.output().contains("Identity Not Linked")
                         || result.output().contains("Unauthorized"),
                 "output should indicate authorization failure. Output:\n" + result.output());
     }
 
     @Test
     @Order(2)
-    void unregistered_user_blocked_with_identity_not_linked() throws Exception {
-        var result = cloneCommitPush(unauthorisedUrl(), "perm-unregistered");
-        assertFalse(result.succeeded(), "push should be blocked for unregistered user");
+    void unlinkedUser_blocked_with_identity_not_linked() throws Exception {
+        var result = cloneCommitPush(unlinkedUrl(), "perm-unlinked");
+        assertFalse(result.succeeded(), "push should be blocked for unlinked user");
         assertTrue(
                 result.output().contains("Identity Not Linked"),
                 "output should indicate identity not linked. Output:\n" + result.output());
@@ -134,7 +141,7 @@ class PermissionE2ETest {
     void literal_grant_allows_push() throws Exception {
         String path = "/" + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO;
         permissionStore.save(RepoPermission.builder()
-                .username(PROXY_USER)
+                .username(GiteaContainer.TEST_USER)
                 .provider("gitea-e2e")
                 .path(path)
                 .pathType(RepoPermission.PathType.LITERAL)
@@ -142,27 +149,24 @@ class PermissionE2ETest {
                 .build());
 
         var result = cloneCommitPush(authorisedUrl(), "perm-literal");
-        // The push is valid → should be blocked pending review (not rejected outright)
+        // Permission passes → push is valid → blocked pending review (not rejected outright)
         assertFalse(result.succeeded(), "valid push should be blocked pending review (not rejected)");
-        // A pending-review block contains a push ID, not an authorization error
         assertDoesNotThrow(
-                result::extractPushId,
-                "a pending-review block should contain a push ID, not an auth error. Output:\n" + result.output());
+                result::extractPushId, "a pending-review block should contain a push ID. Output:\n" + result.output());
     }
 
     @Test
     @Order(11)
     void glob_grant_allows_push() throws Exception {
-        // Remove the literal grant first, replace with a glob covering all repos under TEST_ORG
+        // Replace literal grant with a glob covering all repos under TEST_ORG
         permissionStore.findAll().stream()
-                .filter(p -> PROXY_USER.equals(p.getUsername()))
+                .filter(p -> GiteaContainer.TEST_USER.equals(p.getUsername()))
                 .forEach(p -> permissionStore.delete(p.getId()));
 
-        String globPath = "/" + GiteaContainer.TEST_ORG + "/*";
         permissionStore.save(RepoPermission.builder()
-                .username(PROXY_USER)
+                .username(GiteaContainer.TEST_USER)
                 .provider("gitea-e2e")
-                .path(globPath)
+                .path("/" + GiteaContainer.TEST_ORG + "/*")
                 .pathType(RepoPermission.PathType.GLOB)
                 .operations(RepoPermission.Operations.PUSH)
                 .build());
@@ -178,14 +182,13 @@ class PermissionE2ETest {
     @Order(12)
     void regex_grant_allows_push() throws Exception {
         permissionStore.findAll().stream()
-                .filter(p -> PROXY_USER.equals(p.getUsername()))
+                .filter(p -> GiteaContainer.TEST_USER.equals(p.getUsername()))
                 .forEach(p -> permissionStore.delete(p.getId()));
 
-        String regexPath = "^/" + GiteaContainer.TEST_ORG + "/.+";
         permissionStore.save(RepoPermission.builder()
-                .username(PROXY_USER)
+                .username(GiteaContainer.TEST_USER)
                 .provider("gitea-e2e")
-                .path(regexPath)
+                .path("^/" + GiteaContainer.TEST_ORG + "/.+")
                 .pathType(RepoPermission.PathType.REGEX)
                 .operations(RepoPermission.Operations.PUSH)
                 .build());
@@ -201,12 +204,12 @@ class PermissionE2ETest {
     @Order(20)
     void glob_grant_does_not_match_different_owner() throws Exception {
         permissionStore.findAll().stream()
-                .filter(p -> PROXY_USER.equals(p.getUsername()))
+                .filter(p -> GiteaContainer.TEST_USER.equals(p.getUsername()))
                 .forEach(p -> permissionStore.delete(p.getId()));
 
         // Grant only for "other-owner/*" — should not match TEST_ORG
         permissionStore.save(RepoPermission.builder()
-                .username(PROXY_USER)
+                .username(GiteaContainer.TEST_USER)
                 .provider("gitea-e2e")
                 .path("/other-owner/*")
                 .pathType(RepoPermission.PathType.GLOB)
