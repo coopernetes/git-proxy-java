@@ -41,7 +41,15 @@ public final class DataSourceFactory {
     /** Generic datasource from a JDBC URL. */
     public static DataSource fromUrl(String jdbcUrl, String username, String password) {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(jdbcUrl);
+        if (jdbcUrl.startsWith("jdbc:postgresql:")) {
+            // Use PGSimpleDataSource so PostgreSQL's own PGProperty.readURL() handles all
+            // connection properties (including SSL params like sslfactory/sslmode) correctly.
+            // HikariCP's setJdbcUrl path silently drops these query parameters.
+            config.setDataSourceClassName("org.postgresql.ds.PGSimpleDataSource");
+            config.addDataSourceProperty("url", jdbcUrl);
+        } else {
+            config.setJdbcUrl(jdbcUrl);
+        }
         if (username != null) config.setUsername(username);
         if (password != null) config.setPassword(password);
         config.setMaximumPoolSize(10);
