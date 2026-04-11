@@ -60,8 +60,6 @@ ext {
     // Gitleaks (bundled binary)
     gitleaksVersion = '8.21.2'
 
-    // Flyway database migrations
-    flywayVersion = '12.3.0'
 }
 
 allprojects {

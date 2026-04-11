@@ -75,9 +75,6 @@ dependencies {
     // Database - connection pooling
     api "com.zaxxer:HikariCP:${hikariVersion}"
 
-    // Flyway database migrations
-    implementation "org.flywaydb:flyway-core:${flywayVersion}"
-
     // Database - JDBC drivers (optional at runtime, depending on which store is used)
     compileOnly "com.h2database:h2:${h2Version}"
     compileOnly "org.postgresql:postgresql:${postgresVersion}"
