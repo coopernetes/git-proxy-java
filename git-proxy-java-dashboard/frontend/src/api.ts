@@ -73,12 +73,14 @@ export async function fetchUser(username: string) {
 
 async function parseErrorResponse(res: Response, fallback: string): Promise<never> {
   const text = await res.text()
+  let message = `${fallback} (HTTP ${res.status})`
   try {
     const err = JSON.parse(text)
-    throw new Error(err.error || fallback)
+    if (err.error) message = err.error
   } catch {
-    throw new Error(`${fallback} (HTTP ${res.status})`)
+    // not JSON — keep the fallback
   }
+  throw new Error(message)
 }
 
 export async function approvePush(
