@@ -231,6 +231,24 @@ class PushControllerTest {
         }
 
         @Test
+        void selfCertify_nonAdmin_notFlaggedAsAdminOverride() throws Exception {
+            when(pushStore.findById("p1")).thenReturn(Optional.of(blockedPush("p1", "alice")));
+            when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));
+            loginAs("alice", false);
+
+            repoPermissionService = mock(RepoPermissionService.class);
+            when(repoPermissionService.isBypassReviewAllowed("alice", "github", "github.com/acme/repo.git"))
+                    .thenReturn(true);
+            var field = PushController.class.getDeclaredField("repoPermissionService");
+            field.setAccessible(true);
+            field.set(controller, repoPermissionService);
+
+            controller.approve("p1", approveBody());
+
+            verify(pushStore).approve(eq("p1"), argThat(a -> !a.isSelfApproval()));
+        }
+
+        @Test
         void differentUser_returns200() {
             when(pushStore.findById("p1")).thenReturn(Optional.of(blockedPush("p1", "alice")));
             when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));

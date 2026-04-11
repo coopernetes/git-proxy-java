@@ -7,8 +7,8 @@ services:
       - "8080:8080"
     volumes:
       - ./docker/git-proxy-docker-default.yml:/app/conf/git-proxy-docker-default.yml:ro
-      # Uncomment to enable Spring Security debug logging (see docker/logback-debug.xml):
-      - ./docker/logback-debug.xml:/app/conf/logback-debug.xml:ro
+      # Uncomment to enable debug logging (see docker/logback-debug.xml):
+#      - ./docker/logback-debug.xml:/app/conf/logback-debug.xml:ro
     depends_on:
       gitea:
         condition: service_healthy

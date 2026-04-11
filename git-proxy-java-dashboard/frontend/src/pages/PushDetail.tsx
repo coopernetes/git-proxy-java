@@ -174,7 +174,11 @@ function PushTimeline({ record }: { record: PushRecord }) {
     const att = record.attestation
     const typeLabel =
       att.type === 'APPROVAL' ? 'Approved' : att.type === 'REJECTION' ? 'Rejected' : 'Canceled'
-    const overrideNote = att.selfApproval ? ' [admin self-approval override]' : ''
+    const overrideNote = att.selfApproval
+      ? ' [admin self-approval override]'
+      : att.type === 'APPROVAL' && att.reviewerUsername === record.resolvedUser
+        ? ' [self certified]'
+        : ''
     const answerLines =
       att.answers && Object.keys(att.answers).length > 0
         ? Object.entries(att.answers)

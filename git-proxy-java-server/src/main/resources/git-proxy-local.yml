@@ -3,7 +3,7 @@ logging:
     org.finos.gitproxy: DEBUG
 
 providers:
-  github:
+  github/github.com:
     attestation-questions:
       - id: reviewed-content
         type: checkbox
@@ -44,9 +44,9 @@ users:
   - username: thomas-cooper
     password-hash: "{noop}password"
     scm-identities:
-      - provider: github
+      - provider: github/github.com
         username: coopernetes
-      - provider: gitlab
+      - provider: gitlab/gitlab.com
         username: coopernetes
       # codeberg intentionally omitted — used to test unresolved-identity scenario
     emails:
@@ -100,50 +100,50 @@ commit:
 #                      block before it's evaluated in push-identity-codeberg.sh)
 permissions:
   - username: thomas-cooper
-    provider: github
+    provider: github/github.com
     path: /finos/git-proxy
     operations: PUSH
   - username: thomas-cooper
-    provider: github
+    provider: github/github.com
     path: /coopernetes/test-repo
     operations: PUSH
   - username: thomas-cooper
-    provider: github
+    provider: github/github.com
     path: /coopernetes/testing-123
     operations: PUSH
   - username: thomas-cooper
-    provider: github
+    provider: github/github.com
     path: /coopernetes/git-proxy-java
     operations: PUSH
   - username: thomas-cooper
-    provider: gitlab
+    provider: gitlab/gitlab.com
     path: /coopernetes/*
     path-type: GLOB
     operations: PUSH
   - username: thomas-cooper
-    provider: codeberg
+    provider: forgejo/codeberg.org
     path: \/coopernetes\/test\-repo\-([\w]+) # matches /coopernetes/test-repo-codeberg & any test-repo-<something>
     path-type: REGEX
     operations: PUSH
   - username: reviewer
-    provider: github
+    provider: github/github.com
     path: /finos/git-proxy
     operations: REVIEW
   - username: reviewer
-    provider: github
+    provider: github/github.com
     path: /coopernetes/test-repo
     operations: REVIEW
   - username: reviewer
-    provider: github
+    provider: github/github.com
     path: /coopernetes/testing-123
     operations: REVIEW
   - username: reviewer
-    provider: gitlab
+    provider: gitlab/gitlab.com
     path: /coopernetes/*
     path-type: GLOB
     operations: REVIEW
   - username: reviewer
-    provider: codeberg
+    provider: forgejo/codeberg.org
     path: /coopernetes/test-repo-codeberg
     path-type: REGEX
     operations: REVIEW
@@ -156,7 +156,7 @@ rules:
         - FETCH
         - PUSH
       providers:
-        - github
+        - github/github.com
       slugs:
         - /finos/git-proxy
         - /coopernetes/git-proxy-java
@@ -168,7 +168,7 @@ rules:
         - FETCH
         - PUSH
       providers:
-        - gitlab
+        - gitlab/gitlab.com
       slugs:
         - /coopernetes/test-repo-gitlab
     - enabled: true
@@ -177,7 +177,7 @@ rules:
         - FETCH
         - PUSH
       providers:
-        - codeberg
+        - forgejo/codeberg.org
       slugs:
         - /coopernetes/test-repo-codeberg
     - enabled: true
@@ -187,7 +187,7 @@ rules:
       owners:
         - finos
       providers:
-        - github
+        - github/github.com
 
   deny:
     # Guard: never allow pushes to this proxy's own source repository through the proxy.
@@ -197,7 +197,7 @@ rules:
       operations:
         - PUSH
       providers:
-        - github
+        - github/github.com
       slugs:
         - /coopernetes/git-proxy-java
 
@@ -208,6 +208,6 @@ rules:
       operations:
         - PUSH
       providers:
-        - github
+        - github/github.com
       names:
         - "*.github.io"

@@ -301,11 +301,13 @@ function ResetPasswordModal({ username, onClose }: { username: string; onClose: 
 function OverviewTab({
   user,
   isLocalAuth,
+  isAdmin,
   onRefresh,
   onDeleted,
 }: {
   user: UserDetailType
   isLocalAuth: boolean
+  isAdmin: boolean
   onRefresh: () => void
   onDeleted: () => void
 }) {
@@ -381,7 +383,7 @@ function OverviewTab({
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Email Addresses</h3>
-          {isLocalAuth && (
+          {isAdmin && (
             <button
               onClick={() => setShowAddEmail(true)}
               className="text-xs text-slate-600 hover:text-slate-800"
@@ -401,7 +403,7 @@ function OverviewTab({
                   {entry.verified && <VerifiedBadge />}
                   {entry.locked && <LockedBadge source={entry.source} />}
                 </span>
-                {isLocalAuth && !entry.locked && (
+                {isAdmin && !entry.locked && (
                   <button
                     onClick={() => handleRemoveEmail(entry.email)}
                     disabled={deletingEmail === entry.email}
@@ -420,7 +422,7 @@ function OverviewTab({
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">SCM Identities</h3>
-          {isLocalAuth && (
+          {isAdmin && (
             <button
               onClick={() => setShowAddScm(true)}
               className="text-xs text-slate-600 hover:text-slate-800"
@@ -446,7 +448,7 @@ function OverviewTab({
                   {id.verified && <VerifiedBadge />}
                   {id.source === 'config' && <LockedBadge source="config" />}
                 </span>
-                {isLocalAuth && id.source !== 'config' && (
+                {isAdmin && id.source !== 'config' && (
                   <button
                     onClick={() => handleRemoveScm(id.provider, id.username)}
                     disabled={deletingScm === `${id.provider}/${id.username}`}
@@ -934,6 +936,7 @@ export function UserDetail({ authProvider, currentUser }: UserDetailProps) {
         <OverviewTab
           user={user}
           isLocalAuth={isLocalAuth}
+          isAdmin={isAdmin}
           onRefresh={loadUser}
           onDeleted={() => navigate('/users')}
         />

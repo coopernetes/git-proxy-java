@@ -318,6 +318,11 @@ public class PushController {
     }
 
     private static boolean isSelfApproval(PushRecord record, Authentication auth) {
+        if (!isAdmin(auth)) {
+            // Non-admin self-reviews are permitted only via an explicit SELF_CERTIFY grant —
+            // that is expected behaviour, not an admin override.
+            return false;
+        }
         String pusher = record.getResolvedUser();
         String reviewer = auth != null ? auth.getName() : null;
         return pusher != null && pusher.equals(reviewer);
