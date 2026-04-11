@@ -39,7 +39,7 @@ export function Profile() {
   const [emailError, setEmailError] = useState<string | null>(null)
   const [emailBusy, setEmailBusy] = useState(false)
 
-  const [providers, setProviders] = useState<{ name: string; host: string }[]>([])
+  const [providers, setProviders] = useState<{ name: string; id: string; host: string }[]>([])
   const [newProvider, setNewProvider] = useState('')
   const [newScmUsername, setNewScmUsername] = useState('')
   const [identityError, setIdentityError] = useState<string | null>(null)
@@ -51,9 +51,9 @@ export function Profile() {
       .catch(() => setError('Failed to load profile'))
       .finally(() => setLoading(false))
     fetchProviders()
-      .then((list: { name: string; host: string }[]) => {
+      .then((list: { name: string; id: string; host: string }[]) => {
         setProviders(list)
-        if (list.length > 0) setNewProvider(list[0].name)
+        if (list.length > 0) setNewProvider(list[0].id)
       })
       .catch(() => {})
   }, [])
@@ -324,7 +324,7 @@ export function Profile() {
               disabled={providers.length === 0}
             >
               {providers.map((p) => (
-                <option key={p.name} value={p.name}>
+                <option key={p.name} value={p.id}>
                   {p.host}
                 </option>
               ))}

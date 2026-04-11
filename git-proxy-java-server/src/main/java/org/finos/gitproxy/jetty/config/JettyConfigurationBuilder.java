@@ -61,6 +61,7 @@ import org.finos.gitproxy.user.UserStore;
 public class JettyConfigurationBuilder {
 
     private final GitProxyConfig config;
+    private List<GitProxyProvider> cachedProviders;
     private DataSource cachedDataSource;
     private MongoStoreFactory cachedMongoStoreFactory;
     private PushStore cachedPushStore;
@@ -124,8 +125,9 @@ public class JettyConfigurationBuilder {
         return (url != null && !url.isBlank()) ? url : "http://localhost:" + getServerPort() + "/dashboard";
     }
 
-    /** Creates the list of enabled providers from configuration. */
+    /** Creates the list of enabled providers from configuration. Result is cached. */
     public List<GitProxyProvider> buildProviders() {
+        if (cachedProviders != null) return cachedProviders;
         List<GitProxyProvider> providers = new ArrayList<>();
         Map<String, String> seenProviderIds = new LinkedHashMap<>();
 
@@ -155,7 +157,35 @@ public class JettyConfigurationBuilder {
         if (providers.isEmpty()) {
             log.warn("No providers configured. Add providers to git-proxy.yml to enable proxying.");
         }
-        return providers;
+        cachedProviders = providers;
+        return cachedProviders;
+    }
+
+    /**
+     * Returns the set of configured provider IDs (e.g. {@code "gitea/gitea"}, {@code "github/github.com"}). Used to
+     * validate that rules, permissions, and SCM identities in the YAML config reference known providers. Crashes the
+     * application if any mismatch is detected — misconfiguration must be caught at startup.
+     */
+    private java.util.Set<String> configuredProviderIds() {
+        return buildProviders().stream()
+                .map(GitProxyProvider::getProviderId)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * Asserts that {@code providerId} is a configured provider ID. Throws {@link IllegalStateException} (crashing the
+     * application) if not. A {@code null} or blank provider means "applies to all providers" and is always valid.
+     */
+    private void requireKnownProvider(String context, String providerId) {
+        if (providerId == null || providerId.isBlank()) return;
+        java.util.Set<String> known = configuredProviderIds();
+        if (!known.contains(providerId)) {
+            throw new IllegalStateException(String.format(
+                    "%s references unknown provider ID '%s'. "
+                            + "Provider IDs must be in type/host format (e.g. 'gitea/gitea'). "
+                            + "Configured provider IDs: %s",
+                    context, providerId, known));
+        }
     }
 
     /** Creates URL rule filters for a given provider from configuration (both allow and deny rules). */
@@ -172,8 +202,11 @@ public class JettyConfigurationBuilder {
             if (!rule.isEnabled()) continue;
 
             List<String> providerNames = rule.getProviders();
-            if (!providerNames.isEmpty()
-                    && !providerNames.contains(provider.getName().toLowerCase())) {
+            // Validate every provider ID in the rule at startup
+            for (String pid : providerNames) {
+                requireKnownProvider(access.name() + " rule (order=" + rule.getOrder() + ")", pid);
+            }
+            if (!providerNames.isEmpty() && !providerNames.contains(provider.getProviderId())) {
                 continue;
             }
 
@@ -355,16 +388,19 @@ public class JettyConfigurationBuilder {
         cachedRepoPermissionService = new RepoPermissionService(store);
 
         List<RepoPermission> configPerms = config.getPermissions().stream()
-                .map(p -> RepoPermission.builder()
-                        .username(p.getUsername())
-                        .provider(p.getProvider())
-                        .path(p.getPath())
-                        .pathType(
-                                RepoPermission.PathType.valueOf(p.getPathType().toUpperCase()))
-                        .operations(RepoPermission.Operations.valueOf(
-                                p.getOperations().toUpperCase()))
-                        .source(RepoPermission.Source.CONFIG)
-                        .build())
+                .map(p -> {
+                    requireKnownProvider("Permission for user '" + p.getUsername() + "'", p.getProvider());
+                    return RepoPermission.builder()
+                            .username(p.getUsername())
+                            .provider(p.getProvider())
+                            .path(p.getPath())
+                            .pathType(RepoPermission.PathType.valueOf(
+                                    p.getPathType().toUpperCase()))
+                            .operations(RepoPermission.Operations.valueOf(
+                                    p.getOperations().toUpperCase()))
+                            .source(RepoPermission.Source.CONFIG)
+                            .build();
+                })
                 .toList();
         cachedRepoPermissionService.seedFromConfig(configPerms);
 
@@ -463,7 +499,7 @@ public class JettyConfigurationBuilder {
         return cachedFetchStore;
     }
 
-    private static void seedRulesIntoRegistry(
+    private void seedRulesIntoRegistry(
             InMemoryRepoRegistry registry, List<RuleConfig> rules, AccessRule.Access access) {
         for (RuleConfig rule : rules) {
             if (!rule.isEnabled()) continue;
@@ -471,6 +507,7 @@ public class JettyConfigurationBuilder {
             List<String> providers =
                     rule.getProviders().isEmpty() ? java.util.Collections.singletonList(null) : rule.getProviders();
             for (String provider : providers) {
+                requireKnownProvider(access.name() + " rule (order=" + rule.getOrder() + ")", provider);
                 for (String rawSlug : rule.getSlugs()) {
                     String slug = rawSlug.startsWith("/") ? rawSlug : "/" + rawSlug;
                     registry.save(AccessRule.builder()
@@ -522,10 +559,17 @@ public class JettyConfigurationBuilder {
                 .map(uc -> {
                     List<ScmIdentity> scmIdentities = new ArrayList<>();
                     uc.getScmIdentities().stream()
-                            .map(s -> ScmIdentity.builder()
-                                    .provider(s.getProvider())
-                                    .username(s.getUsername())
-                                    .build())
+                            .map(s -> {
+                                // "proxy" is a synthetic provider for push-username lookup; all others must be known
+                                if (!"proxy".equals(s.getProvider())) {
+                                    requireKnownProvider(
+                                            "User '" + uc.getUsername() + "' scm-identity", s.getProvider());
+                                }
+                                return ScmIdentity.builder()
+                                        .provider(s.getProvider())
+                                        .username(s.getUsername())
+                                        .build();
+                            })
                             .forEach(scmIdentities::add);
                     // push-usernames are stored as SCM identities under the synthetic "proxy" provider.
                     // Reserved for SCM providers (e.g. Bitbucket) that cannot return a login from a token alone.

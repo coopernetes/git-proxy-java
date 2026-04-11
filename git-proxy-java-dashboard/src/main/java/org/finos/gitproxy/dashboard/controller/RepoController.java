@@ -1,12 +1,15 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.finos.gitproxy.config.ProviderConfigurationSource;
 import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.FetchStore.RepoFetchSummary;
 import org.finos.gitproxy.db.PushStore;
@@ -35,6 +38,9 @@ public class RepoController {
     @Autowired
     private PushStore pushStore;
 
+    @Resource(name = "providers")
+    private ProviderConfigurationSource providerSource;
+
     /** List all access rules. */
     @GetMapping("/rules")
     public List<AccessRule> listRules() {
@@ -52,7 +58,11 @@ public class RepoController {
 
     /** Create a new access rule. */
     @PostMapping("/rules")
-    public ResponseEntity<AccessRule> createRule(@RequestBody AccessRule rule) {
+    public ResponseEntity<?> createRule(@RequestBody AccessRule rule) {
+        if (rule.getProvider() != null && !rule.getProvider().isBlank()) {
+            ResponseEntity<?> err = validateProviderId(rule.getProvider());
+            if (err != null) return err;
+        }
         rule.setSource(AccessRule.Source.DB);
         repoRegistry.save(rule);
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -63,13 +73,35 @@ public class RepoController {
 
     /** Update an existing access rule. */
     @PutMapping("/rules/{id}")
-    public ResponseEntity<AccessRule> updateRule(@PathVariable String id, @RequestBody AccessRule rule) {
+    public ResponseEntity<?> updateRule(@PathVariable String id, @RequestBody AccessRule rule) {
         if (repoRegistry.findById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
+        }
+        if (rule.getProvider() != null && !rule.getProvider().isBlank()) {
+            ResponseEntity<?> err = validateProviderId(rule.getProvider());
+            if (err != null) return err;
         }
         rule.setId(id);
         repoRegistry.update(rule);
         return ResponseEntity.ok(rule);
+    }
+
+    /**
+     * Returns a 400 response if {@code providerId} is not a configured provider ID, or {@code null} if it is valid.
+     * Provider IDs must be in {@code type/host} format (e.g. {@code "gitea/gitea"}).
+     */
+    private ResponseEntity<?> validateProviderId(String providerId) {
+        Set<String> known = providerSource.getProviders().stream()
+                .map(p -> p.getProviderId())
+                .collect(Collectors.toSet());
+        if (!known.contains(providerId)) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "error",
+                            "Unknown provider ID '" + providerId + "'. Must be one of: " + known
+                                    + ". Provider IDs are in type/host format (e.g. 'gitea/gitea')."));
+        }
+        return null;
     }
 
     /** Delete an access rule. */
@@ -95,11 +127,14 @@ public class RepoController {
         // Keyed by "provider|owner|repoName"
         Map<String, Map<String, Object>> byRepo = new HashMap<>();
 
-        // Aggregate push records. push_records has no provider column; derive from upstream_url host.
+        // Aggregate push records. Use the stored provider ID where available; fall back to
+        // parsing the upstream URL for records created before the provider field was populated.
         List<PushRecord> pushRecords =
                 pushStore.find(PushQuery.builder().limit(5000).build());
         for (PushRecord pr : pushRecords) {
-            String provider = providerFromUrl(pr.getUpstreamUrl());
+            String provider = (pr.getProvider() != null && !pr.getProvider().isBlank())
+                    ? pr.getProvider()
+                    : providerFromUrl(pr.getUpstreamUrl());
             String owner = pr.getProject(); // project = owner (see PushRecordMapper)
             String key = provider + "|" + owner + "|" + pr.getRepoName();
             byRepo.computeIfAbsent(key, k -> {

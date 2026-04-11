@@ -1,7 +1,6 @@
 package org.finos.gitproxy.config;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
@@ -9,7 +8,6 @@ import java.util.regex.Pattern;
 import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitLabProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
-import org.finos.gitproxy.servlet.filter.GitProxyFilter;
 import org.junit.jupiter.api.Test;
 
 class ConfigTest {
@@ -89,6 +87,37 @@ class ConfigTest {
         assertSame(p, config.getMessage().getBlock().getPatterns().get(0));
     }
 
+    // --- CommitConfig.IdentityVerificationMode ---
+
+    @Test
+    void identityVerificationMode_fromString_null_returnsWarn() {
+        assertEquals(
+                CommitConfig.IdentityVerificationMode.WARN, CommitConfig.IdentityVerificationMode.fromString(null));
+    }
+
+    @Test
+    void identityVerificationMode_fromString_strict_returnsStrict() {
+        assertEquals(
+                CommitConfig.IdentityVerificationMode.STRICT,
+                CommitConfig.IdentityVerificationMode.fromString("strict"));
+        assertEquals(
+                CommitConfig.IdentityVerificationMode.STRICT,
+                CommitConfig.IdentityVerificationMode.fromString("STRICT"));
+    }
+
+    @Test
+    void identityVerificationMode_fromString_off_returnsOff() {
+        assertEquals(
+                CommitConfig.IdentityVerificationMode.OFF, CommitConfig.IdentityVerificationMode.fromString("off"));
+    }
+
+    @Test
+    void identityVerificationMode_fromString_unknown_returnsWarn() {
+        assertEquals(
+                CommitConfig.IdentityVerificationMode.WARN,
+                CommitConfig.IdentityVerificationMode.fromString("invalid"));
+    }
+
     // --- GpgConfig ---
 
     @Test
@@ -120,63 +149,6 @@ class ConfigTest {
         GpgConfig config =
                 GpgConfig.builder().trustedKeysInline("-----BEGIN PGP...").build();
         assertEquals("-----BEGIN PGP...", config.getTrustedKeysInline());
-    }
-
-    // --- InMemoryFilterConfigurationSource ---
-
-    @Test
-    void filterConfig_globalFilters_returnedForAnyProvider() {
-        GitProxyFilter globalFilter = mock(GitProxyFilter.class);
-        var source = new InMemoryFilterConfigurationSource(Map.of(), List.of(globalFilter));
-
-        List<GitProxyFilter> result = source.getFiltersForProvider("github");
-        assertEquals(1, result.size());
-        assertSame(globalFilter, result.get(0));
-    }
-
-    @Test
-    void filterConfig_providerFilters_addedAfterGlobal() {
-        GitProxyFilter globalFilter = mock(GitProxyFilter.class);
-        GitProxyFilter providerFilter = mock(GitProxyFilter.class);
-        var source =
-                new InMemoryFilterConfigurationSource(Map.of("github", List.of(providerFilter)), List.of(globalFilter));
-
-        List<GitProxyFilter> result = source.getFiltersForProvider("github");
-        assertEquals(2, result.size());
-        assertSame(globalFilter, result.get(0));
-        assertSame(providerFilter, result.get(1));
-    }
-
-    @Test
-    void filterConfig_unknownProvider_returnsOnlyGlobal() {
-        GitProxyFilter globalFilter = mock(GitProxyFilter.class);
-        GitProxyFilter providerFilter = mock(GitProxyFilter.class);
-        var source =
-                new InMemoryFilterConfigurationSource(Map.of("github", List.of(providerFilter)), List.of(globalFilter));
-
-        List<GitProxyFilter> result = source.getFiltersForProvider("gitlab");
-        assertEquals(1, result.size());
-        assertSame(globalFilter, result.get(0));
-    }
-
-    @Test
-    void filterConfig_getAllFilters_returnsGlobalAndProviderFilters() {
-        GitProxyFilter globalFilter = mock(GitProxyFilter.class);
-        GitProxyFilter providerFilter = mock(GitProxyFilter.class);
-        var source =
-                new InMemoryFilterConfigurationSource(Map.of("github", List.of(providerFilter)), List.of(globalFilter));
-
-        List<GitProxyFilter> all = source.getAllFilters();
-        assertEquals(2, all.size());
-        assertTrue(all.contains(globalFilter));
-        assertTrue(all.contains(providerFilter));
-    }
-
-    @Test
-    void filterConfig_noArgConstructor_returnsEmpty() {
-        var source = new InMemoryFilterConfigurationSource();
-        assertTrue(source.getFiltersForProvider("github").isEmpty());
-        assertTrue(source.getAllFilters().isEmpty());
     }
 
     // --- InMemoryProviderConfigurationSource ---

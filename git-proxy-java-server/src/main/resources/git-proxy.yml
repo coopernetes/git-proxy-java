@@ -150,7 +150,7 @@ users:
 #     push-usernames:
 #       - alice           # HTTP Basic-auth username used when pushing via git
 #     scm-identities:
-#       - provider: github
+#       - provider: github/github.com
 #         username: alice-gh
 
 # Live config reload. Allows hot-reloading commit rules and auth config without restarting the server.

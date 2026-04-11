@@ -236,7 +236,7 @@ public class PushController {
      * <ol>
      *   <li>ROLE_ADMIN bypasses all identity checks — admins may approve/reject any push.
      *   <li>The pusher must have been resolved to a proxy user — if not, we cannot guarantee identity.
-     *   <li>Self-review: allowed only when the reviewer has both {@code ROLE_SELF_CERTIFY} and a
+     *   <li>Self-review: allowed only when the reviewer has a
      *       {@link org.finos.gitproxy.permission.RepoPermission.Operations#SELF_CERTIFY} grant for the repo.
      *   <li>Non-self reviewer: must have a REVIEW (or PUSH_AND_REVIEW) permission for the repo when
      *       {@link RepoPermissionService} is configured.
@@ -260,14 +260,12 @@ public class PushController {
         }
 
         if (pusherProxyUser.equals(reviewer)) {
-            // Self-review: permitted only with ROLE_SELF_CERTIFY + a SELF_CERTIFY repo permission.
-            boolean hasSelfCertifyRole = auth != null
-                    && auth.getAuthorities().stream().anyMatch(a -> "ROLE_SELF_CERTIFY".equals(a.getAuthority()));
+            // Self-review: permitted only when the user has an explicit SELF_CERTIFY grant for this repo.
             boolean hasSelfCertifyPerm = repoPermissionService != null
                     && record.getProvider() != null
                     && record.getUrl() != null
                     && repoPermissionService.isBypassReviewAllowed(reviewer, record.getProvider(), record.getUrl());
-            if (hasSelfCertifyRole && hasSelfCertifyPerm) {
+            if (hasSelfCertifyPerm) {
                 return null;
             }
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Self-approval is not permitted"));

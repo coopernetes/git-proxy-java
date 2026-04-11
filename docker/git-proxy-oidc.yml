@@ -45,7 +45,7 @@ users:
     emails:
       - testuser@example.com
     scm-identities:
-      - provider: gitea
+      - provider: forgejo/gitea
         username: test-user
   - username: admin
     password-hash: "{noop}unused"
@@ -57,20 +57,20 @@ users:
 # Mirrors docker-default: testuser pushes, admin approves via dashboard.
 permissions:
   - username: testuser
-    provider: gitea
+    provider: forgejo/gitea
     path: /test-owner/test-repo
     operations: PUSH
   - username: testuser
-    provider: gitea
+    provider: forgejo/gitea
     path: /otherorg/*
     path-type: GLOB
     operations: PUSH
   - username: admin
-    provider: gitea
+    provider: forgejo/gitea
     path: /test-owner/test-repo
     operations: REVIEW
   - username: admin
-    provider: gitea
+    provider: forgejo/gitea
     path: /otherorg/*
     path-type: GLOB
     operations: REVIEW

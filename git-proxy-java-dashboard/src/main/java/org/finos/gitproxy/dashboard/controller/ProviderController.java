@@ -27,6 +27,7 @@ public class ProviderController {
                     List<AttestationQuestion> questions = cfg != null ? cfg.getAttestationQuestions() : List.of();
                     return new ProviderInfo(
                             p.getName(),
+                            p.getProviderId(),
                             p.getUri().toString(),
                             p.getUri().getHost(),
                             "/push" + p.servletPath(),
@@ -38,6 +39,7 @@ public class ProviderController {
 
     public record ProviderInfo(
             String name,
+            String id,
             String uri,
             String host,
             String pushPath,

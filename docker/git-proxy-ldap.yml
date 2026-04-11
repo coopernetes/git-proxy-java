@@ -29,7 +29,7 @@ users:
     emails:
       - testuser@example.com
     scm-identities:
-      - provider: gitea
+      - provider: forgejo/gitea
         username: test-user
   - username: admin
     password-hash: "{noop}unused"

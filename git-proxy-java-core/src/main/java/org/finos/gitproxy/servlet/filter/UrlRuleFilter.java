@@ -196,6 +196,33 @@ public class UrlRuleFilter extends AbstractProviderAwareGitProxyFilter {
         }
     }
 
+    /**
+     * Returns true if this rule matches the given repo reference. Used by
+     * {@link org.finos.gitproxy.git.RepositoryUrlRuleHook} which operates inside the JGit hook chain where no
+     * {@link HttpServletRequest} is available.
+     *
+     * <p>Leading {@code /} characters are stripped from both the stored entry and the supplied value before comparison
+     * so that {@code /owner/repo} and {@code owner/repo} are treated identically.
+     */
+    public boolean matchesRepo(String slug, String owner, String name) {
+        String value =
+                switch (target) {
+                    case SLUG -> slug;
+                    case OWNER -> owner;
+                    case NAME -> name;
+                };
+        if (value == null) return false;
+        String normalised = stripLeadingSlash(value);
+        return entries.stream().anyMatch(e -> {
+            String en = stripLeadingSlash(e);
+            return en.equals(normalised) || matchesGlob(en, normalised) || matchesRegex(e, normalised);
+        });
+    }
+
+    private static String stripLeadingSlash(String s) {
+        return (s != null && s.startsWith("/")) ? s.substring(1) : s;
+    }
+
     @Override
     public String toString() {
         return "UrlRuleFilter{" + "access=" + access + ", entries=" + entries + ", target=" + target + '}';

@@ -134,7 +134,7 @@ function AddScmIdentityModal({
     fetchProviders()
       .then((list: Provider[]) => {
         setProviders(list)
-        if (list.length > 0) setProvider(list[0].name)
+        if (list.length > 0) setProvider(list[0].id)
       })
       .catch(console.error)
   }, [])
@@ -170,8 +170,8 @@ function AddScmIdentityModal({
             >
               {providers.length === 0 && <option value="">Loading…</option>}
               {providers.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
+                <option key={p.name} value={p.id}>
+                  {p.host}
                 </option>
               ))}
             </select>
@@ -612,7 +612,7 @@ function AddPermissionModal({
     fetchProviders()
       .then((list: Provider[]) => {
         setProviders(list)
-        if (list.length > 0) setProvider(list[0].name)
+        if (list.length > 0) setProvider(list[0].id)
       })
       .catch(console.error)
   }, [])
@@ -653,8 +653,8 @@ function AddPermissionModal({
             >
               {providers.length === 0 && <option value="">Loading…</option>}
               {providers.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
+                <option key={p.name} value={p.id}>
+                  {p.host}
                 </option>
               ))}
             </select>

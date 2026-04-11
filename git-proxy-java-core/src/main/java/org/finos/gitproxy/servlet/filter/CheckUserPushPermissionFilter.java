@@ -75,15 +75,15 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
         if (resolved.isEmpty()) {
             String identity = pushUsername != null ? pushUsername : "(unknown)";
             log.warn("Push user '{}' could not be resolved to a registered proxy user", identity);
-            String providerName = requestDetails.getProvider() != null
-                    ? requestDetails.getProvider().getName()
+            String providerHostName = requestDetails.getProvider() != null
+                    ? requestDetails.getProvider().getUri().getHost()
                     : "SCM";
             String serviceUrl = (String) request.getAttribute(SERVICE_URL_ATTR);
             String profileHint = serviceUrl != null
-                    ? "Link your " + providerName + " identity at:\n  " + sym(LINK) + "  " + serviceUrl + "/profile"
-                    : "Ask an administrator to link your " + providerName + " identity to your proxy account.";
+                    ? "Link your " + providerHostName + " identity at:\n  " + sym(LINK) + "  " + serviceUrl + "/profile"
+                    : "Ask an administrator to link your " + providerHostName + " identity to your proxy account.";
             String title = sym(NO_ENTRY) + "  Push Blocked - Identity Not Linked";
-            String message = sym(CROSS_MARK) + "  Your " + providerName
+            String message = sym(CROSS_MARK) + "  Your " + providerHostName
                     + " credentials could not be matched to a proxy account.\n\n" + profileHint;
             rejectAndSendError(
                     request, response, "Identity not linked", GitClientUtils.format(title, message, RED, null));

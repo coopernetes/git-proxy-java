@@ -177,7 +177,7 @@ public class GitClientUtils {
     }
 
     private static String formatTitle(String content) {
-        return "\n\n" + content + "\n";
+        return "\n" + content + "\n";
     }
 
     private static String formatMessage(String content) {

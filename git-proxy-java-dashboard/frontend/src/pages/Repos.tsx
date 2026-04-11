@@ -127,11 +127,11 @@ function AddRuleModal({
   const [error, setError] = useState<string | null>(null)
   const [regexError, setRegexError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [providerNames, setProviderNames] = useState<string[]>([])
+  const [providers, setProviders] = useState<{ name: string; id: string; host: string }[]>([])
 
   useEffect(() => {
     fetchProviders()
-      .then((data: { name: string }[]) => setProviderNames(data.map((p) => p.name)))
+      .then((data: { name: string; id: string; host: string }[]) => setProviders(data))
       .catch(() => {})
   }, [])
 
@@ -310,9 +310,9 @@ function AddRuleModal({
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
             >
               <option value="">— All providers (applies to any) —</option>
-              {providerNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
+              {providers.map((p) => (
+                <option key={p.name} value={p.id}>
+                  {p.host}
                 </option>
               ))}
             </select>

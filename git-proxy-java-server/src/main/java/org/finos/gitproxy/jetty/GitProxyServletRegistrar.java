@@ -69,6 +69,7 @@ public final class GitProxyServletRegistrar {
 
         for (GitProxyProvider provider : providers) {
             log.info("Registering provider: {}", provider.getName());
+            List<UrlRuleFilter> urlRuleFilters = configBuilder.buildUrlRuleFilters(provider);
             registerGitServlet(
                     context,
                     provider,
@@ -81,7 +82,9 @@ public final class GitProxyServletRegistrar {
                     gitProxyCtx.repoPermissionService(),
                     gitProxyCtx.heartbeatIntervalSeconds(),
                     gitProxyCtx.failFast(),
-                    gitProxyCtx.upstreamConnectTimeoutSeconds());
+                    gitProxyCtx.upstreamConnectTimeoutSeconds(),
+                    urlRuleFilters,
+                    gitProxyCtx.repoRegistry());
             registerProxyServlet(
                     context,
                     provider,
@@ -116,7 +119,9 @@ public final class GitProxyServletRegistrar {
             RepoPermissionService repoPermissionService,
             int heartbeatIntervalSeconds,
             boolean failFast,
-            int connectTimeoutSeconds) {
+            int connectTimeoutSeconds,
+            List<UrlRuleFilter> urlRuleFilters,
+            RepoRegistry repoRegistry) {
         var resolver = new StoreAndForwardRepositoryResolver(cache, provider);
 
         var factory = new StoreAndForwardReceivePackFactory(
@@ -128,7 +133,9 @@ public final class GitProxyServletRegistrar {
                 pushStore,
                 approvalGateway,
                 serviceUrl,
-                Duration.ofSeconds(heartbeatIntervalSeconds));
+                Duration.ofSeconds(heartbeatIntervalSeconds),
+                urlRuleFilters,
+                repoRegistry);
         factory.setFailFast(failFast);
         factory.setConnectTimeoutSeconds(connectTimeoutSeconds);
 

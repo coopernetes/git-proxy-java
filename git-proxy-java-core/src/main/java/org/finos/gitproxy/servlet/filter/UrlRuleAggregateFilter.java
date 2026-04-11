@@ -202,7 +202,7 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
 
         if (!allowed) {
             String action = operation == HttpOperation.PUSH ? "Push" : "Fetch";
-            String title = sym(NO_ENTRY) + "  " + action + " Blocked - Repository Not Allowed";
+            String title = action + " blocked - Repository Not Allowed";
             String verb = operation == HttpOperation.PUSH ? "Pushes to" : "Fetches from";
             String message = verb + " this repository are not permitted.\n"
                     + "\n"
@@ -273,7 +273,7 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
                 if (colon > 0) pushUsername = decoded.substring(0, colon);
             }
             fetchStore.record(FetchRecord.builder()
-                    .provider(provider.getUri().getHost())
+                    .provider(provider.getProviderId())
                     .owner(ref.getOwner())
                     .repoName(ref.getName())
                     .result(allowed ? FetchRecord.Result.ALLOWED : FetchRecord.Result.BLOCKED)

@@ -2,17 +2,20 @@ package org.finos.gitproxy.dashboard.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import org.finos.gitproxy.config.ProviderConfigurationSource;
 import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.FetchStore.RepoFetchSummary;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.RepoRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.db.model.PushRecord;
+import org.finos.gitproxy.provider.GitProxyProvider;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +38,9 @@ class RepoControllerTest {
 
     @Mock
     PushStore pushStore;
+
+    @Mock
+    ProviderConfigurationSource providerSource;
 
     // ── GET /api/repos/rules ──────────────────────────────────────────────────────
 
@@ -69,17 +75,40 @@ class RepoControllerTest {
     // ── POST /api/repos/rules ─────────────────────────────────────────────────────
 
     @Test
-    void createRule_setsSourceToDb_returns201() {
-        var rule = AccessRule.builder()
-                .provider("github")
-                .source(AccessRule.Source.CONFIG)
-                .build();
+    void createRule_noProvider_setsSourceToDb_returns201() {
+        // null provider = applies to all providers — always valid
+        var rule = AccessRule.builder().source(AccessRule.Source.CONFIG).build();
 
         var resp = controller.createRule(rule);
 
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
-        assertEquals(AccessRule.Source.DB, resp.getBody().getSource());
+        assertEquals(AccessRule.Source.DB, ((AccessRule) resp.getBody()).getSource());
         verify(repoRegistry).save(rule);
+    }
+
+    @Test
+    void createRule_knownProvider_returns201() {
+        var p = mock(GitProxyProvider.class);
+        when(p.getProviderId()).thenReturn("github/github.com");
+        when(providerSource.getProviders()).thenReturn(List.of(p));
+
+        var rule = AccessRule.builder().provider("github/github.com").build();
+        var resp = controller.createRule(rule);
+
+        assertEquals(HttpStatus.CREATED, resp.getStatusCode());
+        verify(repoRegistry).save(rule);
+    }
+
+    @Test
+    void createRule_unknownProvider_returns400() {
+        var p = mock(GitProxyProvider.class);
+        when(p.getProviderId()).thenReturn("github/github.com");
+        when(providerSource.getProviders()).thenReturn(List.of(p));
+
+        var rule = AccessRule.builder().provider("github").build(); // bare name — invalid
+        var resp = controller.createRule(rule);
+
+        assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
     }
 
     // ── PUT /api/repos/rules/{id} ─────────────────────────────────────────────────
@@ -87,7 +116,7 @@ class RepoControllerTest {
     @Test
     void updateRule_found_setsIdAndReturns200() {
         var existing = AccessRule.builder().build();
-        var update = AccessRule.builder().provider("github").build();
+        var update = AccessRule.builder().build(); // no provider — always valid
         when(repoRegistry.findById("r1")).thenReturn(Optional.of(existing));
 
         var resp = controller.updateRule("r1", update);

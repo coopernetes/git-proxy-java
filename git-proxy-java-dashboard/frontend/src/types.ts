@@ -75,6 +75,7 @@ export interface PushRecord {
 
 export interface Provider {
   name: string
+  id: string
   uri: string
   host: string
   pushPath: string

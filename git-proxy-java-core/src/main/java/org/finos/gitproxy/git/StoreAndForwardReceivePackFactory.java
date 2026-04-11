@@ -19,10 +19,12 @@ import org.finos.gitproxy.approval.ApprovalGateway;
 import org.finos.gitproxy.config.CommitConfig;
 import org.finos.gitproxy.config.GpgConfig;
 import org.finos.gitproxy.db.PushStore;
+import org.finos.gitproxy.db.RepoRegistry;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.finos.gitproxy.provider.BitbucketProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
 import org.finos.gitproxy.service.PushIdentityResolver;
+import org.finos.gitproxy.servlet.filter.UrlRuleFilter;
 
 /**
  * Factory that creates {@link ReceivePack} instances for store-and-forward push handling. Extracts credentials from the
@@ -44,6 +46,8 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
     private final ApprovalGateway approvalGateway;
     private final String serviceUrl;
     private final Duration heartbeatInterval;
+    private final List<UrlRuleFilter> urlRuleFilters;
+    private final RepoRegistry repoRegistry;
 
     /** Stop the validation hook chain after the first failure (see {@link ServerConfig#isFailFast()}). */
     private boolean failFast = false;
@@ -61,7 +65,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         this.connectTimeoutSeconds = connectTimeoutSeconds;
     }
 
-    /** Fixed-config constructors for use in tests and simple setups. */
+    /** Fixed-config constructors for use in tests and simple setups (no URL rule enforcement). */
     public StoreAndForwardReceivePackFactory(
             GitProxyProvider provider,
             CommitConfig commitConfig,
@@ -76,7 +80,9 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                 pushStore,
                 approvalGateway,
                 null,
-                DEFAULT_HEARTBEAT_INTERVAL);
+                DEFAULT_HEARTBEAT_INTERVAL,
+                List.of(),
+                null);
     }
 
     public StoreAndForwardReceivePackFactory(
@@ -98,10 +104,12 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                 pushStore,
                 approvalGateway,
                 serviceUrl,
-                heartbeatInterval);
+                heartbeatInterval,
+                List.of(),
+                null);
     }
 
-    /** Live-reload constructor — commit config is read from the supplier on every push. */
+    /** Live-reload constructor with URL rule enforcement. */
     public StoreAndForwardReceivePackFactory(
             GitProxyProvider provider,
             Supplier<CommitConfig> commitConfigSupplier,
@@ -111,7 +119,9 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             PushStore pushStore,
             ApprovalGateway approvalGateway,
             String serviceUrl,
-            Duration heartbeatInterval) {
+            Duration heartbeatInterval,
+            List<UrlRuleFilter> urlRuleFilters,
+            RepoRegistry repoRegistry) {
         this.provider = provider;
         this.commitConfigSupplier = commitConfigSupplier;
         this.gpgConfig = gpgConfig != null ? gpgConfig : GpgConfig.defaultConfig();
@@ -121,6 +131,8 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         this.approvalGateway = approvalGateway;
         this.serviceUrl = serviceUrl;
         this.heartbeatInterval = heartbeatInterval != null ? heartbeatInterval : DEFAULT_HEARTBEAT_INTERVAL;
+        this.urlRuleFilters = urlRuleFilters != null ? urlRuleFilters : List.of();
+        this.repoRegistry = repoRegistry;
     }
 
     @Override
@@ -213,7 +225,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
 
         // Build and sort the orderable validation hook list
         List<GitProxyHook> validationHooks = new ArrayList<>(List.of(
-                new RepositoryUrlRuleHook(pushContext),
+                new RepositoryUrlRuleHook(urlRuleFilters, repoRegistry, provider, validationContext, pushContext),
                 permissionHook,
                 identityVerificationHook,
                 new CheckEmptyBranchHook(pushContext),
