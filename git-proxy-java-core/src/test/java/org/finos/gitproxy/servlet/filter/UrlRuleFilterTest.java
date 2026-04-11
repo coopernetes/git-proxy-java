@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
+import org.finos.gitproxy.provider.GenericProxyProvider;
 import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
 import org.junit.jupiter.api.Test;
@@ -389,5 +390,103 @@ class UrlRuleFilterTest {
         assertTrue(
                 resp.committed.get(),
                 "No allow rules configured — default-deny blocks even requests that miss deny rules");
+    }
+
+    // --- /info/refs blocking ---
+
+    private HttpServletRequest mockInfoRefsRequest(GitRequestDetails details, String service) throws IOException {
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put(GIT_REQUEST_ATTR, details);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getMethod()).thenReturn("GET");
+        when(req.getContentType()).thenReturn(null);
+        when(req.getRequestURI()).thenReturn("/proxy/github.com/owner/repo.git/info/refs");
+        when(req.getPathInfo()).thenReturn("/owner/repo.git/info/refs");
+        when(req.getQueryString()).thenReturn("service=" + service);
+        when(req.getParameter("service")).thenReturn(service);
+        when(req.getAttribute(GIT_REQUEST_ATTR)).thenReturn(details);
+        when(req.getInputStream()).thenReturn(emptyServletInputStream());
+        doAnswer(inv -> {
+                    attrs.put(inv.getArgument(0), inv.getArgument(1));
+                    return null;
+                })
+                .when(req)
+                .setAttribute(anyString(), any());
+        when(req.getAttribute(MATCHED_BY_ATTRIBUTE)).thenAnswer(inv -> attrs.get(MATCHED_BY_ATTRIBUTE));
+        when(req.getAttribute(DENIED_BY_ATTRIBUTE)).thenAnswer(inv -> attrs.get(DENIED_BY_ATTRIBUTE));
+        when(req.getAttribute(org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR))
+                .thenReturn(details);
+        return req;
+    }
+
+    private GitRequestDetails makeInfoDetails(String owner, String name, String slug) {
+        GitRequestDetails details = new GitRequestDetails();
+        details.setOperation(HttpOperation.INFO);
+        details.setResult(GitRequestDetails.GitResult.ALLOWED); // ParseGitRequestFilter sets this
+        details.setRepoRef(GitRequestDetails.RepoRef.builder()
+                .owner(owner)
+                .name(name)
+                .slug(slug)
+                .build());
+        return details;
+    }
+
+    @Test
+    void infoRefs_uploadPack_noAllowRule_returns403() throws Exception {
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of());
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock).sendError(403);
+        assertEquals(GitRequestDetails.GitResult.REJECTED, details.getResult());
+    }
+
+    @Test
+    void infoRefs_uploadPack_allowedByRule_passes() throws Exception {
+        var allowFilter = new UrlRuleFilter(
+                100, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG, AccessRule.Access.ALLOW);
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(allowFilter));
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock, never()).sendError(anyInt());
+        assertEquals(GitRequestDetails.GitResult.ALLOWED, details.getResult());
+    }
+
+    @Test
+    void infoRefs_receivePack_deniedByRule_returns403() throws Exception {
+        var denyFilter = new UrlRuleFilter(
+                100, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG, AccessRule.Access.DENY);
+        var allowFilter = new UrlRuleFilter(
+                101, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG, AccessRule.Access.ALLOW);
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(denyFilter, allowFilter));
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-receive-pack"), resp.mock);
+
+        verify(resp.mock).sendError(403);
+    }
+
+    @Test
+    void infoRefs_customBlockedStatus_returns404() throws Exception {
+        var provider = GenericProxyProvider.builder()
+                .name("custom")
+                .type("github")
+                .uri(java.net.URI.create("https://github.com"))
+                .basePath("/proxy")
+                .blockedInfoRefsStatus(404)
+                .build();
+        var aggregate = new UrlRuleAggregateFilter(50, provider, List.of());
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock).sendError(404);
     }
 }

@@ -28,4 +28,13 @@ public interface GitProxyProvider {
     String servletPath();
 
     String servletMapping();
+
+    /**
+     * HTTP status code to return when a {@code /info/refs} discovery request is blocked by URL rules. Defaults to
+     * {@code 403 Forbidden} — unambiguous, helps clients distinguish a proxy denial from a missing repo. Operators may
+     * configure {@code 404} to obscure whether a repository exists at all.
+     */
+    default int getBlockedInfoRefsStatus() {
+        return 403;
+    }
 }

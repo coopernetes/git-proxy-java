@@ -52,12 +52,12 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
     }
 
     public UrlRuleAggregateFilter(int order, GitProxyProvider provider, List<UrlRuleFilter> urlRuleFilters) {
-        this(order, DEFAULT_OPERATIONS, provider, urlRuleFilters, null, null, null);
+        this(order, ALL_OPERATIONS, provider, urlRuleFilters, null, null, null);
     }
 
     public UrlRuleAggregateFilter(
             int order, GitProxyProvider provider, List<UrlRuleFilter> urlRuleFilters, String pathPrefix) {
-        this(order, DEFAULT_OPERATIONS, provider, urlRuleFilters, pathPrefix, null, null);
+        this(order, ALL_OPERATIONS, provider, urlRuleFilters, pathPrefix, null, null);
     }
 
     public UrlRuleAggregateFilter(
@@ -66,7 +66,7 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
             List<UrlRuleFilter> urlRuleFilters,
             String pathPrefix,
             FetchStore fetchStore) {
-        this(order, DEFAULT_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore, null);
+        this(order, ALL_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore, null);
     }
 
     public UrlRuleAggregateFilter(
@@ -76,7 +76,7 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
             String pathPrefix,
             FetchStore fetchStore,
             RepoRegistry repoRegistry) {
-        this(order, DEFAULT_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore, repoRegistry);
+        this(order, ALL_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore, repoRegistry);
     }
 
     public UrlRuleAggregateFilter(
@@ -125,6 +125,12 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
     @Override
     public void doHttpFilter(HttpServletRequest request, HttpServletResponse response) throws IOException {
         var operation = determineOperation(request);
+
+        if (operation == HttpOperation.INFO) {
+            applyInfoRefsRules(request, response);
+            return;
+        }
+
         var details =
                 (GitRequestDetails) request.getAttribute(org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR);
 
@@ -257,6 +263,72 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
             return matcher.matches(Paths.get(value));
         }
         return false;
+    }
+
+    /**
+     * Applies URL allow/deny rules to an {@code /info/refs} discovery request. The effective operation (FETCH or PUSH)
+     * is derived from the {@code service} query parameter. When blocked, responds with the provider-configured HTTP
+     * status (default 403) rather than a git-protocol error message, since {@code /info/refs} is a plain HTTP exchange.
+     */
+    private void applyInfoRefsRules(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String service = request.getParameter("service");
+        HttpOperation effectiveOp;
+        if ("git-upload-pack".equals(service)) {
+            effectiveOp = HttpOperation.FETCH;
+        } else if ("git-receive-pack".equals(service)) {
+            effectiveOp = HttpOperation.PUSH;
+        } else {
+            // Unrecognised service — pass through and let the upstream handle it
+            return;
+        }
+
+        var details =
+                (GitRequestDetails) request.getAttribute(org.finos.gitproxy.servlet.GitProxyServlet.GIT_REQUEST_ATTR);
+
+        // Deny rules first
+        for (UrlRuleFilter filter : urlRuleFilters.stream()
+                .filter(f -> f.getAccess() == AccessRule.Access.DENY)
+                .toList()) {
+            filter.applyRule(request);
+        }
+        if (repoRegistry != null && details != null && request.getAttribute(DENIED_BY_ATTRIBUTE) == null) {
+            for (AccessRule rule : repoRegistry.findEnabledForProvider(provider.getProviderId())) {
+                if (rule.getAccess() == AccessRule.Access.DENY
+                        && matchesDbRule(rule, details.getRepoRef(), effectiveOp)) {
+                    request.setAttribute(DENIED_BY_ATTRIBUTE, rule.getId());
+                    break;
+                }
+            }
+        }
+
+        if (request.getAttribute(DENIED_BY_ATTRIBUTE) != null) {
+            log.debug("Blocking /info/refs — matched deny rule: {}", request.getAttribute(DENIED_BY_ATTRIBUTE));
+            setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository blocked by deny rule");
+            response.sendError(provider.getBlockedInfoRefsStatus());
+            return;
+        }
+
+        // Allow rules
+        for (UrlRuleFilter filter : urlRuleFilters.stream()
+                .filter(f -> f.getAccess() == AccessRule.Access.ALLOW)
+                .toList()) {
+            filter.applyRule(request);
+        }
+        if (repoRegistry != null && details != null && request.getAttribute(MATCHED_BY_ATTRIBUTE) == null) {
+            for (AccessRule rule : repoRegistry.findEnabledForProvider(provider.getProviderId())) {
+                if (rule.getAccess() == AccessRule.Access.ALLOW
+                        && matchesDbRule(rule, details.getRepoRef(), effectiveOp)) {
+                    request.setAttribute(MATCHED_BY_ATTRIBUTE, rule.getId());
+                    break;
+                }
+            }
+        }
+
+        if (request.getAttribute(MATCHED_BY_ATTRIBUTE) == null) {
+            log.debug("Blocking /info/refs — no allow rule matched");
+            setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository not in allow rules");
+            response.sendError(provider.getBlockedInfoRefsStatus());
+        }
     }
 
     private void recordFetch(HttpServletRequest request, boolean allowed) {

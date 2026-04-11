@@ -24,6 +24,13 @@ public class ProviderConfig {
     private String type = "";
 
     /**
+     * HTTP status returned to the git client when a {@code /info/refs} discovery request is blocked by URL rules.
+     * {@code 403} (default) is unambiguous — clients see a clear denial. Use {@code 404} to obscure whether a
+     * repository exists at all (security by obscurity for sensitive environments).
+     */
+    private int blockedInfoRefsStatus = 403;
+
+    /**
      * Attestation questions presented to reviewers before they can approve a push for this provider. Questions are
      * rendered dynamically in the dashboard approval form. Required questions block submission until answered.
      */

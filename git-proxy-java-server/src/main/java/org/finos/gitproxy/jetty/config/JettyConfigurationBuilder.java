@@ -750,6 +750,7 @@ public class JettyConfigurationBuilder {
                             .name(name)
                             .uri(parsedUri)
                             .basePath(path)
+                            .blockedInfoRefsStatus(providerConfig.getBlockedInfoRefsStatus())
                             .build();
                 }
                 log.warn(
