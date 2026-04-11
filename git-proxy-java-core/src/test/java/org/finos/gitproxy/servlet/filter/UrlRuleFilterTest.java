@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.finos.gitproxy.db.RepoRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
@@ -488,5 +489,39 @@ class UrlRuleFilterTest {
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
 
         verify(resp.mock).sendError(404);
+    }
+
+    @Test
+    void infoRefs_registryDenyRule_returns403() throws Exception {
+        RepoRegistry registry = mock(RepoRegistry.class);
+        var denyRule = AccessRule.builder()
+                .slug("/owner/repo")
+                .access(AccessRule.Access.DENY)
+                .build();
+        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(denyRule));
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(), null, null, registry);
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock).sendError(403);
+    }
+
+    @Test
+    void infoRefs_registryAllowRule_passes() throws Exception {
+        RepoRegistry registry = mock(RepoRegistry.class);
+        var allowRule = AccessRule.builder()
+                .slug("/owner/repo")
+                .access(AccessRule.Access.ALLOW)
+                .build();
+        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(allowRule));
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(), null, null, registry);
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock, never()).sendError(anyInt());
     }
 }
