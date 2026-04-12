@@ -80,6 +80,7 @@ jobs:
   scan:
     needs: build-and-push
     permissions:
+      contents: read
       security-events: write
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/grype.yml
