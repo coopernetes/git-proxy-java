@@ -163,7 +163,7 @@ public class RepoController {
                 e.put("blockedFetchCount", 0L);
                 return e;
             });
-            entry.put("fetchCount", summary.total());
+            entry.put("fetchCount", summary.total() - summary.blocked());
             entry.put("blockedFetchCount", summary.blocked());
         }
 
