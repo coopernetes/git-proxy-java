@@ -6,9 +6,9 @@ FROM docker.io/eclipse-temurin:21-jdk-ubi9-minimal AS builder
 # Install Node.js directly from the official distribution with SHA256 verification.
 # To update: download the new tarball, verify against nodejs.org/dist/vX.Y.Z/SHASUMS256.txt,
 # and update both NODE_VERSION and NODE_SHA256 below.
-ARG NODE_VERSION=24.11.1
-ARG NODE_SHA256_AMD64=58a5ff5cc8f2200e458bea22e329d5c1994aa1b111d499ca46ec2411d58239ca
-ARG NODE_SHA256_ARM64=0dc93ec5c798b0d347f068db6d205d03dea9a71765e6a53922b682b91265d71f
+ARG NODE_VERSION=24.14.1
+ARG NODE_SHA256_AMD64=ace9fa104992ed0829642629c46ca7bd7fd6e76278cb96c958c4b387d29658ea
+ARG NODE_SHA256_ARM64=734ff04fa7f8ed2e8a78d40cacf5ac3fc4515dac2858757cbab313eb483ba8a2
 ARG TARGETARCH
 RUN case "${TARGETARCH}" in \
       arm64) NODE_ARCH=linux-arm64; NODE_SHA256="${NODE_SHA256_ARM64}" ;; \
