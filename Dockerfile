@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Build stage ──────────────────────────────────────────────────────────────
-FROM docker.io/eclipse-temurin:21-jdk AS builder
+FROM docker.io/eclipse-temurin:21-jdk-ubi9-minimal AS builder
 
 # Install Node.js directly from the official distribution with SHA256 verification.
 # To update: download the new tarball, verify against nodejs.org/dist/vX.Y.Z/SHASUMS256.txt,
@@ -47,7 +47,7 @@ RUN sed -i \
     git-proxy-java-dashboard/build/install/git-proxy-java-dashboard/bin/git-proxy-java-dashboard
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM docker.io/eclipse-temurin:21-jre
+FROM docker.io/eclipse-temurin:21-jre-ubi9-minimal
 
 WORKDIR /app
 
