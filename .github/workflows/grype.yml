@@ -29,6 +29,7 @@ jobs:
           image: ${{ inputs.image || 'ghcr.io/coopernetes/git-proxy-java:latest' }}
           fail-build: true
           severity-cutoff: high
+          only-fixed: true
           config: .grype.yaml
 
       - name: Upload SARIF report
