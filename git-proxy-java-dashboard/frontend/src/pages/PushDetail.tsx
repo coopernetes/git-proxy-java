@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Diff2HtmlUI } from 'diff2html/lib/ui/js/diff2html-ui-slim'
 import 'diff2html/bundles/css/diff2html.min.css'
-import { approvePush, cancelPush, fetchProviders, fetchPush, rejectPush } from '../api'
+import { approvePush, cancelPush, fetchDiff, fetchProviders, fetchPush, rejectPush } from '../api'
 import { StatusBadge } from '../components/StatusBadge'
 import type { AttestationQuestion, CurrentUser, Provider, PushRecord, Step } from '../types'
 
@@ -431,6 +431,8 @@ interface PushDetailProps {
   currentUser: CurrentUser | null
 }
 
+const DIFF_INLINE_THRESHOLD = 1000
+
 export function PushDetail({ currentUser }: PushDetailProps) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -448,6 +450,18 @@ export function PushDetail({ currentUser }: PushDetailProps) {
   const [attestationQuestions, setAttestationQuestions] = useState<AttestationQuestion[]>([])
   const [attestationAnswers, setAttestationAnswers] = useState<Record<string, string>>({})
 
+  // Diff state — loaded separately so it never blocks the main page render
+  const [diffContent, setDiffContent] = useState<string | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
+  const [diffLines, setDiffLines] = useState(0)
+  const [diffRendering, setDiffRendering] = useState(false)
+  const [diffHighlight, setDiffHighlight] = useState(true)
+  const [diffSideBySide, setDiffSideBySide] = useState(true)
+
+  // Commits pagination
+  const COMMITS_PAGE = 20
+  const [showAllCommits, setShowAllCommits] = useState(false)
+
   async function load(pushId: string) {
     setLoading(true)
     setError('')
@@ -456,6 +470,8 @@ export function PushDetail({ currentUser }: PushDetailProps) {
     setActionError('')
     setOpenSteps({})
     setAttestationAnswers({})
+    setDiffContent(null)
+    setDiffLines(0)
     try {
       const [data, providerList] = await Promise.all([fetchPush(pushId), fetchProviders()])
       setRecord(data)
@@ -472,35 +488,51 @@ export function PushDetail({ currentUser }: PushDetailProps) {
     if (id) load(id)
   }, [id])
 
-  // Render diff via diff2html after record is set
+  // Fetch diff separately after record loads — avoids blocking page render on large diffs
   useEffect(() => {
-    if (!record || !diffRef.current) return
-    const diffStep = record.steps?.find((s) => s.stepName === 'diff' && s.content)
-    if (!diffStep?.content) return
-    try {
-      const ui = new Diff2HtmlUI(diffRef.current, diffStep.content, {
-        drawFileList: true,
-        matching: 'lines',
-        outputFormat: 'side-by-side',
-        highlight: true,
+    if (!id || !record) return
+    setDiffLoading(true)
+    fetchDiff(id)
+      .then((d) => {
+        setDiffContent(d.content ?? null)
+        setDiffLines(d.content ? d.content.split('\n').length : 0)
       })
-      ui.draw()
-      ui.highlightCode()
-    } catch {
-      if (diffRef.current) {
-        diffRef.current.innerHTML =
-          '<pre class="text-xs text-gray-700 whitespace-pre-wrap overflow-x-auto">' +
-          diffStep.content.replace(/</g, '&lt;') +
-          '</pre>'
+      .catch(() => setDiffContent(null))
+      .finally(() => setDiffLoading(false))
+  }, [id, record])
+
+  // Render diff2html inline only when diff is small enough
+  useEffect(() => {
+    if (!diffContent || diffLines >= DIFF_INLINE_THRESHOLD || !diffRef.current) return
+    setDiffRendering(true)
+    const timer = setTimeout(() => {
+      if (!diffRef.current) return
+      try {
+        const ui = new Diff2HtmlUI(diffRef.current, diffContent, {
+          drawFileList: true,
+          matching: 'lines',
+          outputFormat: diffSideBySide ? 'side-by-side' : 'line-by-line',
+          highlight: diffHighlight,
+        })
+        ui.draw()
+        if (diffHighlight) ui.highlightCode()
+      } catch {
+        if (diffRef.current) {
+          diffRef.current.innerHTML =
+            '<pre class="text-xs text-gray-700 whitespace-pre-wrap overflow-x-auto">' +
+            diffContent.replace(/</g, '&lt;') +
+            '</pre>'
+        }
+      } finally {
+        setDiffRendering(false)
       }
-    }
-  }, [record])
+    }, 16)
+    return () => clearTimeout(timer)
+  }, [diffContent, diffLines, diffHighlight, diffSideBySide])
 
   const validationSteps: Step[] = (record?.steps ?? [])
     .filter((s) => !NON_VALIDATION_STEPS.has(s.stepName))
     .sort((a, b) => a.stepOrder - b.stepOrder)
-
-  const hasDiff = record?.steps?.some((s) => s.stepName === 'diff' && s.content)
 
   function errorMessage(e: unknown): string {
     return e instanceof Error ? e.message : String(e)
@@ -682,39 +714,52 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                 Commits ({record.commits.length})
               </h2>
               <div className="space-y-2">
-                {record.commits.map((c) => (
-                  <div key={c.sha} className="border border-gray-100 rounded p-3 space-y-1">
-                    <div className="font-mono text-xs text-gray-400">{c.sha}</div>
-                    <div className="text-sm text-gray-800 whitespace-pre-wrap">
-                      {(c.message ?? '').split('\n')[0].trim()}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      <span className="font-medium">Author: </span>
-                      {c.authorName} &lt;{c.authorEmail}&gt;
-                    </div>
-                    {c.committerName &&
-                      (c.committerName !== c.authorName || c.committerEmail !== c.authorEmail) && (
+                {(showAllCommits ? record.commits : record.commits.slice(0, COMMITS_PAGE)).map(
+                  (c) => (
+                    <div key={c.sha} className="border border-gray-100 rounded p-3 space-y-1">
+                      <div className="font-mono text-xs text-gray-400">{c.sha}</div>
+                      <div className="text-sm text-gray-800 whitespace-pre-wrap">
+                        {(c.message ?? '').split('\n')[0].trim()}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">Author: </span>
+                        {c.authorName} &lt;{c.authorEmail}&gt;
+                      </div>
+                      {c.committerName &&
+                        (c.committerName !== c.authorName ||
+                          c.committerEmail !== c.authorEmail) && (
+                          <div className="text-xs text-gray-500">
+                            <span className="font-medium">Committer: </span>
+                            {c.committerName} &lt;{c.committerEmail}&gt;
+                          </div>
+                        )}
+                      {c.signedOffBy && c.signedOffBy.length > 0 && (
                         <div className="text-xs text-gray-500">
-                          <span className="font-medium">Committer: </span>
-                          {c.committerName} &lt;{c.committerEmail}&gt;
+                          <span className="font-medium">Signed-off-by: </span>
+                          {c.signedOffBy.map((sob) => (
+                            <span
+                              key={sob}
+                              className="ml-1 bg-green-50 text-green-700 border border-green-200 rounded px-1"
+                            >
+                              {sob}
+                            </span>
+                          ))}
                         </div>
                       )}
-                    {c.signedOffBy && c.signedOffBy.length > 0 && (
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Signed-off-by: </span>
-                        {c.signedOffBy.map((sob) => (
-                          <span
-                            key={sob}
-                            className="ml-1 bg-green-50 text-green-700 border border-green-200 rounded px-1"
-                          >
-                            {sob}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ),
+                )}
               </div>
+              {record.commits.length > COMMITS_PAGE && (
+                <button
+                  onClick={() => setShowAllCommits((v) => !v)}
+                  className="mt-3 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  {showAllCommits
+                    ? '▲ Show fewer'
+                    : `▼ Show ${record.commits.length - COMMITS_PAGE} more commit${record.commits.length - COMMITS_PAGE !== 1 ? 's' : ''}`}
+                </button>
+              )}
             </div>
           )}
 
@@ -774,13 +819,58 @@ export function PushDetail({ currentUser }: PushDetailProps) {
 
           {/* Diff */}
           <div className="bg-white rounded-lg shadow border border-gray-200 px-6 py-4">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Diff
-            </h2>
-            {hasDiff ? (
-              <div ref={diffRef} className="text-sm overflow-x-auto" />
-            ) : (
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Diff</h2>
+              {!diffLoading && diffContent && diffLines < DIFF_INLINE_THRESHOLD && (
+                <div className="flex items-center gap-2 ml-auto">
+                  {diffRendering && (
+                    <span className="text-xs text-gray-400 italic">Rendering…</span>
+                  )}
+                  <button
+                    onClick={() => setDiffSideBySide((v) => !v)}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors ${diffSideBySide ? 'bg-slate-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >
+                    Side-by-side
+                  </button>
+                  <button
+                    onClick={() => setDiffHighlight((v) => !v)}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors ${diffHighlight ? 'bg-slate-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >
+                    Syntax highlight
+                  </button>
+                  <Link
+                    to={`/push/${id}/diff`}
+                    className="px-2.5 py-1 rounded text-xs text-slate-500 hover:text-slate-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                  >
+                    Full page →
+                  </Link>
+                </div>
+              )}
+            </div>
+            {diffLoading && <div className="text-gray-400 text-sm">Loading diff…</div>}
+            {!diffLoading && !diffContent && (
               <div className="text-gray-400 text-sm">No diff available.</div>
+            )}
+            {!diffLoading && diffContent && diffLines >= DIFF_INLINE_THRESHOLD && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-amber-800">
+                    This diff is large ({diffLines.toLocaleString()} lines)
+                  </p>
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    Rendering it inline would degrade page performance.
+                  </p>
+                </div>
+                <Link
+                  to={`/push/${id}/diff`}
+                  className="shrink-0 px-3 py-1.5 bg-amber-700 hover:bg-amber-600 text-white text-xs rounded transition-colors"
+                >
+                  View full diff →
+                </Link>
+              </div>
+            )}
+            {!diffLoading && diffContent && diffLines < DIFF_INLINE_THRESHOLD && (
+              <div ref={diffRef} className="text-sm overflow-x-auto" />
             )}
           </div>
 

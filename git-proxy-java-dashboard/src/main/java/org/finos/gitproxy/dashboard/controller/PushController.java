@@ -8,6 +8,7 @@ import org.finos.gitproxy.db.model.Attestation;
 import org.finos.gitproxy.db.model.PushQuery;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.db.model.PushStatus;
+import org.finos.gitproxy.db.model.PushStep;
 import org.finos.gitproxy.jetty.config.AttestationQuestion;
 import org.finos.gitproxy.jetty.config.GitProxyConfig;
 import org.finos.gitproxy.jetty.config.ProviderConfig;
@@ -110,13 +111,47 @@ public class PushController {
         return records.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(records.get(0));
     }
 
-    /** Get a single push record by ID. */
+    /**
+     * Get a single push record by ID. The {@code diff} step's {@code content} is stripped from this response — diff
+     * content can be large (tens of thousands of lines) and is served separately via {@code GET /{id}/diff}. All other
+     * step content is included (typically small validation output).
+     */
     @GetMapping("/{id}")
     public ResponseEntity<PushRecord> getById(@PathVariable String id) {
         return pushStore
                 .findById(id)
-                .map(ResponseEntity::ok)
+                .map(record -> {
+                    stripDiffContent(record);
+                    return ResponseEntity.ok(record);
+                })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Returns the raw unified diff for a push. Separated from the main push record response so that large diffs do not
+     * block page load — the dashboard fetches this lazily and decides whether to render inline or link to the
+     * standalone diff page based on size.
+     */
+    @GetMapping("/{id}/diff")
+    public ResponseEntity<Map<String, Object>> getDiff(@PathVariable String id) {
+        return pushStore
+                .findById(id)
+                .map(record -> {
+                    String content = record.getSteps().stream()
+                            .filter(s -> "diff".equals(s.getStepName()) && s.getContent() != null)
+                            .map(PushStep::getContent)
+                            .findFirst()
+                            .orElse(null);
+                    Map<String, Object> body = new java.util.HashMap<>();
+                    body.put("content", content);
+                    return ResponseEntity.ok(body);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Nulls out the content of the diff step in-place. Safe because findById returns fresh objects per call. */
+    private static void stripDiffContent(PushRecord record) {
+        record.getSteps().stream().filter(s -> "diff".equals(s.getStepName())).forEach(s -> s.setContent(null));
     }
 
     /**

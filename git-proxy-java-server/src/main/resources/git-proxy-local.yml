@@ -23,6 +23,7 @@ server:
   # Vite defaults to port 5173; adjust if you've changed it.
   allowed-origins:
     - http://localhost:5173
+  session-store: jdbc
 
 # Three users:
 #   admin          — ADMIN role, no SCM identity; for dashboard/user-management testing

@@ -5,6 +5,7 @@ import { Nav } from './components/Nav'
 import { Admin } from './pages/Admin'
 import { Providers } from './pages/Providers'
 import { PushDetail } from './pages/PushDetail'
+import { PushDiff } from './pages/PushDiff'
 import { PushList } from './pages/PushList'
 import { Profile } from './pages/Profile'
 import { Repos } from './pages/Repos'
@@ -31,6 +32,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<PushList currentUser={currentUser} />} />
             <Route path="/push/:id" element={<PushDetail currentUser={currentUser} />} />
+            <Route path="/push/:id/diff" element={<PushDiff />} />
             <Route path="/providers" element={<Providers />} />
             <Route path="/repos" element={<Repos />} />
             <Route path="/profile" element={<Profile />} />

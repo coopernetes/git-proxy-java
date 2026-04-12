@@ -41,6 +41,12 @@ export async function fetchPush(id: string) {
   return res.json()
 }
 
+export async function fetchDiff(id: string): Promise<{ content: string | null }> {
+  const res = await apiFetch(`/api/push/${encodeURIComponent(id)}/diff`)
+  if (!res.ok) throw new Error('Diff not found')
+  return res.json()
+}
+
 export async function fetchProviders() {
   const res = await apiFetch('/api/providers')
   if (!res.ok) throw new Error('Failed to fetch providers')
