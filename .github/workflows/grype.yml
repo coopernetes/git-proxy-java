@@ -5,8 +5,12 @@ permissions:
   security-events: write
 
 on:
-  push:
-    branches: ["main"]
+  workflow_call:
+    inputs:
+      image:
+        description: "Image reference to scan (digest preferred)"
+        required: true
+        type: string
   schedule:
     - cron: '0 6 * * 1'  # weekly Monday 06:00 UTC
 
@@ -22,7 +26,7 @@ jobs:
         uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # ratchet:anchore/scan-action@v7.4.0
         id: scan
         with:
-          image: ghcr.io/coopernetes/git-proxy-java:latest
+          image: ${{ inputs.image || 'ghcr.io/coopernetes/git-proxy-java:latest' }}
           fail-build: true
           severity-cutoff: high
           config: .grype.yaml
