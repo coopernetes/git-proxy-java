@@ -24,7 +24,7 @@ jobs:
           java-version: 21
           cache: gradle
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # ratchet:actions/setup-node@v4
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # ratchet:actions/setup-node@v6
         with:
           node-version: '24.11.1'
           cache: npm
@@ -38,11 +38,11 @@ jobs:
 
       - name: Submit dependency graph
         if: github.event_name == 'push'
-        uses: gradle/actions/dependency-submission@ed408507eac070d1f99cc633dbcf757c94c7933a # ratchet:gradle/actions/dependency-submission@v4
+        uses: gradle/actions/dependency-submission@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # ratchet:gradle/actions/dependency-submission@v6
 
       - name: Publish test results
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # ratchet:actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
         with:
           name: test-reports
           path: "**/build/reports/tests/test/"
@@ -50,7 +50,7 @@ jobs:
 
       - name: Publish JaCoCo coverage reports
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # ratchet:actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
         with:
           name: jacoco-reports
           path: "**/build/reports/jacoco/"
@@ -81,7 +81,7 @@ jobs:
 
       - name: Publish e2e test results
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # ratchet:actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
         with:
           name: e2e-test-reports
           path: "git-proxy-java-server/build/reports/tests/e2eTest/"
