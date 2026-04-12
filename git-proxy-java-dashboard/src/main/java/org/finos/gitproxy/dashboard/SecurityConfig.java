@@ -10,7 +10,9 @@ import jakarta.servlet.http.HttpSessionListener;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.KeyFactory;
+import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
@@ -113,10 +115,18 @@ public class SecurityConfig {
         String provider = authCfg.getProvider();
         log.info("Authentication provider: {}", provider);
 
+        boolean isIdpProvider = !"local".equals(provider);
         String apiKey = System.getenv("GITPROXY_API_KEY");
         if (apiKey != null && !apiKey.isBlank()) {
-            log.info("API key authentication enabled");
+            log.info("API key authentication enabled (operator-supplied)");
             http.addFilterBefore(new ApiKeyAuthFilter(apiKey), UsernamePasswordAuthenticationFilter.class);
+        } else if (isIdpProvider) {
+            String generated = generateBreakGlassKey();
+            writeBreakGlassToken(generated);
+            log.warn("IdP auth active — local user store disabled. Auto-generated break-glass API key written to"
+                    + " break-glass.token (chmod 600). Use X-Api-Key header for emergency admin API access."
+                    + " Not persisted across restarts. Pin a stable key with GITPROXY_API_KEY env var.");
+            http.addFilterBefore(new ApiKeyAuthFilter(generated), UsernamePasswordAuthenticationFilter.class);
         }
 
         List<String> allowedOrigins = gitProxyConfig.getServer().getAllowedOrigins();
@@ -161,10 +171,9 @@ public class SecurityConfig {
                 configureOidcAuth(
                         http, authCfg.getOidc(), successHandler, authCfg.getRoleMappings(), authCfg.getGroupsClaim());
             case "local" -> configureLocalAuth(http, successHandler);
-            default -> {
-                log.warn("Unknown auth.provider '{}', falling back to local auth", provider);
-                configureLocalAuth(http, successHandler);
-            }
+            default ->
+                throw new IllegalStateException(
+                        "Unknown auth.provider '" + provider + "'. Valid values: local, ldap, ad, oidc.");
         }
 
         return http.build();
@@ -626,6 +635,33 @@ public class SecurityConfig {
                             .build();
                 })
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+    }
+
+    static String generateBreakGlassKey() {
+        byte[] bytes = new byte[24]; // 192 bits → 32 URL-safe base64 chars
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    static void writeBreakGlassToken(String key) {
+        writeBreakGlassToken(key, Path.of("break-glass.token"));
+    }
+
+    static void writeBreakGlassToken(String key, Path path) {
+        try {
+            Files.writeString(path, key + System.lineSeparator());
+            try {
+                Files.setPosixFilePermissions(
+                        path, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
+            } catch (UnsupportedOperationException e) {
+                log.debug("POSIX permissions not supported; break-glass.token may have default file permissions");
+            }
+        } catch (IOException e) {
+            // Non-fatal: log loudly but don't abort startup — the key is still active in memory
+            log.error(
+                    "Failed to write break-glass.token: {}. Break-glass API key is active but not on disk.",
+                    e.getMessage());
+        }
     }
 
     private CorsConfigurationSource corsConfigurationSource(List<String> allowedOrigins) {

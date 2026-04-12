@@ -301,7 +301,8 @@ function AddRuleModal({
             )}
             {form.targetType === 'slug' && (
               <p className="mt-1 text-xs text-gray-400">
-                Slug rules match the full URL path — must start with <code className="font-mono">/</code>, e.g.{' '}
+                Slug rules match the full URL path — must start with{' '}
+                <code className="font-mono">/</code>, e.g.{' '}
                 <code className="font-mono">/myorg/myrepo</code>.
               </p>
             )}
