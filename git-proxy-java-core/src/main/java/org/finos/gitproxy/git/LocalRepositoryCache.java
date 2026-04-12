@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -17,16 +18,37 @@ import org.eclipse.jgit.transport.URIish;
 /**
  * Manages local clones of remote repositories for inspection and filtering. This service uses JGit to clone
  * repositories into temporary directories and maintains a cache of these clones.
+ *
+ * <h2>Concurrency</h2>
+ *
+ * <p>Each cached repository has its own {@link ReentrantLock} ({@code CachedRepository.fetchLock}) that serializes
+ * upstream fetches for that repository. The lock is acquired before any {@code git fetch} and released once the fetch
+ * completes. A {@code fetchCooldownMs} guard ensures that a re-fetch is skipped when another thread has already
+ * refreshed the mirror recently, avoiding redundant network round-trips.
+ *
+ * <p>Initial clones (first access for a URL) are still gated by an instance-level {@code synchronized} block to prevent
+ * duplicate parallel clones of the same repository.
+ *
+ * <p>Note: upstream fetches are still possible while an {@code UploadPack} negotiation is in progress on the same
+ * mirror. For deployments with high concurrent fetch traffic on shallow-cloned mirrors, consider using
+ * {@code cloneDepth=0} for the serve cache to eliminate shallow-boundary reachability races entirely.
  */
 @Slf4j
 public class LocalRepositoryCache {
 
     private static final int DEFAULT_CLONE_DEPTH = 100;
 
+    /**
+     * Default minimum interval between upstream re-fetches for the same repository. Prevents concurrent serve requests
+     * from each triggering a separate fetch when the mirror is already fresh.
+     */
+    private static final long DEFAULT_FETCH_COOLDOWN_MS = 30_000;
+
     private final Path cacheDirectory;
     private final Map<String, CachedRepository> cache = new ConcurrentHashMap<>();
     private final int cloneDepth;
     private final boolean registerShutdownHook;
+    private final long fetchCooldownMs;
 
     /** Default constructor that uses system temp directory with shutdown hook. */
     public LocalRepositoryCache() throws IOException {
@@ -51,11 +73,24 @@ public class LocalRepositoryCache {
      * @param registerShutdownHook Whether to register shutdown hook (false for Spring apps)
      */
     public LocalRepositoryCache(Path cacheDirectory, int cloneDepth, boolean registerShutdownHook) {
+        this(cacheDirectory, cloneDepth, registerShutdownHook, DEFAULT_FETCH_COOLDOWN_MS);
+    }
+
+    /**
+     * Full constructor with all options.
+     *
+     * @param cacheDirectory The directory to use for caching repositories
+     * @param cloneDepth The depth for shallow clones (0 for full clone)
+     * @param registerShutdownHook Whether to register shutdown hook (false for Spring apps)
+     * @param fetchCooldownMs Minimum milliseconds between upstream re-fetches for the same repository
+     */
+    public LocalRepositoryCache(
+            Path cacheDirectory, int cloneDepth, boolean registerShutdownHook, long fetchCooldownMs) {
         this.cacheDirectory = cacheDirectory;
         this.cloneDepth = cloneDepth;
         this.registerShutdownHook = registerShutdownHook;
+        this.fetchCooldownMs = fetchCooldownMs;
         log.info("Initialized LocalRepositoryCache at: {} with clone depth: {}", cacheDirectory, cloneDepth);
-        // Register shutdown hook to clean up (skip for Spring apps that use @PreDestroy)
         if (registerShutdownHook) {
             Runtime.getRuntime().addShutdownHook(new Thread(this::cleanup));
         }
@@ -76,6 +111,9 @@ public class LocalRepositoryCache {
     /**
      * Get or create a local clone of a remote repository, using the supplied credentials for clone and fetch.
      * Credentials are passed transiently to JGit — they are never written to disk.
+     *
+     * <p>On a cache hit, re-fetches from upstream to keep the local mirror fresh. The re-fetch is serialized via a
+     * per-repository lock and skipped if the mirror was already refreshed within {@code fetchCooldownMs}.
      */
     public Repository getOrClone(String remoteUrl, CredentialsProvider credentials)
             throws GitAPIException, IOException {
@@ -84,14 +122,8 @@ public class LocalRepositoryCache {
         CachedRepository cached = cache.get(cacheKey);
         if (cached != null && cached.isValid()) {
             log.debug("Using cached repository for: {}", remoteUrl);
-            // Re-fetch with current credentials so private repos stay up to date
             if (credentials != null) {
-                try (Git git = Git.open(new File(cacheDirectory.toFile(), cacheKey))) {
-                    git.fetch()
-                            .setRemote("origin")
-                            .setCredentialsProvider(credentials)
-                            .call();
-                }
+                refreshIfStale(cached, cacheKey, credentials);
             }
             cached.repository.incrementOpen();
             return cached.repository;
@@ -102,17 +134,44 @@ public class LocalRepositoryCache {
     }
 
     /**
-     * Clone or fetch a repository.
+     * Re-fetches from upstream if the mirror hasn't been refreshed within {@code fetchCooldownMs}.
      *
-     * @param remoteUrl The remote repository URL
-     * @param cacheKey The cache key for this repository
-     * @return The local repository
-     * @throws GitAPIException If git operations fail
-     * @throws IOException If I/O operations fail
+     * <p>Acquires the per-repository fetch lock before checking the cooldown so that concurrent callers for the same
+     * repository serialize — the second caller will see the updated {@code lastFetchedAt} and skip the fetch. This
+     * prevents two simultaneous JGit fetch operations against the same bare repository directory, which can corrupt
+     * ref/pack state under concurrent access.
+     */
+    private void refreshIfStale(CachedRepository cached, String cacheKey, CredentialsProvider credentials)
+            throws GitAPIException, IOException {
+        cached.fetchLock.lock();
+        try {
+            if (System.currentTimeMillis() - cached.lastFetchedAt <= fetchCooldownMs) {
+                log.debug(
+                        "Skipping re-fetch for {} — mirror refreshed {}ms ago",
+                        cacheKey,
+                        System.currentTimeMillis() - cached.lastFetchedAt);
+                return;
+            }
+            log.debug("Re-fetching upstream for cached repository: {}", cacheKey);
+            try (Git git = Git.open(new File(cacheDirectory.toFile(), cacheKey))) {
+                git.fetch()
+                        .setRemote("origin")
+                        .setCredentialsProvider(credentials)
+                        .call();
+            }
+            cached.lastFetchedAt = System.currentTimeMillis();
+        } finally {
+            cached.fetchLock.unlock();
+        }
+    }
+
+    /**
+     * Clone or fetch a repository. Synchronized at the instance level to prevent duplicate parallel clones when
+     * multiple threads race on first access for the same URL.
      */
     private synchronized Repository cloneOrFetch(String remoteUrl, String cacheKey, CredentialsProvider credentials)
             throws GitAPIException, IOException {
-        // Double-check after acquiring lock
+        // Double-check after acquiring lock — another thread may have cloned while we waited
         CachedRepository cached = cache.get(cacheKey);
         if (cached != null && cached.isValid()) {
             cached.repository.incrementOpen();
@@ -143,7 +202,9 @@ public class LocalRepositoryCache {
             repository = git.getRepository();
         }
 
-        cache.put(cacheKey, new CachedRepository(repository, remoteUrl));
+        var newCached = new CachedRepository(repository, remoteUrl);
+        newCached.lastFetchedAt = System.currentTimeMillis();
+        cache.put(cacheKey, newCached);
         return repository;
     }
 
@@ -241,11 +302,25 @@ public class LocalRepositoryCache {
                 .forEach(File::delete);
     }
 
-    /** Cached repository holder. */
+    /** Cached repository holder with per-repo fetch serialization. */
     private static class CachedRepository {
         final Repository repository;
         final String remoteUrl;
         final long cachedAt;
+
+        /**
+         * Serializes upstream fetches for this repository. Prevents two concurrent JGit fetch operations against the
+         * same bare repository directory, which can interleave pack/ref writes and cause {@code want <sha> not valid}
+         * errors during UploadPack negotiation.
+         */
+        final ReentrantLock fetchLock = new ReentrantLock();
+
+        /**
+         * Timestamp of the last successful upstream fetch. Compared against {@code fetchCooldownMs} to avoid redundant
+         * re-fetches when multiple concurrent requests arrive for the same mirror. Volatile so that the write from the
+         * thread holding {@code fetchLock} is visible to all other threads after the lock is released.
+         */
+        volatile long lastFetchedAt = 0;
 
         CachedRepository(Repository repository, String remoteUrl) {
             this.repository = repository;
