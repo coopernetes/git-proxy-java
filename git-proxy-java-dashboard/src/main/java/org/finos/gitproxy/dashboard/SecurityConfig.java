@@ -60,6 +60,7 @@ import org.springframework.security.ldap.authentication.LdapAuthenticationProvid
 import org.springframework.security.ldap.search.FilterBasedLdapUserSearch;
 import org.springframework.security.ldap.userdetails.DefaultLdapAuthoritiesPopulator;
 import org.springframework.security.oauth2.client.endpoint.NimbusJwtClientAuthenticationParametersConverter;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
 import org.springframework.security.oauth2.client.endpoint.RestClientAuthorizationCodeTokenResponseClient;
 import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
@@ -417,14 +418,15 @@ public class SecurityConfig {
                                 ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(reg.getClientAuthenticationMethod())
                                         ? rsaKey
                                         : null;
-                        var converter = new NimbusJwtClientAuthenticationParametersConverter<>(jwkResolver);
+                        NimbusJwtClientAuthenticationParametersConverter<OAuth2AuthorizationCodeGrantRequest>
+                                converter = new NimbusJwtClientAuthenticationParametersConverter<>(jwkResolver);
                         // NimbusJwtClientAuthenticationParametersConverter only propagates kid to the JWT
-                        // header — x5t is never copied from the JWK. Entra ID matches registered
-                        // certificates by x5t (SHA-1 thumbprint), so inject it explicitly when present.
-                        if (rsaKey.getX509CertThumbprint() != null) {
-                            var x5t = rsaKey.getX509CertThumbprint().toString();
-                            converter.setJwsHeaderCustomizer(
-                                    (headers, req) -> headers.header("x5t", x5t));
+                        // header — x5t#S256 is never copied from the JWK. Entra ID matches registered
+                        // certificates by x5t#S256 (SHA-256 thumbprint), so inject it explicitly when present.
+                        if (rsaKey.getX509CertSHA256Thumbprint() != null) {
+                            var x5tS256 = rsaKey.getX509CertSHA256Thumbprint().toString();
+                            converter.setJwtClientAssertionCustomizer(
+                                    ctx -> ctx.getHeaders().header("x5t#S256", x5tS256));
                         }
                         var tokenResponseClient = new RestClientAuthorizationCodeTokenResponseClient();
                         tokenResponseClient.addParametersConverter(converter);
@@ -584,10 +586,10 @@ public class SecurityConfig {
      * {@link NimbusJwtClientAuthenticationParametersConverter}. The public key is derived from the CRT parameters
      * embedded in the private key — no separate public key file is needed.
      *
-     * <p>When {@code certPath} is non-blank, the SHA-1 thumbprint of the certificate is computed and set as {@code x5t}
-     * on the key. This is required for Entra ID, which matches registered certificates by {@code x5t} rather than
-     * {@code kid}. Providers that match on {@code kid} (Keycloak, Dex) leave {@code certPath} blank and receive a
-     * random {@code kid} instead.
+     * <p>When {@code certPath} is non-blank, the SHA-256 thumbprint of the certificate is computed and set as
+     * {@code x5t#S256} on the key. This is required for Entra ID, which matches registered certificates by thumbprint
+     * rather than {@code kid}. Providers that match on {@code kid} (Keycloak, Dex) leave {@code certPath} blank and
+     * receive a random {@code kid} instead.
      *
      * <p>Generate a suitable key pair with:
      *
@@ -612,8 +614,8 @@ public class SecurityConfig {
                 try (var in = Files.newInputStream(Path.of(certPath))) {
                     var cert = (X509Certificate)
                             CertificateFactory.getInstance("X.509").generateCertificate(in);
-                    byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(cert.getEncoded());
-                    builder.x509CertThumbprint(Base64URL.encode(sha1));
+                    byte[] sha256 = MessageDigest.getInstance("SHA-256").digest(cert.getEncoded());
+                    builder.x509CertSHA256Thumbprint(Base64URL.encode(sha256));
                 }
             } else {
                 builder.keyID(UUID.randomUUID().toString());
