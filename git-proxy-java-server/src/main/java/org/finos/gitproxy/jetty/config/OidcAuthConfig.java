@@ -77,4 +77,25 @@ public class OidcAuthConfig {
      * <p>Example: {@code /run/secrets/gitproxy-oidc-private-key.pem}
      */
     private String privateKeyPath = "";
+
+    /**
+     * Path to the X.509 certificate (PEM or DER) corresponding to {@code private-key-path}. When set, the SHA-1
+     * thumbprint of the certificate is included as {@code x5t} in the JWT assertion header.
+     *
+     * <p><b>Required for Entra ID</b> — Entra matches registered certificates by {@code x5t}, not {@code kid}. Without
+     * this field every token exchange fails with {@code AADSTS700027}. Providers that match on {@code kid} (Keycloak,
+     * Dex) do not need this field.
+     *
+     * <p>Generate the certificate from the private key:
+     *
+     * <pre>
+     * openssl req -new -x509 -key private.pem -out cert.pem -days 365
+     * </pre>
+     *
+     * <p>Then upload {@code cert.pem} to your Entra ID app registration under <em>Certificates &amp; secrets →
+     * Certificates</em>.
+     *
+     * <p>Example: {@code /run/secrets/gitproxy-oidc-cert.pem}
+     */
+    private String certPath = "";
 }

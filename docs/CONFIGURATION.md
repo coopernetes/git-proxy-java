@@ -409,6 +409,12 @@ auth:
     # When set, client-secret is not required.
     # private-key-path: /run/secrets/gitproxy-oidc-private-key.pem
 
+    # Optional: path to the X.509 certificate (PEM) matching private-key-path.
+    # Required for Entra ID — Entra matches registered certificates by x5t thumbprint, not kid.
+    # Without this, every token exchange fails with AADSTS700027.
+    # Generate: openssl req -new -x509 -key private.pem -out cert.pem -days 365
+    # cert-path: /run/secrets/gitproxy-oidc-cert.pem
+
   # OIDC claim containing the user's group memberships. Defaults to "groups",
   # which is standard for Keycloak, Okta, and most Entra ID configurations.
   groups-claim: groups

@@ -2,6 +2,7 @@ package org.finos.gitproxy.dashboard;
 
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.util.Base64URL;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,7 +13,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
@@ -408,7 +412,7 @@ public class SecurityConfig {
                                     userInfo.oidcUserService(buildOidcUserService(roleMappings, groupsClaim)));
 
                     if (usePrivateKeyJwt) {
-                        RSAKey rsaKey = loadRsaKey(oidcCfg.getPrivateKeyPath());
+                        RSAKey rsaKey = loadRsaKey(oidcCfg.getPrivateKeyPath(), oidcCfg.getCertPath());
                         Function<ClientRegistration, JWK> jwkResolver = reg ->
                                 ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(reg.getClientAuthenticationMethod())
                                         ? rsaKey
@@ -572,15 +576,20 @@ public class SecurityConfig {
      * {@link NimbusJwtClientAuthenticationParametersConverter}. The public key is derived from the CRT parameters
      * embedded in the private key — no separate public key file is needed.
      *
+     * <p>When {@code certPath} is non-blank, the SHA-1 thumbprint of the certificate is computed and set as {@code x5t}
+     * on the key. This is required for Entra ID, which matches registered certificates by {@code x5t} rather than
+     * {@code kid}. Providers that match on {@code kid} (Keycloak, Dex) leave {@code certPath} blank and receive a
+     * random {@code kid} instead.
+     *
      * <p>Generate a suitable key pair with:
      *
      * <pre>
      * openssl genrsa -out private.pem 2048
      * openssl pkcs8 -topk8 -nocrypt -in private.pem -out private-pkcs8.pem
-     * openssl rsa -in private.pem -pubout -out public.pem   # register this with your IDP
+     * openssl req -new -x509 -key private.pem -out cert.pem -days 365   # Entra ID only
      * </pre>
      */
-    private static RSAKey loadRsaKey(String pemPath) {
+    private static RSAKey loadRsaKey(String pemPath, String certPath) {
         try {
             String pem = Files.readString(Path.of(pemPath))
                     .replaceAll("-----[^-]+-----", "")
@@ -590,10 +599,18 @@ public class SecurityConfig {
             var crtKey = (RSAPrivateCrtKey) privateKey;
             var publicKey = (RSAPublicKey) KeyFactory.getInstance("RSA")
                     .generatePublic(new RSAPublicKeySpec(crtKey.getModulus(), crtKey.getPublicExponent()));
-            return new RSAKey.Builder(publicKey)
-                    .privateKey((RSAPrivateKey) privateKey)
-                    .keyID(UUID.randomUUID().toString())
-                    .build();
+            var builder = new RSAKey.Builder(publicKey).privateKey((RSAPrivateKey) privateKey);
+            if (certPath != null && !certPath.isBlank()) {
+                try (var in = Files.newInputStream(Path.of(certPath))) {
+                    var cert = (X509Certificate)
+                            CertificateFactory.getInstance("X.509").generateCertificate(in);
+                    byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(cert.getEncoded());
+                    builder.x509CertThumbprint(Base64URL.encode(sha1));
+                }
+            } else {
+                builder.keyID(UUID.randomUUID().toString());
+            }
+            return builder.build();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to load RSA private key from: " + pemPath, e);
         }
