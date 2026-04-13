@@ -498,7 +498,7 @@ export function Repos() {
                       )}
                     </div>
                     <CloneButton
-                      cloneUrl={`${window.location.origin}/proxy/${repo.provider}/${repo.owner}/${repo.repoName}.git`}
+                      cloneUrl={`${window.location.origin}/proxy/${providers.find((p) => p.id === repo.provider)?.host ?? repo.provider.split('/').slice(1).join('/')}/${repo.owner}/${repo.repoName}.git`}
                     />
                   </div>
                 </div>

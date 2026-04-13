@@ -66,6 +66,15 @@ public class ServerConfig {
      */
     private boolean requireReviewPermission = false;
 
+    /**
+     * Base URL of the dashboard, embedded in sideband messages sent to git clients when a push is blocked or queued for
+     * review (e.g. {@code https://gitproxy.example.com/dashboard}). Defaults to
+     * {@code http://localhost:<port>/dashboard} when not set.
+     *
+     * <p>Set via YAML ({@code server.service-url:}) or env var ({@code GITPROXY_SERVER_SERVICE_URL}).
+     */
+    private String serviceUrl;
+
     /** TLS configuration for the server listener and upstream trust. Omit entirely to use plain HTTP. */
     private TlsConfig tls = new TlsConfig();
 

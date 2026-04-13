@@ -73,6 +73,7 @@ Strip the `GITPROXY_` prefix, lowercase, and replace `_` with `.` to get the con
 | `GITPROXY_CONFIG_PROFILES`          | _(meta — not a config key)_ | `docker-default,ldap`     |
 | `GITPROXY_SERVER_PORT`              | `server.port`               | `9090`                    |
 | `GITPROXY_SERVER_APPROVAL_MODE`     | `server.approvalMode`       | `ui`                      |
+| `GITPROXY_SERVER_SERVICE_URL`       | `server.serviceUrl`         | `https://gitproxy.example.com/dashboard` |
 | `GITPROXY_DATABASE_TYPE`                    | `database.type`                    | `postgres`                |
 | `GITPROXY_DATABASE_URL`                     | `database.url`                     | `jdbc:postgresql://...`   |
 | `GITPROXY_DATABASE_HOST`                    | `database.host`                    | `db.internal`             |

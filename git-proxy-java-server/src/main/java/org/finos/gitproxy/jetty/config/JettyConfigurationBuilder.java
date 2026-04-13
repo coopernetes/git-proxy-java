@@ -133,7 +133,7 @@ public class JettyConfigurationBuilder {
 
     /** Returns the service URL for dashboard links, defaulting to {@code http://localhost:<port>/dashboard}. */
     public String getServiceUrl() {
-        String url = config.getServiceUrl();
+        String url = config.getServer().getServiceUrl();
         return (url != null && !url.isBlank()) ? url : "http://localhost:" + getServerPort() + "/dashboard";
     }
 

@@ -13,7 +13,7 @@ import lombok.Data;
  * <p>Top-level structure:
  *
  * <pre>
- * server:          → {@link ServerConfig}
+ * server:          → {@link ServerConfig}  (includes service-url for dashboard links)
  * database:        → {@link DatabaseConfig}
  * providers:       → Map&lt;name, {@link ProviderConfig}&gt;
  * commit:          → {@link CommitSettings}   (per-commit: identity, author email, message)
@@ -53,13 +53,6 @@ public class GitProxyConfig {
      * When empty, all pushes are permitted (legacy / open mode).
      */
     private List<UserConfig> users = new ArrayList<>();
-
-    /**
-     * Optional service URL for dashboard links embedded in block messages. Should be the base URL of the dashboard
-     * (e.g. {@code https://gitproxy.example.com/dashboard}). Defaults to {@code http://localhost:<port>/dashboard} when
-     * not set.
-     */
-    private String serviceUrl;
 
     /**
      * CONFIG-sourced repo permissions seeded on startup. These supplement (and on restart replace) any permissions with
