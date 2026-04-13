@@ -82,6 +82,7 @@ Strip the `GITPROXY_` prefix, lowercase, and replace `_` with `.` to get the con
 | `GITPROXY_SERVER_SESSIONSTORE`              | `server.session-store`             | `jdbc`                    |
 | `GITPROXY_SERVER_REDIS_HOST`                | `server.redis.host`                | `redis.cluster.local`     |
 | `GITPROXY_SERVER_REDIS_PORT`                | `server.redis.port`                | `6379`                    |
+| `GITPROXY_SERVER_ALLOWEDORIGINS`            | `server.allowed-origins`    | `https://dashboard.example.com` |
 | `GITPROXY_PROVIDERS_GITHUB_ENABLED` | `providers.github.enabled`  | `false`                   |
 | `GITPROXY_PROVIDERS_<NAME>_URI`     | `providers.<name>.uri`      | `https://gitlab.corp.com` |
 
@@ -115,6 +116,14 @@ server:
   # themselves. Set to true to require an explicit REVIEW permission entry for the repo.
   # Use true for deployments that need restricted approvers with formal sign-off.
   require-review-permission: false
+
+  # Origins allowed to make cross-origin requests to the dashboard REST API.
+  # Required when the frontend is served from a different hostname than the backend
+  # (e.g. Vite dev server on port 5173, or a load-balanced dashboard behind a different host).
+  # Default (empty): same-origin only.
+  # allowed-origins:
+  #   - http://localhost:5173
+  #   - https://dashboard.example.com
 
   # HTTP session persistence backend. Controls where authenticated sessions are stored.
   # Options:
@@ -633,25 +642,27 @@ string — `git` or `x-token` are common placeholders.
 
 ### Reloadable sections
 
-| Section | YAML key | What changes take effect |
-|---|---|---|
-| `commit` | `commit:` | Author email rules, message block lists, identity-verification mode |
-| `diff-scan` | `diff-scan:` | Diff content block literals and patterns |
-| `secret-scan` | `secret-scan:` | All gitleaks settings including `inline-config` |
-| `rules` | `rules:` | URL access control allow/deny rules |
-| `permissions` | `permissions:` | Config-sourced user→repo permission grants |
+| Section        | YAML key          | What changes take effect                                             |
+| -------------- | ----------------- | -------------------------------------------------------------------- |
+| `commit`       | `commit:`         | Author email rules, message block lists, identity-verification mode  |
+| `diff-scan`    | `diff-scan:`      | Diff content block literals and patterns                             |
+| `secret-scan`  | `secret-scan:`    | All gitleaks settings including `inline-config`                      |
+| `rules`        | `rules:`          | URL access control allow/deny rules                                  |
+| `permissions`  | `permissions:`    | Config-sourced user→repo permission grants                           |
+| `attestations` | `attestations:`   | Dashboard approval form questions                                    |
 
 Provider, server, and database sections always require a restart.
 
 ### Manual trigger
 
 ```
-POST /api/config/reload             # reload all sections
+POST /api/config/reload                         # reload all sections
 POST /api/config/reload?section=commit          # commit rules only
 POST /api/config/reload?section=diff-scan       # diff scan only
-POST /api/config/reload?section=secret-scan # gitleaks config only
+POST /api/config/reload?section=secret-scan     # gitleaks config only
 POST /api/config/reload?section=rules           # URL rules only
 POST /api/config/reload?section=permissions     # permissions only
+POST /api/config/reload?section=attestations    # attestation questions only
 ```
 
 The dashboard admin panel also provides a section dropdown for manual triggers.
@@ -719,8 +730,17 @@ users register their commit emails; the SCM identity must be registered before a
 users:
   - username: alice
     password-hash: "{bcrypt}$2a$12$..."
+    roles:
+      - ADMIN   # optional; defaults to [USER] if omitted
     emails:
       - alice@example.com
+    # push-usernames: HTTP Basic-auth usernames accepted for this user when pushing.
+    # The proxy username is always implicitly valid; these are additional aliases.
+    # Useful when git clients send a fixed username (e.g. "git") that differs from
+    # the proxy username. Stored internally as SCM identities under the "proxy" provider.
+    push-usernames:
+      - git
+      - alice-bot
     scm-identities:
       - provider: github
         username: alice-gh
@@ -734,7 +754,7 @@ URL rules control which repositories are accessible through the proxy. git-proxy
 rules are configured for a provider, all pushes and fetches to that provider are rejected. At least one allow rule
 must match for a request to proceed.
 
-Slugs, owners, and names support glob patterns (e.g. `finos/*`, `*-public`).
+Slugs, owners, and names support glob patterns (e.g. `finos/*`, `*-public`) and Java regex via a `regex:` prefix.
 
 ```yaml
 rules:
@@ -783,15 +803,150 @@ rules:
 
 ### URL rule properties
 
-| Property     | Type    | Default | Description                                           |
-| ------------ | ------- | ------- | ----------------------------------------------------- |
-| `enabled`    | boolean | `true`  | Whether this entry is active                          |
-| `order`      | int     | —       | Evaluation order (lower = earlier; 50–199 range)      |
-| `operations` | list    | _none_  | `FETCH`, `PUSH` — which operations this entry matches |
-| `providers`  | list    | _all_   | Provider names to scope this entry to                 |
-| `slugs`      | list    | _none_  | `/owner/repo` slugs; supports glob patterns           |
-| `owners`     | list    | _none_  | Owner/org names; supports glob patterns               |
-| `names`      | list    | _none_  | Repository names; supports glob patterns              |
+| Property     | Type    | Default | Description                                                                |
+| ------------ | ------- | ------- | -------------------------------------------------------------------------- |
+| `enabled`    | boolean | `true`  | Whether this entry is active                                               |
+| `order`      | int     | —       | Evaluation order (lower = earlier; first match wins)                       |
+| `operations` | list    | _none_  | `FETCH`, `PUSH` — which operations this entry matches                      |
+| `providers`  | list    | _all_   | Provider names to scope this entry to                                      |
+| `slugs`      | list    | _none_  | `/owner/repo` slugs; supports glob patterns and `regex:` prefix            |
+| `owners`     | list    | _none_  | Owner/org names; supports glob patterns and `regex:` prefix                |
+| `names`      | list    | _none_  | Repository names; supports glob patterns and `regex:` prefix               |
+
+### Pattern matching in rules
+
+All three list fields (`slugs`, `owners`, `names`) support three matching modes:
+
+- **Literal** (default): exact string match
+- **Glob**: patterns using `*` (any characters) and `?` (single character) — e.g. `finos/*`, `*-public`
+- **Regex**: prefix the pattern with `regex:` to use a full Java regular expression — e.g. `regex:(?i)(^|-)secret(-|$).*`
+
+```yaml
+rules:
+  deny:
+    # Block any repo whose name contains "secret" as a distinct word segment
+    - enabled: true
+      order: 50
+      operations:
+        - PUSH
+      names:
+        - "regex:(?i)(^|-)secret(-|$).*"
+
+    # Block GitHub Pages repos (glob on name)
+    - enabled: true
+      order: 51
+      operations:
+        - PUSH
+      providers:
+        - github
+      names:
+        - "*.github.io"
+```
+
+## Permissions
+
+Permissions control which proxy users can push to or review pushes from specific repositories. They are checked
+**after** URL rules: a push that is blocked by a deny rule never reaches the permission check.
+
+Permissions are hot-reloadable (see [Reloadable sections](#reloadable-sections)).
+
+```yaml
+permissions:
+  # LITERAL (default): exact /owner/repo match
+  - username: alice
+    provider: github
+    path: /myorg/myrepo
+    operations: PUSH
+
+  # GLOB: wildcard owner or repo
+  - username: bob
+    provider: gitlab
+    path: /myorg/*
+    path-type: GLOB
+    operations: PUSH_AND_REVIEW
+
+  # REGEX: full Java regex matched against the /owner/repo path
+  - username: carol
+    provider: github
+    path: \/myorg\/service-.*
+    path-type: REGEX
+    operations: REVIEW
+
+  # SELF_CERTIFY: trusted contributor who can approve their own clean pushes.
+  # Requires both this permission entry AND the SELF_CERTIFY role on the user.
+  - username: trusted
+    provider: github
+    path: /myorg/myrepo
+    operations: SELF_CERTIFY
+```
+
+### Permission properties
+
+| Property    | Type   | Default   | Description                                                                                 |
+| ----------- | ------ | --------- | ------------------------------------------------------------------------------------------- |
+| `username`  | string | —         | Proxy username (must match a `users:` entry or a DB user)                                   |
+| `provider`  | string | —         | Provider name as defined in `providers:` config                                             |
+| `path`      | string | —         | Repository path pattern (`/owner/repo`); interpretation depends on `path-type`              |
+| `path-type` | enum   | `LITERAL` | `LITERAL` (exact), `GLOB` (`*`/`?` wildcards), `REGEX` (Java regex against the full path)  |
+| `operations`| enum   | `PUSH`    | What the user may do: `PUSH`, `REVIEW`, `PUSH_AND_REVIEW`, `SELF_CERTIFY`                  |
+
+### Operations
+
+| Value            | Effect                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `PUSH`           | User may push to matching repositories                                                                                    |
+| `REVIEW`         | User may approve or reject pushes submitted by others                                                                     |
+| `PUSH_AND_REVIEW`| Shorthand for both PUSH and REVIEW; does **not** include SELF_CERTIFY                                                    |
+| `SELF_CERTIFY`   | Trusted contributor: may approve their own clean pushes without a peer reviewer. Requires the `SELF_CERTIFY` role as well |
+
+> **`SELF_CERTIFY` is a two-key lock:** the user must have both a `SELF_CERTIFY` permission entry for the repository
+> _and_ the `SELF_CERTIFY` role (set via `users[].roles` or `auth.role-mappings`). Either alone is not sufficient.
+
+## Attestations
+
+Attestation questions are presented to reviewers in the dashboard approval form. All configured questions must be
+answered before the reviewer can submit an approval. Attestations are hot-reloadable.
+
+```yaml
+attestations:
+  - id: reviewed-content
+    type: checkbox
+    label: "I have reviewed the diff and it contains no sensitive or proprietary information"
+    required: true
+
+  - id: policy-compliance
+    type: checkbox
+    label: "This push complies with our open source contribution policy"
+    required: true
+
+  - id: ticket-ref
+    type: text
+    label: "Internal ticket or justification reference"
+    required: false
+
+  - id: risk-level
+    type: dropdown
+    label: "Estimated risk level for this change"
+    options:
+      - Low
+      - Medium
+      - High
+    required: true
+    tooltip: "Select the risk level based on the scope and nature of the change"
+```
+
+### Attestation properties
+
+| Property  | Type    | Default      | Description                                                                  |
+| --------- | ------- | ------------ | ---------------------------------------------------------------------------- |
+| `id`      | string  | —            | Unique key used to store the reviewer's answer in the push record            |
+| `type`    | string  | `checkbox`   | Input type: `checkbox`, `text`, or `dropdown`                                |
+| `label`   | string  | —            | Question text shown in the review form                                       |
+| `required`| boolean | `false`      | Whether the question must be answered before the reviewer can submit         |
+| `options` | list    | _(empty)_    | Choices for `dropdown` type; ignored for other types                         |
+| `tooltip` | string  | _(none)_     | Optional help text shown alongside the question                              |
+
+Set `attestations: []` (or omit the key) to disable attestations entirely.
 
 ## Running
 
