@@ -167,6 +167,10 @@ secret-scan:
 #   {noop}plaintext   — no hashing, for local dev only
 #   {bcrypt}$2a$12$.. — bcrypt; generate with: htpasswd -bnBC 12 "" yourpassword | tr -d ':\n'
 #
+# Enable local auth with a single admin user. Not recommended for production!
+auth:
+  provider: local
+
 users:
  - username: admin
    password-hash: "{noop}admin"

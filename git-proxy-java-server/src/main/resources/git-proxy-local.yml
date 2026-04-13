@@ -17,6 +17,9 @@ server:
 # push-identity-codeberg.sh expects "Identity Not Linked" as the failure scenario.
 #
 # Password format: {noop}plaintext (dev only).
+auth:
+  provider: local
+
 users:
   - username: admin
     password-hash: "{noop}admin"
@@ -130,44 +133,6 @@ rules:
   # also matches, and vice versa.
   #
   # If no allow rules are configured at all, the proxy operates in fail closed mode (all requests denied).
-  allow:
-    - enabled: true
-      order: 10
-      operations:
-        - FETCH
-      providers:
-        - github
-      slugs:
-        - /finos/git-proxy
-        - /coopernetes/git-proxy-java
-        - /coopernetes/test-repo
-    - enabled: true
-      order: 20
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - gitlab
-      slugs:
-        - /coopernetes/test-repo-gitlab
-    - enabled: true
-      order: 30
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - codeberg
-      slugs:
-        - /coopernetes/test-repo-codeberg
-    - enabled: true
-      order: 40
-      operations:
-        - FETCH
-      owners:
-        - finos
-      providers:
-        - github
-
   deny:
     # Guard: never allow pushes to this proxy's own source repository through the proxy.
     # /finos/git-proxy is allowed above (for dev testing), but git-proxy-java itself is not.
@@ -190,3 +155,40 @@ rules:
         - github
       names:
         - "*.github.io"
+  allow:
+    - enabled: true
+      order: 30
+      operations:
+        - FETCH
+      providers:
+        - github
+      slugs:
+        - /finos/git-proxy
+        - /coopernetes/git-proxy-java
+        - /coopernetes/test-repo
+    - enabled: true
+      order: 40
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - gitlab
+      slugs:
+        - /coopernetes/test-repo-gitlab
+    - enabled: true
+      order: 50
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - codeberg
+      slugs:
+        - /coopernetes/test-repo-codeberg
+    - enabled: true
+      order: 60
+      operations:
+        - FETCH
+      owners:
+        - finos
+      providers:
+        - github
