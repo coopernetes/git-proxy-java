@@ -58,28 +58,9 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
             GitProxyProvider provider,
             List<UrlRuleFilter> urlRuleFilters,
             String pathPrefix,
-            FetchStore fetchStore) {
-        this(order, ALL_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore, null);
-    }
-
-    public UrlRuleAggregateFilter(
-            int order,
-            GitProxyProvider provider,
-            List<UrlRuleFilter> urlRuleFilters,
-            String pathPrefix,
             FetchStore fetchStore,
             RepoRegistry repoRegistry) {
         this(order, ALL_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore, repoRegistry);
-    }
-
-    public UrlRuleAggregateFilter(
-            int order,
-            Set<HttpOperation> applicableOperations,
-            GitProxyProvider provider,
-            List<UrlRuleFilter> urlRuleFilters,
-            String pathPrefix,
-            FetchStore fetchStore) {
-        this(order, applicableOperations, provider, urlRuleFilters, pathPrefix, fetchStore, null);
     }
 
     public UrlRuleAggregateFilter(

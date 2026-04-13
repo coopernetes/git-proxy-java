@@ -3,6 +3,7 @@ package org.finos.gitproxy.servlet.filter;
 import java.nio.file.FileSystems;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -19,33 +20,27 @@ import org.finos.gitproxy.provider.GitProxyProvider;
  * <p>Evaluation order:
  *
  * <ol>
- *   <li>Config deny rules — first match returns {@link Result.Denied}.
+ *   <li>Config rules — evaluated in ascending {@code order}, first match wins (allow or deny). This is firewall /
+ *       iptables semantics: a lower-numbered allow rule beats a higher-numbered deny rule and vice versa.
  *   <li>DB deny rules — first match returns {@link Result.Denied}.
- *   <li>If no allow rules are configured anywhere — returns {@link Result.OpenMode} (implicitly allowed).
- *   <li>Config allow rules — first match returns {@link Result.Allowed}.
  *   <li>DB allow rules — first match returns {@link Result.Allowed}.
- *   <li>Allow rules exist but none matched — returns {@link Result.NotAllowed}.
+ *   <li>No rule matched — returns {@link Result.NotAllowed} (fail-closed).
  * </ol>
  *
- * <p>DB rules are fetched once per evaluation (not twice), then split into deny/allow lists in memory.
+ * <p>DB rules are fetched once per evaluation (not twice), then split into deny/allow lists in memory. DB rules do not
+ * carry an {@code order} field and are therefore evaluated after all config rules.
  */
 @Slf4j
 public class UrlRuleEvaluator {
 
     /** Outcome of a single rule evaluation pass. */
-    public sealed interface Result permits Result.Denied, Result.Allowed, Result.OpenMode, Result.NotAllowed {
+    public sealed interface Result permits Result.Denied, Result.Allowed, Result.NotAllowed {
 
         /** A deny rule matched — request must be rejected. */
         record Denied(String ruleId) implements Result {}
 
         /** An allow rule matched — request may proceed. */
         record Allowed(String ruleId) implements Result {}
-
-        /**
-         * No allow rules are configured anywhere (neither config nor DB). The proxy is in open/permissive mode and the
-         * request may proceed.
-         */
-        record OpenMode() implements Result {}
 
         /** Allow rules are configured but none matched — request must be rejected. */
         record NotAllowed() implements Result {}
@@ -58,7 +53,11 @@ public class UrlRuleEvaluator {
     private final GitProxyProvider provider;
 
     public UrlRuleEvaluator(List<UrlRuleFilter> configRules, RepoRegistry repoRegistry, GitProxyProvider provider) {
-        this.configRules = configRules != null ? configRules : List.of();
+        this.configRules = configRules != null
+                ? configRules.stream()
+                        .sorted(Comparator.comparingInt(UrlRuleFilter::getOrder))
+                        .toList()
+                : List.of();
         this.repoRegistry = repoRegistry;
         this.provider = provider;
     }
@@ -79,13 +78,23 @@ public class UrlRuleEvaluator {
                 ? repoRegistry.findEnabledForProvider(provider.getProviderId())
                 : List.of();
 
-        // ── Step 1: deny rules ─────────────────────────────────────────────────
+        // ── Step 1: config rules — single ordered pass, first match wins ───────
         for (UrlRuleFilter f : configRules) {
-            if (f.getAccess() == AccessRule.Access.DENY && f.appliesTo(operation) && f.matchesRepo(slug, owner, name)) {
-                log.debug("Denied by config rule: {}", f);
+            if (!f.appliesTo(operation) || !f.matchesRepo(slug, owner, name)) continue;
+            if (f.getAccess() == AccessRule.Access.DENY) {
+                log.debug("Denied by config rule (order {}): {}", f.getOrder(), f);
                 return new Result.Denied(f.toString());
+            } else {
+                log.debug("Allowed by config rule (order {}): {}", f.getOrder(), f);
+                return new Result.Allowed(f.toString());
             }
         }
+
+        // ── Step 2: DB rules — deny first, then allow ──────────────────────────
+        List<AccessRule> dbAllow = dbRules.stream()
+                .filter(r -> r.getAccess() == AccessRule.Access.ALLOW && operationMatches(r, operation))
+                .toList();
+
         for (AccessRule rule : dbRules) {
             if (rule.getAccess() == AccessRule.Access.DENY
                     && operationMatches(rule, operation)
@@ -95,25 +104,7 @@ public class UrlRuleEvaluator {
             }
         }
 
-        // ── Step 2: allow rules ────────────────────────────────────────────────
-        List<UrlRuleFilter> configAllow = configRules.stream()
-                .filter(f -> f.getAccess() == AccessRule.Access.ALLOW && f.appliesTo(operation))
-                .toList();
-        List<AccessRule> dbAllow = dbRules.stream()
-                .filter(r -> r.getAccess() == AccessRule.Access.ALLOW && operationMatches(r, operation))
-                .toList();
-
-        if (configAllow.isEmpty() && dbAllow.isEmpty()) {
-            log.debug("No allow rules configured for operation {} — open mode", operation);
-            return new Result.OpenMode();
-        }
-
-        for (UrlRuleFilter f : configAllow) {
-            if (f.matchesRepo(slug, owner, name)) {
-                log.debug("Allowed by config rule: {}", f);
-                return new Result.Allowed(f.toString());
-            }
-        }
+        // ── Step 3: allow rules matched ────────────────────────
         for (AccessRule rule : dbAllow) {
             if (matchesRepo(rule, slug, owner, name)) {
                 log.debug("Allowed by DB rule: id={}", rule.getId());

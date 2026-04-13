@@ -1,31 +1,15 @@
-logging:
-  level:
-    org.finos.gitproxy: DEBUG
-
-attestations:
-  - id: reviewed-content
-    type: checkbox
-    label: "I have reviewed the diff and it contains no sensitive or proprietary information"
-    required: true
-  - id: policy-compliance
-    type: checkbox
-    label: "This push complies with our open source contribution policy"
-    required: true
-  - id: ticket-ref
-    type: text
-    label: "Internal ticket or justification reference"
-    required: false
-
 server:
   # Allow the Vite dev server to make cross-origin requests to the backend.
   # Vite defaults to port 5173; adjust if you've changed it.
   allowed-origins:
     - http://localhost:5173
+  # Use default h2 database for local development - save the sessions there as well
   session-store: jdbc
 
-# Three users:
+# Four users:
 #   admin          — ADMIN role, no SCM identity; for dashboard/user-management testing
 #   thomas-cooper  — personal push account linked to real SCM handles (github/gitlab)
+#   trusted        — trusted contributor with SELF_CERTIFY access to approve their own pushes
 #   reviewer       — dummy approve-only account; no SCM identity, used to test
 #                    the approval flow independently of the pusher identity
 #
@@ -50,6 +34,10 @@ users:
       # codeberg intentionally omitted — used to test unresolved-identity scenario
     emails:
       - thomas-cooper@example.com
+
+  - username: trusted
+    password-hash: "{noop}password"
+    roles: [SELF_CERTIFY]
 
   - username: reviewer
     password-hash: "{noop}password"
@@ -87,6 +75,20 @@ diff-scan:
 secret-scan:
   enabled: true
 
+attestations:
+  - id: reviewed-content
+    type: checkbox
+    label: "I have reviewed the diff and it contains no sensitive or proprietary information"
+    required: true
+  - id: policy-compliance
+    type: checkbox
+    label: "This push complies with our open source contribution policy"
+    required: true
+  - id: ticket-ref
+    type: text
+    label: "Internal ticket or justification reference"
+    required: false
+
 # Repo permissions for local dev / smoke testing.
 #
 # thomas-cooper: push access on all allowed repos (exercises LITERAL/GLOB/REGEX).
@@ -109,14 +111,6 @@ permissions:
     path: /coopernetes/test-repo
     operations: PUSH
   - username: thomas-cooper
-    provider: github
-    path: /coopernetes/testing-123
-    operations: PUSH
-  - username: thomas-cooper
-    provider: github
-    path: /coopernetes/git-proxy-java
-    operations: PUSH
-  - username: thomas-cooper
     provider: gitlab
     path: /coopernetes/*
     path-type: GLOB
@@ -126,45 +120,30 @@ permissions:
     path: \/coopernetes\/test\-repo\-([\w]+) # matches /coopernetes/test-repo-codeberg & any test-repo-<something>
     path-type: REGEX
     operations: PUSH
-  - username: reviewer
-    provider: github
-    path: /finos/git-proxy
-    operations: REVIEW
-  - username: reviewer
-    provider: github
-    path: /coopernetes/test-repo
-    operations: REVIEW
-  - username: reviewer
-    provider: github
-    path: /coopernetes/testing-123
-    operations: REVIEW
-  - username: reviewer
-    provider: gitlab
-    path: /coopernetes/*
-    path-type: GLOB
-    operations: REVIEW
-  - username: reviewer
-    provider: codeberg
-    path: /coopernetes/test-repo-codeberg
-    path-type: REGEX
-    operations: REVIEW
 
 rules:
+  # Rules are evaluated like firewall / iptables rules: all allow and deny rules are merged into a
+  # single list sorted by `order` (ascending). The first rule that matches a request wins, regardless
+  # of whether it is an allow or deny rule. Lower order numbers take priority.
+  #
+  # A lower-numbered allow rule will therefore permit a request even if a higher-numbered deny rule
+  # also matches, and vice versa.
+  #
+  # If no allow rules are configured at all, the proxy operates in open mode (all requests pass).
+  # If allow rules exist but none match the request, the request is blocked (fail-closed).
   allow:
     - enabled: true
-      order: 110
+      order: 10
       operations:
         - FETCH
-        - PUSH
       providers:
         - github
       slugs:
         - /finos/git-proxy
         - /coopernetes/git-proxy-java
         - /coopernetes/test-repo
-        - /coopernetes/testing-123
     - enabled: true
-      order: 111
+      order: 20
       operations:
         - FETCH
         - PUSH
@@ -173,7 +152,7 @@ rules:
       slugs:
         - /coopernetes/test-repo-gitlab
     - enabled: true
-      order: 112
+      order: 30
       operations:
         - FETCH
         - PUSH
@@ -182,7 +161,7 @@ rules:
       slugs:
         - /coopernetes/test-repo-codeberg
     - enabled: true
-      order: 120
+      order: 40
       operations:
         - FETCH
       owners:
@@ -194,7 +173,7 @@ rules:
     # Guard: never allow pushes to this proxy's own source repository through the proxy.
     # /finos/git-proxy is allowed above (for dev testing), but git-proxy-java itself is not.
     - enabled: true
-      order: 100
+      order: 10
       operations:
         - PUSH
       providers:
@@ -205,7 +184,7 @@ rules:
     # GitHub Pages repositories are presentation sites — block pushes even if the
     # owner is covered by an allow rule (e.g. a future finos/* allow entry).
     - enabled: true
-      order: 101
+      order: 20
       operations:
         - PUSH
       providers:

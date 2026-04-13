@@ -122,20 +122,14 @@ class UrlRuleFilterTest {
     void urlRule_orderBelowMinimum_throws() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new UrlRuleFilter(49, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
-    }
-
-    @Test
-    void urlRule_orderAboveMaximum_throws() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new UrlRuleFilter(200, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
+                () -> new UrlRuleFilter(0, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
     }
 
     @Test
     void urlRule_validOrder_succeeds() {
-        assertDoesNotThrow(() -> new UrlRuleFilter(50, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
-        assertDoesNotThrow(() -> new UrlRuleFilter(199, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
+        assertDoesNotThrow(() -> new UrlRuleFilter(1, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
+        assertDoesNotThrow(
+                () -> new UrlRuleFilter(Integer.MAX_VALUE, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
     }
 
     @Test

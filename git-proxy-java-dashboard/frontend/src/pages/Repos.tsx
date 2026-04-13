@@ -10,7 +10,7 @@ interface ActiveRepo {
   blockedFetchCount: number
 }
 
-interface AccessRule {
+interface Rule {
   id: string
   provider: string | null
   slug: string | null
@@ -123,7 +123,7 @@ function AddRuleModal({
   onCreated,
 }: {
   onClose: () => void
-  onCreated: (rule: AccessRule) => void
+  onCreated: (rule: Rule) => void
 }) {
   const [form, setForm] = useState<AddRuleForm>(DEFAULT_FORM)
   const [error, setError] = useState<string | null>(null)
@@ -207,7 +207,7 @@ function AddRuleModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-800">Add Access Rule</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Add Rule</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
@@ -388,7 +388,7 @@ function AddRuleModal({
 export function Repos() {
   const [tab, setTab] = useState<Tab>('active')
   const [activeRepos, setActiveRepos] = useState<ActiveRepo[]>([])
-  const [rules, setRules] = useState<AccessRule[]>([])
+  const [rules, setRules] = useState<Rule[]>([])
   const [loadedTab, setLoadedTab] = useState<Tab | null>(null)
   const [showAddRule, setShowAddRule] = useState(false)
   const [providers, setProviders] = useState<{ name: string; id: string; host: string }[]>([])
@@ -442,7 +442,7 @@ export function Repos() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t === 'active' ? 'Active' : 'Access Rules'}
+              {t === 'active' ? 'Active' : 'Rules'}
             </button>
           ))}
         </div>
@@ -508,11 +508,11 @@ export function Repos() {
         </>
       )}
 
-      {/* Access rules tab */}
+      {/* Rules tab */}
       {!loading && tab === 'rules' && (
         <>
           {rules.length === 0 ? (
-            <p className="text-sm text-gray-400">No access rules configured.</p>
+            <p className="text-sm text-gray-400">No rules configured.</p>
           ) : (
             <div className="space-y-2">
               {rules.map((rule) => (

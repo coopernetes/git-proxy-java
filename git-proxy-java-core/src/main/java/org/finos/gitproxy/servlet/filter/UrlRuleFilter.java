@@ -45,9 +45,7 @@ public class UrlRuleFilter extends AbstractProviderAwareGitProxyFilter {
 
     private static final String REGEX_PREFIX = "regex:";
 
-    // URL rule filters must be in the authorization range 50-199
-    private static final int MIN_ORDER = 50;
-    private static final int MAX_ORDER = 199;
+    private static final int MIN_ORDER = 1;
 
     @Getter
     private final AccessRule.Access access;
@@ -122,10 +120,8 @@ public class UrlRuleFilter extends AbstractProviderAwareGitProxyFilter {
     }
 
     private static int validateOrder(int order) {
-        if (order < MIN_ORDER || order > MAX_ORDER) {
-            throw new IllegalArgumentException(String.format(
-                    "UrlRuleFilter order must be in the authorization range %d-%d (inclusive), but was %d",
-                    MIN_ORDER, MAX_ORDER, order));
+        if (order < MIN_ORDER) {
+            throw new IllegalArgumentException("UrlRuleFilter order must be >= " + MIN_ORDER + ", but was " + order);
         }
         return order;
     }
