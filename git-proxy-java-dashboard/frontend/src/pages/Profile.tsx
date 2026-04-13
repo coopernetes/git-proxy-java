@@ -145,12 +145,20 @@ export function Profile() {
                   : label === 'SELF_CERTIFY'
                     ? 'bg-amber-100 text-amber-700'
                     : 'bg-gray-100 text-gray-600'
+              const isSelfCertify = label === 'SELF_CERTIFY'
               return (
-                <span
-                  key={a}
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colour}`}
-                >
-                  {label}
+                <span key={a} className="relative group inline-flex">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colour}`}
+                  >
+                    {label}
+                  </span>
+                  {isSelfCertify && (
+                    <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 rounded bg-gray-800 px-2 py-1.5 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      This role allows you to self-approve your own pushes, but an admin must also grant the Self-certify permission on each individual repository.
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                    </span>
+                  )}
                 </span>
               )
             })}
