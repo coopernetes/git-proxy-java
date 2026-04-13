@@ -398,6 +398,7 @@ public class SecurityConfig {
                     .registrationId("gitproxy")
                     .clientId(oidcCfg.getClientId())
                     .scope("openid", "profile", "email")
+                    .userNameAttributeName(oidcCfg.getUserNameAttribute())
                     .clientAuthenticationMethod(authMethod);
             if (!usePrivateKeyJwt) {
                 builder.clientSecret(oidcCfg.getClientSecret());
@@ -520,10 +521,16 @@ public class SecurityConfig {
             @Override
             public OidcUser loadUser(OidcUserRequest userRequest) {
                 OidcUser oidcUser = super.loadUser(userRequest);
+                String nameAttributeKey = userRequest
+                        .getClientRegistration()
+                        .getProviderDetails()
+                        .getUserInfoEndpoint()
+                        .getUserNameAttributeName();
                 if (roleMappings.isEmpty()) {
                     Set<GrantedAuthority> authorities = new LinkedHashSet<>(oidcUser.getAuthorities());
                     authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-                    return new DefaultOidcUser(authorities, oidcUser.getIdToken(), oidcUser.getUserInfo());
+                    return new DefaultOidcUser(
+                            authorities, oidcUser.getIdToken(), oidcUser.getUserInfo(), nameAttributeKey);
                 }
                 List<String> groups = oidcUser.getClaimAsStringList(groupsClaim);
                 if (groups == null) groups = List.of();
@@ -543,7 +550,8 @@ public class SecurityConfig {
                             new OAuth2Error("access_denied"),
                             "Access not granted: your account is not a member of any authorised group");
                 }
-                return new DefaultOidcUser(authorities, oidcUser.getIdToken(), oidcUser.getUserInfo());
+                return new DefaultOidcUser(
+                        authorities, oidcUser.getIdToken(), oidcUser.getUserInfo(), nameAttributeKey);
             }
         };
     }

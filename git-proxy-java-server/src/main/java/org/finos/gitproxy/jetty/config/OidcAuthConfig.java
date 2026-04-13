@@ -55,9 +55,6 @@ public class OidcAuthConfig {
     /**
      * JWT claim used as the principal name (username). Defaults to {@code sub}, which is always present in OIDC tokens.
      * Set to {@code preferred_username} for providers that populate it (e.g. Entra ID, Keycloak).
-     *
-     * <p>Only applies when {@code jwk-set-uri} is set (manual endpoint registration). When using auto-discovery via
-     * {@code issuer-uri} alone, the claim is determined from the provider's discovery document.
      */
     private String userNameAttribute = "sub";
 
