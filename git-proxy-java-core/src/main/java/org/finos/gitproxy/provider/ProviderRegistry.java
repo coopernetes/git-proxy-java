@@ -1,13 +1,14 @@
 package org.finos.gitproxy.provider;
 
 import java.util.List;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 
 /**
  * Registry of configured git proxy providers. Keyed by the friendly name used as the config map key (e.g.
  * {@code github}, {@code internal-gitlab}), independent of the internal {@code type/host} provider ID used for request
  * routing.
  *
- * <p>Consistent with {@link org.finos.gitproxy.db.RepoRegistry} — a lookup/discovery mechanism, not a CRUD store.
+ * <p>Consistent with {@link UrlRuleRegistry} — a lookup/discovery mechanism, not a CRUD store.
  */
 public interface ProviderRegistry {
 

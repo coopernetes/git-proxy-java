@@ -186,26 +186,30 @@ class JettyConfigurationBuilderTest {
         assertNull(rules.get(0).getProvider()); // null = all providers
     }
 
-    // ---- buildUrlRuleFilters — friendly name scoping (#127) ----
+    // ---- buildConfigRules — friendly name scoping (#127) ----
 
     @Test
-    void buildUrlRuleFilters_friendlyName_includesRuleForMatchingProvider() {
+    void buildConfigRules_friendlyName_producesRuleWithGithubProviderId() {
         var config = configWithGithub();
         var ruleConfig = new RuleConfig();
-        ruleConfig.setOrder(110); // must be 50-199 for UrlRuleFilter
+        ruleConfig.setOrder(110);
         ruleConfig.setProviders(List.of("github")); // friendly name
         ruleConfig.setSlugs(List.of("/org/repo"));
         config.getRules().setAllow(List.of(ruleConfig));
 
         var builder = new JettyConfigurationBuilder(config);
-        var githubProvider = builder.buildProviderRegistry().getProvider("github");
-        var filters = builder.buildUrlRuleFilters(githubProvider);
+        var githubProviderId =
+                builder.buildProviderRegistry().getProvider("github").getProviderId();
+        var rules = builder.buildConfigRules();
 
-        assertFalse(filters.isEmpty(), "rule scoped to 'github' should produce a filter for the GitHub provider");
+        assertFalse(rules.isEmpty(), "rule scoped to 'github' should produce at least one AccessRule");
+        assertTrue(
+                rules.stream().anyMatch(r -> githubProviderId.equals(r.getProvider())),
+                "rule should be scoped to the GitHub provider ID");
     }
 
     @Test
-    void buildUrlRuleFilters_friendlyName_excludesRuleForDifferentProvider() {
+    void buildConfigRules_friendlyName_doesNotProduceRuleForOtherProvider() {
         var config = configWithGithubAndGitlab();
         var ruleConfig = new RuleConfig();
         ruleConfig.setOrder(110);
@@ -214,10 +218,13 @@ class JettyConfigurationBuilderTest {
         config.getRules().setAllow(List.of(ruleConfig));
 
         var builder = new JettyConfigurationBuilder(config);
-        var gitlabProvider = builder.buildProviderRegistry().getProvider("gitlab");
-        var filters = builder.buildUrlRuleFilters(gitlabProvider);
+        var gitlabProviderId =
+                builder.buildProviderRegistry().getProvider("gitlab").getProviderId();
+        var rules = builder.buildConfigRules();
 
-        assertTrue(filters.isEmpty(), "rule scoped to 'github' should not produce a filter for the GitLab provider");
+        assertTrue(
+                rules.stream().noneMatch(r -> gitlabProviderId.equals(r.getProvider())),
+                "rule scoped to 'github' should not produce a rule for the GitLab provider");
     }
 
     // ---- helpers ----

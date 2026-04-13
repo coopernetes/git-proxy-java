@@ -14,11 +14,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
@@ -105,195 +103,6 @@ class UrlRuleFilterTest {
         return req;
     }
 
-    private GitRequestDetails makeDetails(String owner, String name, String slug) {
-        GitRequestDetails details = new GitRequestDetails();
-        details.setOperation(HttpOperation.PUSH);
-        details.setRepoRef(GitRequestDetails.RepoRef.builder()
-                .owner(owner)
-                .name(name)
-                .slug(slug)
-                .build());
-        return details;
-    }
-
-    // --- UrlRuleFilter ---
-
-    @Test
-    void urlRule_orderBelowMinimum_throws() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new UrlRuleFilter(0, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
-    }
-
-    @Test
-    void urlRule_validOrder_succeeds() {
-        assertDoesNotThrow(() -> new UrlRuleFilter(1, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
-        assertDoesNotThrow(
-                () -> new UrlRuleFilter(Integer.MAX_VALUE, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER));
-    }
-
-    @Test
-    void urlRule_matchesRepo_ownerMatch() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("allowed-owner"), UrlRuleFilter.Target.OWNER);
-        assertTrue(filter.matchesRepo("allowed-owner/repo", "allowed-owner", "repo"));
-        assertFalse(filter.matchesRepo("other-owner/repo", "other-owner", "repo"));
-    }
-
-    @Test
-    void urlRule_matchesRepo_nameMatch() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("my-repo"), UrlRuleFilter.Target.NAME);
-        assertTrue(filter.matchesRepo("owner/my-repo", "owner", "my-repo"));
-        assertFalse(filter.matchesRepo("owner/other-repo", "owner", "other-repo"));
-    }
-
-    @Test
-    void urlRule_matchesRepo_slugMatch() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG);
-        assertTrue(filter.matchesRepo("/owner/repo", "owner", "repo"));
-    }
-
-    @Test
-    void urlRule_matchesRepo_globOwner() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("open-source-*"), UrlRuleFilter.Target.OWNER);
-        assertTrue(filter.matchesRepo("open-source-org/repo", "open-source-org", "repo"));
-        assertFalse(filter.matchesRepo("other-org/repo", "other-org", "repo"));
-    }
-
-    @Test
-    void urlRule_matchesRepo_globSlug() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("/*/public-*"), UrlRuleFilter.Target.SLUG);
-        assertTrue(filter.matchesRepo("/owner/public-api", "owner", "public-api"));
-        assertFalse(filter.matchesRepo("/owner/private-repo", "owner", "private-repo"));
-    }
-
-    @Test
-    void urlRule_matchesRepo_globName() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("feature-*"), UrlRuleFilter.Target.NAME);
-        assertTrue(filter.matchesRepo("/owner/feature-xyz", "owner", "feature-xyz"));
-    }
-
-    @Test
-    void urlRule_matchesRepo_regexOwner() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("regex:^(myorg|partnerorg)$"), UrlRuleFilter.Target.OWNER);
-        assertTrue(filter.matchesRepo("myorg/repo", "myorg", "repo"));
-        assertFalse(filter.matchesRepo("other-org/repo", "other-org", "repo"));
-    }
-
-    @Test
-    void urlRule_matchesRepo_regexSlug() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("regex:/myorg/.*"), UrlRuleFilter.Target.SLUG);
-        assertTrue(filter.matchesRepo("/myorg/any-repo", "myorg", "any-repo"));
-    }
-
-    @Test
-    void urlRule_beanName_includesProviderAndTargetAndOrder() {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER);
-        String name = filter.beanName();
-        assertTrue(name.contains("github"));
-        assertTrue(name.contains("OWNER"));
-        assertTrue(name.contains("100"));
-    }
-
-    @Test
-    void urlRule_doHttpFilter_isNoOp() throws Exception {
-        var filter = new UrlRuleFilter(100, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER);
-        GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        filter.doHttpFilter(mockPushRequest(details), resp.mock);
-
-        assertFalse(resp.committed.get(), "doHttpFilter on UrlRuleFilter should be no-op");
-    }
-
-    // --- UrlRuleAggregateFilter ---
-
-    @Test
-    void urlRuleAggregate_orderBelowMinimum_throws() {
-        assertThrows(IllegalArgumentException.class, () -> new UrlRuleAggregateFilter(49, GITHUB, List.of()));
-    }
-
-    @Test
-    void urlRuleAggregate_ruleMatches_passes() throws Exception {
-        var ownerFilter = new UrlRuleFilter(100, GITHUB, List.of("owner"), UrlRuleFilter.Target.OWNER);
-        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(ownerFilter));
-        GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
-
-        assertFalse(resp.committed.get(), "Request matching an allow rule should pass");
-    }
-
-    @Test
-    void urlRuleAggregate_noRuleMatch_blocks() throws Exception {
-        var ownerFilter = new UrlRuleFilter(100, GITHUB, List.of("allowed"), UrlRuleFilter.Target.OWNER);
-        var aggregate = new UrlRuleAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of(ownerFilter));
-        GitRequestDetails details = makeDetails("not-allowed", "repo", "/not-allowed/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
-
-        assertTrue(resp.committed.get(), "Request not matching any allow rule should be blocked");
-    }
-
-    @Test
-    void urlRuleAggregate_emptyRules_blocks() throws Exception {
-        var aggregate = new UrlRuleAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of());
-        GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
-
-        assertTrue(resp.committed.get(), "No allow rules configured — default-deny should block all requests");
-    }
-
-    @Test
-    void urlRuleAggregate_denyRuleMatches_blocks() throws Exception {
-        var denyFilter = new UrlRuleFilter(
-                100, GITHUB, List.of("blocked-owner"), UrlRuleFilter.Target.OWNER, AccessRule.Access.DENY);
-        var allowFilter = new UrlRuleFilter(100, GITHUB, List.of("blocked-owner"), UrlRuleFilter.Target.OWNER);
-        var aggregate =
-                new UrlRuleAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of(denyFilter, allowFilter));
-        GitRequestDetails details = makeDetails("blocked-owner", "repo", "/blocked-owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
-
-        assertTrue(resp.committed.get(), "Deny rule should block even when allow rule also matches");
-    }
-
-    @Test
-    void urlRuleAggregate_denyRuleNoMatch_allowRuleMatches_passes() throws Exception {
-        var denyFilter = new UrlRuleFilter(
-                100, GITHUB, List.of("blocked-owner"), UrlRuleFilter.Target.OWNER, AccessRule.Access.DENY);
-        var allowFilter = new UrlRuleFilter(100, GITHUB, List.of("allowed-owner"), UrlRuleFilter.Target.OWNER);
-        var aggregate =
-                new UrlRuleAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of(denyFilter, allowFilter));
-        GitRequestDetails details = makeDetails("allowed-owner", "repo", "/allowed-owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
-
-        assertFalse(resp.committed.get(), "Non-denied, allowed request should pass");
-    }
-
-    @Test
-    void urlRuleAggregate_denyRulesOnly_nonMatchedBlocks() throws Exception {
-        var denyFilter = new UrlRuleFilter(
-                100, GITHUB, List.of("blocked-owner"), UrlRuleFilter.Target.OWNER, AccessRule.Access.DENY);
-        var aggregate = new UrlRuleAggregateFilter(50, Set.of(HttpOperation.PUSH), GITHUB, List.of(denyFilter));
-        GitRequestDetails details = makeDetails("other-owner", "repo", "/other-owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
-
-        assertTrue(
-                resp.committed.get(),
-                "No allow rules configured — default-deny blocks even requests that miss deny rules");
-    }
-
-    // --- /info/refs blocking ---
-
     private HttpServletRequest mockInfoRefsRequest(GitRequestDetails details, String service) throws IOException {
         Map<String, Object> attrs = new HashMap<>();
         attrs.put(GIT_REQUEST_ATTR, details);
@@ -301,7 +110,6 @@ class UrlRuleFilterTest {
         when(req.getMethod()).thenReturn("GET");
         when(req.getContentType()).thenReturn(null);
         when(req.getRequestURI()).thenReturn("/proxy/github.com/owner/repo.git/info/refs");
-        when(req.getPathInfo()).thenReturn("/owner/repo.git/info/refs");
         when(req.getQueryString()).thenReturn("service=" + service);
         when(req.getParameter("service")).thenReturn(service);
         when(req.getAttribute(GIT_REQUEST_ATTR)).thenReturn(details);
@@ -316,10 +124,9 @@ class UrlRuleFilterTest {
         return req;
     }
 
-    private GitRequestDetails makeInfoDetails(String owner, String name, String slug) {
+    private GitRequestDetails makeDetails(String owner, String name, String slug) {
         GitRequestDetails details = new GitRequestDetails();
-        details.setOperation(HttpOperation.INFO);
-        details.setResult(GitRequestDetails.GitResult.ALLOWED); // ParseGitRequestFilter sets this
+        details.setOperation(HttpOperation.PUSH);
         details.setRepoRef(GitRequestDetails.RepoRef.builder()
                 .owner(owner)
                 .name(name)
@@ -328,9 +135,144 @@ class UrlRuleFilterTest {
         return details;
     }
 
+    private GitRequestDetails makeInfoDetails(String owner, String name, String slug) {
+        GitRequestDetails details = new GitRequestDetails();
+        details.setOperation(HttpOperation.INFO);
+        details.setResult(GitRequestDetails.GitResult.ALLOWED);
+        details.setRepoRef(GitRequestDetails.RepoRef.builder()
+                .owner(owner)
+                .name(name)
+                .slug(slug)
+                .build());
+        return details;
+    }
+
+    private UrlRuleAggregateFilter aggregateWith(AccessRule... rules) {
+        var registry = new InMemoryUrlRuleRegistry();
+        for (AccessRule r : rules) registry.save(r);
+        return new UrlRuleAggregateFilter(50, GITHUB, registry);
+    }
+
+    // --- UrlRuleAggregateFilter ---
+
     @Test
-    void infoRefs_uploadPack_noAllowRule_returns403() throws Exception {
-        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of());
+    void aggregate_orderBelowMinimum_throws() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new UrlRuleAggregateFilter(49, GITHUB, new InMemoryUrlRuleRegistry()));
+    }
+
+    @Test
+    void aggregate_ruleMatches_passes() throws Exception {
+        var aggregate = aggregateWith(AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("owner")
+                .build());
+        GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
+
+        assertFalse(resp.committed.get(), "Request matching an allow rule should pass");
+    }
+
+    @Test
+    void aggregate_noRuleMatch_blocks() throws Exception {
+        var aggregate = aggregateWith(AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("allowed")
+                .build());
+        GitRequestDetails details = makeDetails("not-allowed", "repo", "/not-allowed/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
+
+        assertTrue(resp.committed.get(), "Request not matching any allow rule should be blocked");
+    }
+
+    @Test
+    void aggregate_emptyRules_blocks() throws Exception {
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, new InMemoryUrlRuleRegistry());
+        GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
+
+        assertTrue(resp.committed.get(), "No rules configured — fail-closed should block");
+    }
+
+    @Test
+    void aggregate_denyAtLowerOrder_blocksEvenWithAllowRule() throws Exception {
+        var deny = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("blocked-owner")
+                .build();
+        var allow = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("blocked-owner")
+                .build();
+        var aggregate = aggregateWith(deny, allow);
+        GitRequestDetails details = makeDetails("blocked-owner", "repo", "/blocked-owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
+
+        assertTrue(resp.committed.get(), "Lower-order deny rule wins over higher-order allow rule");
+    }
+
+    @Test
+    void aggregate_allowAtLowerOrder_passesEvenWithDenyRule() throws Exception {
+        var allow = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("allowed-owner")
+                .build();
+        var deny = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("allowed-owner")
+                .build();
+        var aggregate = aggregateWith(allow, deny);
+        GitRequestDetails details = makeDetails("allowed-owner", "repo", "/allowed-owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
+
+        assertFalse(resp.committed.get(), "Lower-order allow rule wins over higher-order deny rule");
+    }
+
+    @Test
+    void aggregate_denyOnlyRules_nonMatchedBlocks() throws Exception {
+        var deny = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("blocked-owner")
+                .build();
+        var aggregate = aggregateWith(deny);
+        GitRequestDetails details = makeDetails("other-owner", "repo", "/other-owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockPushRequest(details), resp.mock);
+
+        assertTrue(resp.committed.get(), "No allow rules — fail-closed blocks unmatched requests");
+    }
+
+    // --- /info/refs blocking ---
+
+    @Test
+    void infoRefs_noAllowRule_returns403() throws Exception {
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, new InMemoryUrlRuleRegistry());
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
@@ -341,10 +283,13 @@ class UrlRuleFilterTest {
     }
 
     @Test
-    void infoRefs_uploadPack_allowedByRule_passes() throws Exception {
-        var allowFilter = new UrlRuleFilter(
-                100, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG, AccessRule.Access.ALLOW);
-        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(allowFilter));
+    void infoRefs_allowedByRule_passes() throws Exception {
+        var aggregate = aggregateWith(AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .slug("/owner/repo")
+                .build());
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
@@ -355,34 +300,43 @@ class UrlRuleFilterTest {
     }
 
     @Test
-    void infoRefs_uploadPack_pushOnlyDenyRule_doesNotBlock() throws Exception {
-        // A PUSH-only deny rule must not block a FETCH /info/refs (clone/fetch).
-        var pushDeny = new UrlRuleFilter(
-                100,
-                Set.of(HttpOperation.PUSH),
-                GITHUB,
-                List.of("/owner/repo"),
-                UrlRuleFilter.Target.SLUG,
-                AccessRule.Access.DENY);
-        var allowFilter = new UrlRuleFilter(
-                101, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG, AccessRule.Access.ALLOW);
-        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(pushDeny, allowFilter));
+    void infoRefs_pushOnlyDenyRule_doesNotBlockFetchInfoRefs() throws Exception {
+        var pushDeny = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.PUSH)
+                .slug("/owner/repo")
+                .build();
+        var fetchAllow = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .slug("/owner/repo")
+                .build();
+        var aggregate = aggregateWith(pushDeny, fetchAllow);
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
 
         verify(resp.mock, never()).sendError(anyInt());
-        assertEquals(GitRequestDetails.GitResult.ALLOWED, details.getResult());
     }
 
     @Test
     void infoRefs_receivePack_deniedByRule_returns403() throws Exception {
-        var denyFilter = new UrlRuleFilter(
-                100, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG, AccessRule.Access.DENY);
-        var allowFilter = new UrlRuleFilter(
-                101, GITHUB, List.of("/owner/repo"), UrlRuleFilter.Target.SLUG, AccessRule.Access.ALLOW);
-        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(denyFilter, allowFilter));
+        var deny = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .slug("/owner/repo")
+                .build();
+        var allow = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .slug("/owner/repo")
+                .build();
+        var aggregate = aggregateWith(deny, allow);
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
@@ -400,46 +354,12 @@ class UrlRuleFilterTest {
                 .basePath("/proxy")
                 .blockedInfoRefsStatus(404)
                 .build();
-        var aggregate = new UrlRuleAggregateFilter(50, provider, List.of());
+        var aggregate = new UrlRuleAggregateFilter(50, provider, new InMemoryUrlRuleRegistry());
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
 
         verify(resp.mock).sendError(404);
-    }
-
-    @Test
-    void infoRefs_registryDenyRule_returns403() throws Exception {
-        RepoRegistry registry = mock(RepoRegistry.class);
-        var denyRule = AccessRule.builder()
-                .slug("/owner/repo")
-                .access(AccessRule.Access.DENY)
-                .build();
-        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(denyRule));
-        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(), null, null, registry);
-        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
-
-        verify(resp.mock).sendError(403);
-    }
-
-    @Test
-    void infoRefs_registryAllowRule_passes() throws Exception {
-        RepoRegistry registry = mock(RepoRegistry.class);
-        var allowRule = AccessRule.builder()
-                .slug("/owner/repo")
-                .access(AccessRule.Access.ALLOW)
-                .build();
-        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(allowRule));
-        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, List.of(), null, null, registry);
-        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
-        FakeResponse resp = new FakeResponse();
-
-        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
-
-        verify(resp.mock, never()).sendError(anyInt());
     }
 }

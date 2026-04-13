@@ -23,6 +23,8 @@ import org.finos.gitproxy.config.GpgConfig;
 import org.finos.gitproxy.config.SecretScanConfig;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.PushStoreFactory;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
+import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.git.*;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.finos.gitproxy.provider.GenericProxyProvider;
@@ -86,18 +88,9 @@ class JettyProxyFixture implements AutoCloseable {
     /**
      * Create a fixture with URL allow/deny rules enforced on both the transparent proxy path and the store-and-forward
      * path. Uses auto-approve for the approval gateway so that allowed pushes go through without a review step.
-     *
-     * @param urlRuleFilters config-based allow/deny rules — mirrors what {@code rules.allow/deny} in git-proxy.yml
-     *     produces via {@code JettyConfigurationBuilder.buildUrlRuleFilters()}
      */
-    JettyProxyFixture(URI giteaUri, List<UrlRuleFilter> urlRuleFilters) throws Exception {
-        this(
-                giteaUri,
-                AutoApprovalGateway::new,
-                null,
-                null,
-                CommitConfig.IdentityVerificationMode.WARN,
-                urlRuleFilters);
+    JettyProxyFixture(URI giteaUri, List<AccessRule> configRules) throws Exception {
+        this(giteaUri, AutoApprovalGateway::new, null, null, CommitConfig.IdentityVerificationMode.WARN, configRules);
     }
 
     /** Create a fixture with identity and permission filters enabled, using an explicit identity verification mode. */
@@ -118,7 +111,7 @@ class JettyProxyFixture implements AutoCloseable {
             PushIdentityResolver identityResolver,
             RepoPermissionService permissionService,
             CommitConfig.IdentityVerificationMode identityVerificationMode,
-            List<UrlRuleFilter> urlRuleFilters)
+            List<AccessRule> configRules)
             throws Exception {
         server = new Server();
         var connector = new ServerConnector(server);
@@ -139,12 +132,14 @@ class JettyProxyFixture implements AutoCloseable {
         var commitConfig = buildCommitConfig();
         var context = new ServletContextHandler("/", false, false);
 
+        var urlRuleRegistry = new InMemoryUrlRuleRegistry();
+        configRules.forEach(urlRuleRegistry::save);
+
         // Store-and-forward GitServlet on /push/...
         var resolver = new StoreAndForwardRepositoryResolver(storeForwardCache, provider);
         var gitServlet = new GitServlet();
         gitServlet.setRepositoryResolver(resolver);
         var approvalGateway = new AutoApproveGateway(pushStore);
-        // Wire URL rules into S&F — null repoRegistry means config rules only (no DB rules in tests)
         gitServlet.setReceivePackFactory(new StoreAndForwardReceivePackFactory(
                 provider,
                 () -> commitConfig,
@@ -157,8 +152,7 @@ class JettyProxyFixture implements AutoCloseable {
                 approvalGateway,
                 null,
                 Duration.ofSeconds(30),
-                urlRuleFilters,
-                null));
+                urlRuleRegistry));
         gitServlet.setUploadPackFactory(new StoreAndForwardUploadPackFactory());
 
         String pushServletPath = PUSH_PREFIX + provider.servletPath();
@@ -191,10 +185,7 @@ class JettyProxyFixture implements AutoCloseable {
         addFilter(context, proxyMapping, new ParseGitRequestFilter(provider, PROXY_PREFIX));
         addFilter(context, proxyMapping, new EnrichPushCommitsFilter(provider, proxyCache, PROXY_PREFIX));
         addFilter(context, proxyMapping, new AllowApprovedPushFilter(pushStore, serviceUrl));
-        if (!urlRuleFilters.isEmpty()) {
-            // null repoRegistry — config rules only, no DB rules in tests
-            addFilter(context, proxyMapping, new UrlRuleAggregateFilter(100, provider, urlRuleFilters, PROXY_PREFIX));
-        }
+        addFilter(context, proxyMapping, new UrlRuleAggregateFilter(100, provider, PROXY_PREFIX, urlRuleRegistry));
         if (identityResolver != null && permissionService != null) {
             addFilter(context, proxyMapping, new CheckUserPushPermissionFilter(identityResolver, permissionService));
             addFilter(

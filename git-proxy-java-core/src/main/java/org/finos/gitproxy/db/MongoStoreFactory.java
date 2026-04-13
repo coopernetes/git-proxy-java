@@ -4,7 +4,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import org.finos.gitproxy.db.mongo.MongoFetchStore;
 import org.finos.gitproxy.db.mongo.MongoPushStore;
-import org.finos.gitproxy.db.mongo.MongoRepoRegistry;
+import org.finos.gitproxy.db.mongo.MongoUrlRuleRegistry;
 import org.finos.gitproxy.permission.MongoRepoPermissionStore;
 import org.finos.gitproxy.permission.RepoPermissionStore;
 import org.finos.gitproxy.user.MongoUserStore;
@@ -39,9 +39,9 @@ public final class MongoStoreFactory implements AutoCloseable {
         return store;
     }
 
-    /** Create and initialize a {@link RepoRegistry} backed by this factory's client. */
-    public RepoRegistry repoRegistry() {
-        MongoRepoRegistry store = new MongoRepoRegistry(client, databaseName);
+    /** Create and initialize a {@link UrlRuleRegistry} backed by this factory's client. */
+    public UrlRuleRegistry repoRegistry() {
+        MongoUrlRuleRegistry store = new MongoUrlRuleRegistry(client, databaseName);
         store.initialize();
         return store;
     }

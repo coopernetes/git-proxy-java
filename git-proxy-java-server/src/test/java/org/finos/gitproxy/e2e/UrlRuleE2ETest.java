@@ -8,10 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import org.finos.gitproxy.db.model.AccessRule;
-import org.finos.gitproxy.git.HttpOperation;
-import org.finos.gitproxy.servlet.filter.UrlRuleFilter;
 import org.junit.jupiter.api.*;
 
 /**
@@ -303,8 +300,7 @@ class UrlRuleE2ETest {
     // ── Rule set — mirrors docker/git-proxy-docker-default.yml ───────────────
 
     /**
-     * Builds the URL rule set used by this test class. The provider reference is needed so that each
-     * {@link UrlRuleFilter} is correctly scoped to the test Gitea provider.
+     * Builds the URL rule set used by this test class.
      *
      * <p>Rule structure (matches the docker-default config):
      *
@@ -312,59 +308,41 @@ class UrlRuleE2ETest {
      *   <li>DENY order=100: slug {@code /otherorg/other-secret} — BOTH
      *   <li>DENY order=101: name glob {@code *-readonly} — PUSH only
      *   <li>DENY order=102: name regex {@code (?i)(^|-)secret(-|$).*} — PUSH only
-     *   <li>ALLOW order=110: slugs {@code /test-owner/test-repo} — BOTH
+     *   <li>ALLOW order=110: slug {@code /test-owner/test-repo} — BOTH
      *   <li>ALLOW order=111: owner {@code otherorg} — BOTH
      * </ol>
      */
-    private static List<UrlRuleFilter> buildRules(java.net.URI giteaUri) {
-        // We need a provider instance for UrlRuleFilter construction.
-        var provider = org.finos.gitproxy.provider.GenericProxyProvider.builder()
-                .name("gitea-e2e")
-                .uri(giteaUri)
-                .basePath("")
-                .build();
-
-        var bothOps = Set.of(HttpOperation.PUSH, HttpOperation.FETCH);
-        var pushOnly = Set.of(HttpOperation.PUSH);
-
+    private static List<AccessRule> buildRules(java.net.URI giteaUri) {
         return List.of(
-                // Deny rules (evaluated before allow rules, lower order = higher priority)
-                new UrlRuleFilter(
-                        100,
-                        bothOps,
-                        provider,
-                        List.of("/otherorg/other-secret"),
-                        UrlRuleFilter.Target.SLUG,
-                        AccessRule.Access.DENY),
-                new UrlRuleFilter(
-                        101,
-                        pushOnly,
-                        provider,
-                        List.of("*-readonly"),
-                        UrlRuleFilter.Target.NAME,
-                        AccessRule.Access.DENY),
-                new UrlRuleFilter(
-                        102,
-                        pushOnly,
-                        provider,
-                        List.of("regex:(?i)(^|-)secret(-|$).*"),
-                        UrlRuleFilter.Target.NAME,
-                        AccessRule.Access.DENY),
-
-                // Allow rules
-                new UrlRuleFilter(
-                        110,
-                        bothOps,
-                        provider,
-                        List.of("/test-owner/test-repo"),
-                        UrlRuleFilter.Target.SLUG,
-                        AccessRule.Access.ALLOW),
-                new UrlRuleFilter(
-                        111,
-                        bothOps,
-                        provider,
-                        List.of("otherorg"),
-                        UrlRuleFilter.Target.OWNER,
-                        AccessRule.Access.ALLOW));
+                AccessRule.builder()
+                        .ruleOrder(100)
+                        .access(AccessRule.Access.DENY)
+                        .operations(AccessRule.Operations.BOTH)
+                        .slug("/otherorg/other-secret")
+                        .build(),
+                AccessRule.builder()
+                        .ruleOrder(101)
+                        .access(AccessRule.Access.DENY)
+                        .operations(AccessRule.Operations.PUSH)
+                        .name("*-readonly")
+                        .build(),
+                AccessRule.builder()
+                        .ruleOrder(102)
+                        .access(AccessRule.Access.DENY)
+                        .operations(AccessRule.Operations.PUSH)
+                        .name("regex:(?i)(^|-)secret(-|$).*")
+                        .build(),
+                AccessRule.builder()
+                        .ruleOrder(110)
+                        .access(AccessRule.Access.ALLOW)
+                        .operations(AccessRule.Operations.BOTH)
+                        .slug("/test-owner/test-repo")
+                        .build(),
+                AccessRule.builder()
+                        .ruleOrder(111)
+                        .access(AccessRule.Access.ALLOW)
+                        .operations(AccessRule.Operations.BOTH)
+                        .owner("otherorg")
+                        .build());
     }
 }

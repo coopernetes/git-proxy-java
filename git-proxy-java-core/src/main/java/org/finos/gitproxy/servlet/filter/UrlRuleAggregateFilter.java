@@ -6,12 +6,10 @@ import static org.finos.gitproxy.git.GitClientUtils.sym;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.List;
-import java.util.Set;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.finos.gitproxy.db.FetchStore;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.FetchRecord;
 import org.finos.gitproxy.git.GitClientUtils;
 import org.finos.gitproxy.git.GitRequestDetails;
@@ -36,43 +34,23 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
     private static final int MIN_ORDER = 50;
     private static final int MAX_ORDER = 199;
 
-    public UrlRuleAggregateFilter(
-            int order,
-            Set<HttpOperation> applicableOperations,
-            GitProxyProvider provider,
-            List<UrlRuleFilter> urlRuleFilters) {
-        this(order, applicableOperations, provider, urlRuleFilters, null, null, null);
-    }
-
-    public UrlRuleAggregateFilter(int order, GitProxyProvider provider, List<UrlRuleFilter> urlRuleFilters) {
-        this(order, ALL_OPERATIONS, provider, urlRuleFilters, null, null, null);
+    public UrlRuleAggregateFilter(int order, GitProxyProvider provider, UrlRuleRegistry urlRuleRegistry) {
+        this(order, provider, null, null, urlRuleRegistry);
     }
 
     public UrlRuleAggregateFilter(
-            int order, GitProxyProvider provider, List<UrlRuleFilter> urlRuleFilters, String pathPrefix) {
-        this(order, ALL_OPERATIONS, provider, urlRuleFilters, pathPrefix, null, null);
+            int order, GitProxyProvider provider, String pathPrefix, UrlRuleRegistry urlRuleRegistry) {
+        this(order, provider, pathPrefix, null, urlRuleRegistry);
     }
 
     public UrlRuleAggregateFilter(
             int order,
             GitProxyProvider provider,
-            List<UrlRuleFilter> urlRuleFilters,
             String pathPrefix,
             FetchStore fetchStore,
-            RepoRegistry repoRegistry) {
-        this(order, ALL_OPERATIONS, provider, urlRuleFilters, pathPrefix, fetchStore, repoRegistry);
-    }
-
-    public UrlRuleAggregateFilter(
-            int order,
-            Set<HttpOperation> applicableOperations,
-            GitProxyProvider provider,
-            List<UrlRuleFilter> urlRuleFilters,
-            String pathPrefix,
-            FetchStore fetchStore,
-            RepoRegistry repoRegistry) {
-        super(validateOrder(order), applicableOperations, provider, pathPrefix != null ? pathPrefix : "");
-        this.evaluator = new UrlRuleEvaluator(urlRuleFilters, repoRegistry, provider);
+            UrlRuleRegistry urlRuleRegistry) {
+        super(validateOrder(order), ALL_OPERATIONS, provider, pathPrefix != null ? pathPrefix : "");
+        this.evaluator = new UrlRuleEvaluator(urlRuleRegistry, provider);
         this.fetchStore = fetchStore;
     }
 
@@ -132,15 +110,8 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
                 log.debug("Allowed by rule: {}", a.ruleId());
                 if (operation == HttpOperation.FETCH && fetchStore != null) recordFetch(request, true);
             }
-            // Proxy mode is always fail-closed: no matching allow rule → block, regardless of whether
-            // allow rules are absent (OpenMode) or present but unmatched (NotAllowed).
-            case UrlRuleEvaluator.Result.OpenMode m -> {
-                log.debug("Blocked — no allow rules configured");
-                if (operation == HttpOperation.FETCH && fetchStore != null) recordFetch(request, false);
-                sendNotAllowed(request, response, operation);
-            }
             case UrlRuleEvaluator.Result.NotAllowed n -> {
-                log.debug("Blocked — no allow rule matched");
+                log.debug("Blocked — no rule matched");
                 if (operation == HttpOperation.FETCH && fetchStore != null) recordFetch(request, false);
                 sendNotAllowed(request, response, operation);
             }
@@ -192,13 +163,8 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
                 setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository blocked by deny rule");
                 response.sendError(provider.getBlockedInfoRefsStatus());
             }
-            case UrlRuleEvaluator.Result.OpenMode m -> {
-                log.debug("Blocking /info/refs — no allow rules configured");
-                setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository not in allow rules");
-                response.sendError(provider.getBlockedInfoRefsStatus());
-            }
             case UrlRuleEvaluator.Result.NotAllowed n -> {
-                log.debug("Blocking /info/refs — no allow rule matched");
+                log.debug("Blocking /info/refs — no rule matched");
                 setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository not in allow rules");
                 response.sendError(provider.getBlockedInfoRefsStatus());
             }

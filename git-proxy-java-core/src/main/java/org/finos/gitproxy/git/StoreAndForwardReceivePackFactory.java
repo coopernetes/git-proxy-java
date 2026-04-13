@@ -21,12 +21,11 @@ import org.finos.gitproxy.config.DiffScanConfig;
 import org.finos.gitproxy.config.GpgConfig;
 import org.finos.gitproxy.config.SecretScanConfig;
 import org.finos.gitproxy.db.PushStore;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.finos.gitproxy.provider.BitbucketProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
 import org.finos.gitproxy.service.PushIdentityResolver;
-import org.finos.gitproxy.servlet.filter.UrlRuleFilter;
 
 /**
  * Factory that creates {@link ReceivePack} instances for store-and-forward push handling. Extracts credentials from the
@@ -50,8 +49,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
     private final ApprovalGateway approvalGateway;
     private final String serviceUrl;
     private final Duration heartbeatInterval;
-    private final List<UrlRuleFilter> urlRuleFilters;
-    private final RepoRegistry repoRegistry;
+    private final UrlRuleRegistry urlRuleRegistry;
 
     /** Stop the validation hook chain after the first failure (see {@link ServerConfig#isFailFast()}). */
     private boolean failFast = false;
@@ -87,7 +85,6 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                 approvalGateway,
                 null,
                 DEFAULT_HEARTBEAT_INTERVAL,
-                List.of(),
                 null);
     }
 
@@ -113,11 +110,9 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
                 approvalGateway,
                 serviceUrl,
                 heartbeatInterval,
-                List.of(),
                 null);
     }
 
-    /** Live-reload constructor with URL rule enforcement. */
     public StoreAndForwardReceivePackFactory(
             GitProxyProvider provider,
             Supplier<CommitConfig> commitConfigSupplier,
@@ -130,8 +125,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             ApprovalGateway approvalGateway,
             String serviceUrl,
             Duration heartbeatInterval,
-            List<UrlRuleFilter> urlRuleFilters,
-            RepoRegistry repoRegistry) {
+            UrlRuleRegistry urlRuleRegistry) {
         this.provider = provider;
         this.commitConfigSupplier = commitConfigSupplier;
         this.diffScanConfigSupplier =
@@ -145,8 +139,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
         this.approvalGateway = approvalGateway;
         this.serviceUrl = serviceUrl;
         this.heartbeatInterval = heartbeatInterval != null ? heartbeatInterval : DEFAULT_HEARTBEAT_INTERVAL;
-        this.urlRuleFilters = urlRuleFilters != null ? urlRuleFilters : List.of();
-        this.repoRegistry = repoRegistry;
+        this.urlRuleRegistry = urlRuleRegistry;
     }
 
     @Override
@@ -241,7 +234,7 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
 
         // Build and sort the orderable validation hook list
         List<GitProxyHook> validationHooks = new ArrayList<>(List.of(
-                new RepositoryUrlRuleHook(urlRuleFilters, repoRegistry, provider, validationContext, pushContext),
+                new RepositoryUrlRuleHook(urlRuleRegistry, provider, validationContext, pushContext),
                 permissionHook,
                 identityVerificationHook,
                 new CheckEmptyBranchHook(pushContext),

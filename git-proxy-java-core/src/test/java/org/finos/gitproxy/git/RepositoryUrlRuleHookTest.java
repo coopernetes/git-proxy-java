@@ -9,11 +9,11 @@ import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.transport.ReceiveCommand;
 import org.eclipse.jgit.transport.ReceivePack;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.db.model.StepStatus;
 import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
-import org.finos.gitproxy.servlet.filter.UrlRuleFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -39,18 +39,23 @@ class RepositoryUrlRuleHookTest {
         return new ReceiveCommand(ObjectId.zeroId(), ObjectId.zeroId(), "refs/heads/main");
     }
 
-    @Test
-    void openMode_noRules_recordsPass() {
-        PushContext pushContext = new PushContext();
-        ReceivePack rp = new ReceivePack(repo);
-        ReceiveCommand cmd = makeCmd();
+    private RepositoryUrlRuleHook hookWith(AccessRule... rules) throws Exception {
+        var registry = new InMemoryUrlRuleRegistry();
+        for (AccessRule r : rules) registry.save(r);
+        return new RepositoryUrlRuleHook(registry, GITHUB, null, new PushContext());
+    }
 
-        new RepositoryUrlRuleHook(pushContext).onPreReceive(rp, List.of(cmd));
+    @Test
+    void noRepoSlug_blocksWithFailClosed() {
+        var pushContext = new PushContext();
+        var hook = new RepositoryUrlRuleHook(new InMemoryUrlRuleRegistry(), GITHUB, null, pushContext);
+        var cmd = makeCmd();
+
+        hook.onPreReceive(new ReceivePack(repo), List.of(cmd));
 
         assertFalse(pushContext.getSteps().isEmpty());
         assertEquals("checkUrlRules", pushContext.getSteps().get(0).getStepName());
-        assertEquals(StepStatus.PASS, pushContext.getSteps().get(0).getStatus());
-        assertEquals(ReceiveCommand.Result.NOT_ATTEMPTED, cmd.getResult());
+        assertEquals(StepStatus.FAIL, pushContext.getSteps().get(0).getStatus());
     }
 
     @Test
@@ -58,12 +63,19 @@ class RepositoryUrlRuleHookTest {
         repo.getConfig().setString("gitproxy", null, "repoSlug", "/myorg/myrepo");
         repo.getConfig().save();
 
-        var allowFilter = new UrlRuleFilter(100, GITHUB, List.of("myorg"), UrlRuleFilter.Target.OWNER);
-        PushContext pushContext = new PushContext();
-        ReceivePack rp = new ReceivePack(repo);
-        ReceiveCommand cmd = makeCmd();
+        var allowRule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var pushContext = new PushContext();
+        var registry = new InMemoryUrlRuleRegistry();
+        registry.save(allowRule);
+        var hook = new RepositoryUrlRuleHook(registry, GITHUB, null, pushContext);
+        var cmd = makeCmd();
 
-        new RepositoryUrlRuleHook(List.of(allowFilter), null, GITHUB, null, pushContext).onPreReceive(rp, List.of(cmd));
+        hook.onPreReceive(new ReceivePack(repo), List.of(cmd));
 
         assertEquals(StepStatus.PASS, pushContext.getSteps().get(0).getStatus());
         assertEquals(ReceiveCommand.Result.NOT_ATTEMPTED, cmd.getResult());
@@ -74,53 +86,75 @@ class RepositoryUrlRuleHookTest {
         repo.getConfig().setString("gitproxy", null, "repoSlug", "/myorg/myrepo");
         repo.getConfig().save();
 
-        var allowFilter = new UrlRuleFilter(100, GITHUB, List.of("other-org"), UrlRuleFilter.Target.OWNER);
-        PushContext pushContext = new PushContext();
-        ReceivePack rp = new ReceivePack(repo);
-        ReceiveCommand cmd = makeCmd();
+        var allowRule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("other-org")
+                .build();
+        var pushContext = new PushContext();
+        var registry = new InMemoryUrlRuleRegistry();
+        registry.save(allowRule);
+        var hook = new RepositoryUrlRuleHook(registry, GITHUB, null, pushContext);
+        var cmd = makeCmd();
 
-        new RepositoryUrlRuleHook(List.of(allowFilter), null, GITHUB, null, pushContext).onPreReceive(rp, List.of(cmd));
-
-        assertEquals(StepStatus.FAIL, pushContext.getSteps().get(0).getStatus());
-        assertEquals(ReceiveCommand.Result.REJECTED_OTHER_REASON, cmd.getResult());
-    }
-
-    @Test
-    void withRepoSlug_denyRuleMatches_rejectsCommand() throws Exception {
-        repo.getConfig().setString("gitproxy", null, "repoSlug", "/myorg/myrepo");
-        repo.getConfig().save();
-
-        var denyFilter =
-                new UrlRuleFilter(100, GITHUB, List.of("myorg"), UrlRuleFilter.Target.OWNER, AccessRule.Access.DENY);
-        var allowFilter = new UrlRuleFilter(100, GITHUB, List.of("myorg"), UrlRuleFilter.Target.OWNER);
-        PushContext pushContext = new PushContext();
-        ReceivePack rp = new ReceivePack(repo);
-        ReceiveCommand cmd = makeCmd();
-
-        new RepositoryUrlRuleHook(List.of(denyFilter, allowFilter), null, GITHUB, null, pushContext)
-                .onPreReceive(rp, List.of(cmd));
+        hook.onPreReceive(new ReceivePack(repo), List.of(cmd));
 
         assertEquals(StepStatus.FAIL, pushContext.getSteps().get(0).getStatus());
         assertEquals(ReceiveCommand.Result.REJECTED_OTHER_REASON, cmd.getResult());
     }
 
     @Test
-    void fetchOnlyAllowRule_doesNotBlockPush() throws Exception {
-        // FETCH-only allow rule must not cause pushes to fail with "not in allow list"
+    void withRepoSlug_denyRuleAtLowerOrder_rejectsEvenWithAllowRule() throws Exception {
         repo.getConfig().setString("gitproxy", null, "repoSlug", "/myorg/myrepo");
         repo.getConfig().save();
 
-        var fetchOnlyAllow = new UrlRuleFilter(
-                100, java.util.Set.of(HttpOperation.FETCH), GITHUB, List.of("myorg"), UrlRuleFilter.Target.OWNER);
-        PushContext pushContext = new PushContext();
-        ReceivePack rp = new ReceivePack(repo);
-        ReceiveCommand cmd = makeCmd();
+        var denyRule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var allowRule = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var pushContext = new PushContext();
+        var registry = new InMemoryUrlRuleRegistry();
+        registry.save(denyRule);
+        registry.save(allowRule);
+        var hook = new RepositoryUrlRuleHook(registry, GITHUB, null, pushContext);
+        var cmd = makeCmd();
 
-        new RepositoryUrlRuleHook(List.of(fetchOnlyAllow), null, GITHUB, null, pushContext)
-                .onPreReceive(rp, List.of(cmd));
+        hook.onPreReceive(new ReceivePack(repo), List.of(cmd));
 
-        // FETCH-only allow rules don't engage for push → open mode → pass
-        assertEquals(StepStatus.PASS, pushContext.getSteps().get(0).getStatus());
+        assertEquals(StepStatus.FAIL, pushContext.getSteps().get(0).getStatus());
+        assertEquals(ReceiveCommand.Result.REJECTED_OTHER_REASON, cmd.getResult());
+    }
+
+    @Test
+    void fetchOnlyAllowRule_doesNotEngageForPush() throws Exception {
+        repo.getConfig().setString("gitproxy", null, "repoSlug", "/myorg/myrepo");
+        repo.getConfig().save();
+
+        var fetchOnlyAllow = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.FETCH)
+                .owner("myorg")
+                .build();
+        var pushContext = new PushContext();
+        var registry = new InMemoryUrlRuleRegistry();
+        registry.save(fetchOnlyAllow);
+        var hook = new RepositoryUrlRuleHook(registry, GITHUB, null, pushContext);
+        var cmd = makeCmd();
+
+        hook.onPreReceive(new ReceivePack(repo), List.of(cmd));
+
+        // FETCH-only allow rule does not engage for push — no push rule matched → fail-closed
+        assertEquals(StepStatus.FAIL, pushContext.getSteps().get(0).getStatus());
     }
 
     @Test
@@ -128,20 +162,26 @@ class RepositoryUrlRuleHookTest {
         repo.getConfig().setString("gitproxy", null, "repoSlug", "/myorg/myrepo");
         repo.getConfig().save();
 
-        var fetchDeny = new UrlRuleFilter(
-                100,
-                java.util.Set.of(HttpOperation.FETCH),
-                GITHUB,
-                List.of("myorg"),
-                UrlRuleFilter.Target.OWNER,
-                AccessRule.Access.DENY);
-        var pushAllow = new UrlRuleFilter(100, GITHUB, List.of("myorg"), UrlRuleFilter.Target.OWNER);
-        PushContext pushContext = new PushContext();
-        ReceivePack rp = new ReceivePack(repo);
-        ReceiveCommand cmd = makeCmd();
+        var fetchDeny = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.FETCH)
+                .owner("myorg")
+                .build();
+        var pushAllow = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var pushContext = new PushContext();
+        var registry = new InMemoryUrlRuleRegistry();
+        registry.save(fetchDeny);
+        registry.save(pushAllow);
+        var hook = new RepositoryUrlRuleHook(registry, GITHUB, null, pushContext);
+        var cmd = makeCmd();
 
-        new RepositoryUrlRuleHook(List.of(fetchDeny, pushAllow), null, GITHUB, null, pushContext)
-                .onPreReceive(rp, List.of(cmd));
+        hook.onPreReceive(new ReceivePack(repo), List.of(cmd));
 
         assertEquals(StepStatus.PASS, pushContext.getSteps().get(0).getStatus());
         assertEquals(ReceiveCommand.Result.NOT_ATTEMPTED, cmd.getResult());

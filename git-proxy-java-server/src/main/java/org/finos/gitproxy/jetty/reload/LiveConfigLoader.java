@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.jetty.config.GitProxyConfig;
 import org.finos.gitproxy.jetty.config.GitProxyConfigLoader;
 import org.finos.gitproxy.jetty.config.JettyConfigurationBuilder;
@@ -70,7 +70,7 @@ public class LiveConfigLoader {
     private final ConfigHolder configHolder;
     private final GitProxyConfig startupConfig;
     private final ReloadConfig reloadConfig;
-    private final RepoRegistry repoRegistry;
+    private final UrlRuleRegistry urlRuleRegistry;
     private final RepoPermissionService repoPermissionService;
 
     private final AtomicBoolean reloading = new AtomicBoolean(false);
@@ -83,12 +83,12 @@ public class LiveConfigLoader {
             ConfigHolder configHolder,
             GitProxyConfig startupConfig,
             ReloadConfig reloadConfig,
-            RepoRegistry repoRegistry,
+            UrlRuleRegistry urlRuleRegistry,
             RepoPermissionService repoPermissionService) {
         this.configHolder = configHolder;
         this.startupConfig = startupConfig;
         this.reloadConfig = reloadConfig;
-        this.repoRegistry = repoRegistry;
+        this.urlRuleRegistry = urlRuleRegistry;
         this.repoPermissionService = repoPermissionService;
     }
 
@@ -379,11 +379,11 @@ public class LiveConfigLoader {
     }
 
     private void reloadRules(JettyConfigurationBuilder builder, GitProxyConfig newConfig) {
-        if (repoRegistry == null) {
+        if (urlRuleRegistry == null) {
             log.warn("repoRegistry not available — rules reload skipped");
             return;
         }
-        repoRegistry.seedFromConfig(builder.buildConfigRules(newConfig));
+        urlRuleRegistry.seedFromConfig(builder.buildConfigRules(newConfig));
         log.info("Rules reloaded from config");
     }
 

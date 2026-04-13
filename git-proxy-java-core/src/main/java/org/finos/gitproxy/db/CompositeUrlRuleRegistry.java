@@ -7,20 +7,20 @@ import java.util.Optional;
 import org.finos.gitproxy.db.model.AccessRule;
 
 /**
- * A {@link RepoRegistry} that merges read-only config-seeded rules (in-memory) with operator-managed rules (DB-backed).
- * CONFIG rules are never written to the database, so there are no stale duplicates across restarts.
+ * A {@link UrlRuleRegistry} that merges read-only config-seeded rules (in-memory) with operator-managed rules
+ * (DB-backed). CONFIG rules are never written to the database, so there are no stale duplicates across restarts.
  *
  * <ul>
  *   <li>Reads ({@link #findAll}, {@link #findEnabledForProvider}) return merged results sorted by {@code rule_order}.
  *   <li>Writes ({@link #save}, {@link #update}, {@link #delete}) delegate only to the DB registry.
  * </ul>
  */
-public class CompositeRepoRegistry implements RepoRegistry {
+public class CompositeUrlRuleRegistry implements UrlRuleRegistry {
 
-    private final RepoRegistry configRegistry;
-    private final RepoRegistry dbRegistry;
+    private final UrlRuleRegistry configRegistry;
+    private final UrlRuleRegistry dbRegistry;
 
-    public CompositeRepoRegistry(RepoRegistry configRegistry, RepoRegistry dbRegistry) {
+    public CompositeUrlRuleRegistry(UrlRuleRegistry configRegistry, UrlRuleRegistry dbRegistry) {
         this.configRegistry = configRegistry;
         this.dbRegistry = dbRegistry;
     }
@@ -47,9 +47,7 @@ public class CompositeRepoRegistry implements RepoRegistry {
 
     @Override
     public Optional<AccessRule> findById(String id) {
-        Optional<AccessRule> fromDb = dbRegistry.findById(id);
-        if (fromDb.isPresent()) return fromDb;
-        return configRegistry.findById(id);
+        return dbRegistry.findById(id).or(() -> configRegistry.findById(id));
     }
 
     @Override
@@ -64,8 +62,8 @@ public class CompositeRepoRegistry implements RepoRegistry {
 
     /**
      * Re-seeds the in-memory config registry with a new set of CONFIG rules. DB-sourced rules are not affected. This
-     * override is necessary because the default {@link RepoRegistry#seedFromConfig} would incorrectly attempt to delete
-     * config rules via the DB registry.
+     * override is necessary because the default {@link UrlRuleRegistry#seedFromConfig} would incorrectly attempt to
+     * delete config rules via the DB registry.
      */
     @Override
     public void seedFromConfig(List<AccessRule> rules) {

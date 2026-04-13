@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
-import java.util.Set;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitHubProvider;
@@ -20,61 +20,81 @@ class UrlRuleEvaluatorTest {
 
     private static final GitProxyProvider GITHUB = new GitHubProvider("/proxy");
 
-    private static UrlRuleFilter allow(UrlRuleFilter.Target target, String... entries) {
-        return new UrlRuleFilter(100, GITHUB, List.of(entries), target, AccessRule.Access.ALLOW);
+    private static UrlRuleEvaluator evaluatorWith(AccessRule... rules) {
+        var registry = new InMemoryUrlRuleRegistry();
+        for (AccessRule r : rules) registry.save(r);
+        return new UrlRuleEvaluator(registry, GITHUB);
     }
 
-    private static UrlRuleFilter deny(UrlRuleFilter.Target target, String... entries) {
-        return new UrlRuleFilter(100, GITHUB, List.of(entries), target, AccessRule.Access.DENY);
+    private static AccessRule allow(String owner) {
+        return AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner(owner)
+                .build();
     }
 
-    private static UrlRuleFilter allow(Set<HttpOperation> ops, UrlRuleFilter.Target target, String... entries) {
-        return new UrlRuleFilter(100, ops, GITHUB, List.of(entries), target, AccessRule.Access.ALLOW);
+    private static AccessRule deny(String owner) {
+        return AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .owner(owner)
+                .build();
     }
 
-    private static UrlRuleFilter deny(Set<HttpOperation> ops, UrlRuleFilter.Target target, String... entries) {
-        return new UrlRuleFilter(100, ops, GITHUB, List.of(entries), target, AccessRule.Access.DENY);
-    }
-
-    // ── Open mode ─────────────────────────────────────────────────────────────
+    // ── No matching rules — fail-closed ──────────────────────────────────────
 
     @Test
-    void noRules_openMode() {
-        var evaluator = new UrlRuleEvaluator(List.of(), null, null);
+    void noRegistry_notAllowed() {
+        var evaluator = new UrlRuleEvaluator(null, null);
         assertInstanceOf(
-                UrlRuleEvaluator.Result.OpenMode.class,
+                UrlRuleEvaluator.Result.NotAllowed.class,
                 evaluator.evaluate("org/repo", "org", "repo", HttpOperation.PUSH));
     }
 
     @Test
-    void emptyConfigRules_noRegistry_openMode() {
-        var evaluator = new UrlRuleEvaluator(List.of(), null, GITHUB);
+    void emptyRegistry_notAllowed() {
+        var evaluator = new UrlRuleEvaluator(new InMemoryUrlRuleRegistry(), GITHUB);
         assertInstanceOf(
-                UrlRuleEvaluator.Result.OpenMode.class,
+                UrlRuleEvaluator.Result.NotAllowed.class,
                 evaluator.evaluate("org/repo", "org", "repo", HttpOperation.FETCH));
     }
 
     // ── Allow rules ───────────────────────────────────────────────────────────
 
     @Test
-    void configAllowRule_ownerMatch_allowed() {
-        var evaluator = new UrlRuleEvaluator(List.of(allow(UrlRuleFilter.Target.OWNER, "myorg")), null, GITHUB);
+    void allowRule_ownerMatch_allowed() {
+        var evaluator = evaluatorWith(allow("myorg"));
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("myorg/repo", "myorg", "repo", HttpOperation.PUSH));
     }
 
     @Test
-    void configAllowRule_slugMatch_allowed() {
-        var evaluator = new UrlRuleEvaluator(List.of(allow(UrlRuleFilter.Target.SLUG, "/myorg/repo")), null, GITHUB);
+    void allowRule_slugMatch_allowed() {
+        var rule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .slug("/myorg/repo")
+                .build();
+        var evaluator = evaluatorWith(rule);
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("/myorg/repo", "myorg", "repo", HttpOperation.PUSH));
     }
 
     @Test
-    void configAllowRule_nameGlob_allowed() {
-        var evaluator = new UrlRuleEvaluator(List.of(allow(UrlRuleFilter.Target.NAME, "feature-*")), null, GITHUB);
+    void allowRule_nameGlob_allowed() {
+        var rule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .name("feature-*")
+                .build();
+        var evaluator = evaluatorWith(rule);
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("org/feature-abc", "org", "feature-abc", HttpOperation.PUSH));
@@ -84,8 +104,8 @@ class UrlRuleEvaluatorTest {
     }
 
     @Test
-    void configAllowRule_noMatch_notAllowed() {
-        var evaluator = new UrlRuleEvaluator(List.of(allow(UrlRuleFilter.Target.OWNER, "myorg")), null, GITHUB);
+    void allowRule_noMatch_notAllowed() {
+        var evaluator = evaluatorWith(allow("myorg"));
         assertInstanceOf(
                 UrlRuleEvaluator.Result.NotAllowed.class,
                 evaluator.evaluate("otherorg/repo", "otherorg", "repo", HttpOperation.PUSH));
@@ -94,56 +114,102 @@ class UrlRuleEvaluatorTest {
     // ── Deny rules ────────────────────────────────────────────────────────────
 
     @Test
-    void configDenyRule_match_denied() {
-        var evaluator = new UrlRuleEvaluator(
-                List.of(deny(UrlRuleFilter.Target.OWNER, "blocked"), allow(UrlRuleFilter.Target.OWNER, "blocked")),
-                null,
-                GITHUB);
+    void denyRule_lowerOrderBeatsAllowRule_denied() {
+        // deny at order 100, allow at order 200 — deny wins
+        var denyRule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("blocked")
+                .build();
+        var allowRule = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("blocked")
+                .build();
+        var evaluator = evaluatorWith(denyRule, allowRule);
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Denied.class,
                 evaluator.evaluate("blocked/repo", "blocked", "repo", HttpOperation.PUSH));
     }
 
     @Test
-    void configDenyRule_noMatch_allowRuleChecked() {
-        var evaluator = new UrlRuleEvaluator(
-                List.of(deny(UrlRuleFilter.Target.OWNER, "blocked"), allow(UrlRuleFilter.Target.OWNER, "allowed")),
-                null,
-                GITHUB);
+    void allowRule_lowerOrderBeatsDenyRule_allowed() {
+        // allow at order 100, deny at order 200 — allow wins
+        var allowRule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var denyRule = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var evaluator = evaluatorWith(allowRule, denyRule);
+        assertInstanceOf(
+                UrlRuleEvaluator.Result.Allowed.class,
+                evaluator.evaluate("myorg/repo", "myorg", "repo", HttpOperation.PUSH));
+    }
+
+    @Test
+    void denyRule_noMatch_allowRuleChecked() {
+        var evaluator = evaluatorWith(deny("blocked"), allow("allowed"));
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("allowed/repo", "allowed", "repo", HttpOperation.PUSH));
     }
 
-    // ── Operations filtering — the core consistency guarantee ─────────────────
+    // ── Operations filtering ──────────────────────────────────────────────────
 
     @Test
-    void fetchOnlyAllowRule_doesNotCountForPushOpenModeDetection() {
-        // A FETCH-only allow rule must not prevent open-mode for pushes.
-        var fetchAllow = allow(Set.of(HttpOperation.FETCH), UrlRuleFilter.Target.OWNER, "myorg");
-        var evaluator = new UrlRuleEvaluator(List.of(fetchAllow), null, GITHUB);
+    void fetchOnlyAllowRule_doesNotEngageForPush() {
+        var rule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.FETCH)
+                .owner("myorg")
+                .build();
+        var evaluator = evaluatorWith(rule);
         assertInstanceOf(
-                UrlRuleEvaluator.Result.OpenMode.class,
+                UrlRuleEvaluator.Result.NotAllowed.class,
                 evaluator.evaluate("myorg/repo", "myorg", "repo", HttpOperation.PUSH),
-                "FETCH-only allow rule should not engage for PUSH — push should stay in open mode");
+                "FETCH-only allow rule must not engage for PUSH");
     }
 
     @Test
-    void pushOnlyAllowRule_doesNotMatchFetch() {
-        var pushAllow = allow(Set.of(HttpOperation.PUSH), UrlRuleFilter.Target.OWNER, "myorg");
-        var evaluator = new UrlRuleEvaluator(List.of(pushAllow), null, GITHUB);
+    void pushOnlyAllowRule_doesNotEngageForFetch() {
+        var rule = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.PUSH)
+                .owner("myorg")
+                .build();
+        var evaluator = evaluatorWith(rule);
         assertInstanceOf(
-                UrlRuleEvaluator.Result.OpenMode.class,
+                UrlRuleEvaluator.Result.NotAllowed.class,
                 evaluator.evaluate("myorg/repo", "myorg", "repo", HttpOperation.FETCH),
-                "PUSH-only allow rule should not engage for FETCH — fetch should stay in open mode");
+                "PUSH-only allow rule must not engage for FETCH");
     }
 
     @Test
     void fetchOnlyDenyRule_doesNotBlockPush() {
-        // A FETCH-only deny rule must not block a push.
-        var fetchDeny = deny(Set.of(HttpOperation.FETCH), UrlRuleFilter.Target.OWNER, "myorg");
-        var pushAllow = allow(UrlRuleFilter.Target.OWNER, "myorg");
-        var evaluator = new UrlRuleEvaluator(List.of(fetchDeny, pushAllow), null, GITHUB);
+        var fetchDeny = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.FETCH)
+                .owner("myorg")
+                .build();
+        var pushAllow = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var evaluator = evaluatorWith(fetchDeny, pushAllow);
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("myorg/repo", "myorg", "repo", HttpOperation.PUSH),
@@ -152,97 +218,33 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void pushOnlyDenyRule_doesNotBlockFetch() {
-        var pushDeny = deny(Set.of(HttpOperation.PUSH), UrlRuleFilter.Target.OWNER, "myorg");
-        var fetchAllow = allow(UrlRuleFilter.Target.OWNER, "myorg");
-        var evaluator = new UrlRuleEvaluator(List.of(pushDeny, fetchAllow), null, GITHUB);
+        var pushDeny = AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.PUSH)
+                .owner("myorg")
+                .build();
+        var fetchAllow = AccessRule.builder()
+                .ruleOrder(200)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .owner("myorg")
+                .build();
+        var evaluator = evaluatorWith(pushDeny, fetchAllow);
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("myorg/repo", "myorg", "repo", HttpOperation.FETCH),
                 "PUSH-only deny rule must not block a fetch");
     }
 
-    // ── DB rules ──────────────────────────────────────────────────────────────
+    // ── Registry query ────────────────────────────────────────────────────────
 
     @Test
-    void dbAllowRule_slugMatch_allowed() {
-        RepoRegistry registry = mock(RepoRegistry.class);
-        var rule = AccessRule.builder()
-                .slug("/myorg/repo")
-                .access(AccessRule.Access.ALLOW)
-                .build();
-        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(rule));
-
-        var evaluator = new UrlRuleEvaluator(List.of(), registry, GITHUB);
-        assertInstanceOf(
-                UrlRuleEvaluator.Result.Allowed.class,
-                evaluator.evaluate("/myorg/repo", "myorg", "repo", HttpOperation.PUSH));
-    }
-
-    @Test
-    void dbDenyRule_blocks() {
-        RepoRegistry registry = mock(RepoRegistry.class);
-        var deny = AccessRule.builder()
-                .slug("/myorg/repo")
-                .access(AccessRule.Access.DENY)
-                .build();
-        var allow = AccessRule.builder()
-                .slug("/myorg/repo")
-                .access(AccessRule.Access.ALLOW)
-                .build();
-        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(deny, allow));
-
-        var evaluator = new UrlRuleEvaluator(List.of(), registry, GITHUB);
-        assertInstanceOf(
-                UrlRuleEvaluator.Result.Denied.class,
-                evaluator.evaluate("/myorg/repo", "myorg", "repo", HttpOperation.PUSH));
-    }
-
-    @Test
-    void dbFetchOnlyAllowRule_doesNotMatchPush() {
-        RepoRegistry registry = mock(RepoRegistry.class);
-        var fetchRule = AccessRule.builder()
-                .slug("/myorg/repo")
-                .access(AccessRule.Access.ALLOW)
-                .operations(AccessRule.Operations.FETCH)
-                .build();
-        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(fetchRule));
-
-        var evaluator = new UrlRuleEvaluator(List.of(), registry, GITHUB);
-        assertInstanceOf(
-                UrlRuleEvaluator.Result.OpenMode.class,
-                evaluator.evaluate("/myorg/repo", "myorg", "repo", HttpOperation.PUSH),
-                "DB FETCH-only allow rule must not engage for push — should be open mode");
-    }
-
-    @Test
-    void dbFetchOnlyDenyRule_doesNotBlockPush() {
-        RepoRegistry registry = mock(RepoRegistry.class);
-        var fetchDeny = AccessRule.builder()
-                .slug("/myorg/repo")
-                .access(AccessRule.Access.DENY)
-                .operations(AccessRule.Operations.FETCH)
-                .build();
-        var pushAllow = AccessRule.builder()
-                .slug("/myorg/repo")
-                .access(AccessRule.Access.ALLOW)
-                .operations(AccessRule.Operations.BOTH)
-                .build();
-        when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of(fetchDeny, pushAllow));
-
-        var evaluator = new UrlRuleEvaluator(List.of(), registry, GITHUB);
-        assertInstanceOf(
-                UrlRuleEvaluator.Result.Allowed.class,
-                evaluator.evaluate("/myorg/repo", "myorg", "repo", HttpOperation.PUSH),
-                "DB FETCH-only deny rule must not block a push");
-    }
-
-    @Test
-    void dbRules_fetchedOnce() {
-        // Registry must be queried only once per evaluate() call, not once for deny + once for allow.
-        RepoRegistry registry = mock(RepoRegistry.class);
+    void registry_fetchedOnce() {
+        UrlRuleRegistry registry = mock(UrlRuleRegistry.class);
         when(registry.findEnabledForProvider(GITHUB.getProviderId())).thenReturn(List.of());
 
-        var evaluator = new UrlRuleEvaluator(List.of(), registry, GITHUB);
+        var evaluator = new UrlRuleEvaluator(registry, GITHUB);
         evaluator.evaluate("org/repo", "org", "repo", HttpOperation.PUSH);
 
         verify(registry, times(1)).findEnabledForProvider(GITHUB.getProviderId());
@@ -258,7 +260,6 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void matchPattern_literal_leadingSlashNormalised() {
-        // /owner/repo and owner/repo should match each other regardless of leading slash
         assertTrue(UrlRuleEvaluator.matchPattern("/owner/repo", "owner/repo"));
         assertTrue(UrlRuleEvaluator.matchPattern("owner/repo", "/owner/repo"));
     }
@@ -271,7 +272,6 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void matchPattern_regex_matchesRawValue() {
-        // Regex patterns receive the raw value (with leading slash if present)
         assertTrue(UrlRuleEvaluator.matchPattern("regex:^(myorg|partnerorg)$", "myorg"));
         assertTrue(UrlRuleEvaluator.matchPattern("regex:/myorg/.*", "/myorg/any-repo"));
         assertFalse(UrlRuleEvaluator.matchPattern("regex:^(myorg|partnerorg)$", "otherog"));

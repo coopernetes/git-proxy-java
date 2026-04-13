@@ -14,16 +14,16 @@ import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
 @Tag("integration")
-class MongoRepoRegistryIntegrationTest {
+class MongoUrlRuleRegistryIntegrationTest {
 
     @Container
     static final MongoDBContainer MONGO = new MongoDBContainer(DockerImageName.parse("mongo:7.0"));
 
-    MongoRepoRegistry registry;
+    MongoUrlRuleRegistry registry;
 
     @BeforeEach
     void setUp() {
-        registry = new MongoRepoRegistry(
+        registry = new MongoUrlRuleRegistry(
                 MongoClients.create(MONGO.getConnectionString()),
                 "testdb_" + UUID.randomUUID().toString().replace("-", ""));
         registry.initialize();

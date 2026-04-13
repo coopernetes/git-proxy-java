@@ -129,8 +129,7 @@ rules:
   # A lower-numbered allow rule will therefore permit a request even if a higher-numbered deny rule
   # also matches, and vice versa.
   #
-  # If no allow rules are configured at all, the proxy operates in open mode (all requests pass).
-  # If allow rules exist but none match the request, the request is blocked (fail-closed).
+  # If no allow rules are configured at all, the proxy operates in fail closed mode (all requests denied).
   allow:
     - enabled: true
       order: 10

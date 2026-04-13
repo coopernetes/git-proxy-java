@@ -71,7 +71,7 @@ public class GitProxyJettyApplication {
                 configBuilder.buildConfigHolder(),
                 gitProxyConfig,
                 configBuilder.getReloadConfig(),
-                ctx.repoRegistry(),
+                ctx.urlRuleRegistry(),
                 ctx.repoPermissionService());
         liveConfigLoader.start();
         server.addEventListener(new LifeCycle.Listener() {

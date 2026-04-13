@@ -11,7 +11,7 @@ import java.util.Optional;
 import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.FetchStore.RepoFetchSummary;
 import org.finos.gitproxy.db.PushStore;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.provider.GitProxyProvider;
@@ -31,7 +31,7 @@ class RepoControllerTest {
     RepoController controller;
 
     @Mock
-    RepoRegistry repoRegistry;
+    UrlRuleRegistry urlRuleRegistry;
 
     @Mock
     FetchStore fetchStore;
@@ -47,7 +47,7 @@ class RepoControllerTest {
     @Test
     void listRules_delegatesToRegistry() {
         var rule = AccessRule.builder().provider("github").build();
-        when(repoRegistry.findAll()).thenReturn(List.of(rule));
+        when(urlRuleRegistry.findAll()).thenReturn(List.of(rule));
 
         var result = controller.listRules();
 
@@ -60,14 +60,14 @@ class RepoControllerTest {
     @Test
     void getRule_found_returns200() {
         var rule = AccessRule.builder().build();
-        when(repoRegistry.findById("r1")).thenReturn(Optional.of(rule));
+        when(urlRuleRegistry.findById("r1")).thenReturn(Optional.of(rule));
 
         assertEquals(HttpStatus.OK, controller.getRule("r1").getStatusCode());
     }
 
     @Test
     void getRule_notFound_returns404() {
-        when(repoRegistry.findById("missing")).thenReturn(Optional.empty());
+        when(urlRuleRegistry.findById("missing")).thenReturn(Optional.empty());
 
         assertEquals(HttpStatus.NOT_FOUND, controller.getRule("missing").getStatusCode());
     }
@@ -83,7 +83,7 @@ class RepoControllerTest {
 
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
         assertEquals(AccessRule.Source.DB, ((AccessRule) resp.getBody()).getSource());
-        verify(repoRegistry).save(rule);
+        verify(urlRuleRegistry).save(rule);
     }
 
     @Test
@@ -96,7 +96,7 @@ class RepoControllerTest {
         var resp = controller.createRule(rule);
 
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
-        verify(repoRegistry).save(rule);
+        verify(urlRuleRegistry).save(rule);
     }
 
     @Test
@@ -117,18 +117,18 @@ class RepoControllerTest {
     void updateRule_found_setsIdAndReturns200() {
         var existing = AccessRule.builder().build();
         var update = AccessRule.builder().build(); // no provider — always valid
-        when(repoRegistry.findById("r1")).thenReturn(Optional.of(existing));
+        when(urlRuleRegistry.findById("r1")).thenReturn(Optional.of(existing));
 
         var resp = controller.updateRule("r1", update);
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals("r1", update.getId());
-        verify(repoRegistry).update(update);
+        verify(urlRuleRegistry).update(update);
     }
 
     @Test
     void updateRule_notFound_returns404() {
-        when(repoRegistry.findById("missing")).thenReturn(Optional.empty());
+        when(urlRuleRegistry.findById("missing")).thenReturn(Optional.empty());
 
         assertEquals(
                 HttpStatus.NOT_FOUND,
@@ -139,16 +139,16 @@ class RepoControllerTest {
 
     @Test
     void deleteRule_found_returns204() {
-        when(repoRegistry.findById("r1"))
+        when(urlRuleRegistry.findById("r1"))
                 .thenReturn(Optional.of(AccessRule.builder().build()));
 
         assertEquals(HttpStatus.NO_CONTENT, controller.deleteRule("r1").getStatusCode());
-        verify(repoRegistry).delete("r1");
+        verify(urlRuleRegistry).delete("r1");
     }
 
     @Test
     void deleteRule_notFound_returns404() {
-        when(repoRegistry.findById("missing")).thenReturn(Optional.empty());
+        when(urlRuleRegistry.findById("missing")).thenReturn(Optional.empty());
 
         assertEquals(HttpStatus.NOT_FOUND, controller.deleteRule("missing").getStatusCode());
     }

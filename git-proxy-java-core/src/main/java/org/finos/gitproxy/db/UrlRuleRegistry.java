@@ -11,7 +11,7 @@ import org.finos.gitproxy.db.model.AccessRule.Source;
  * <p>Rules seeded from YAML configuration have {@code source = CONFIG}; rules created via the REST API have
  * {@code source = DB}. Both are stored together and evaluated identically by the filter chain.
  */
-public interface RepoRegistry {
+public interface UrlRuleRegistry {
 
     /** Persist a new rule. */
     void save(AccessRule rule);

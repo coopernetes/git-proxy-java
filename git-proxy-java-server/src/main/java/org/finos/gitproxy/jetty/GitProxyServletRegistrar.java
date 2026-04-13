@@ -19,7 +19,7 @@ import org.finos.gitproxy.config.GpgConfig;
 import org.finos.gitproxy.config.SecretScanConfig;
 import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.PushStore;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.git.*;
 import org.finos.gitproxy.jetty.config.JettyConfigurationBuilder;
 import org.finos.gitproxy.jetty.reload.ConfigHolder;
@@ -71,9 +71,11 @@ public final class GitProxyServletRegistrar {
         Supplier<DiffScanConfig> diffScanConfigSupplier = configHolder::getDiffScanConfig;
         Supplier<SecretScanConfig> secretScanConfigSupplier = configHolder::getSecretScanConfig;
 
+        // Seed config rules once — registry is the single source of truth for all rule evaluation
+        gitProxyCtx.urlRuleRegistry().seedFromConfig(configBuilder.buildConfigRules());
+
         for (GitProxyProvider provider : providers) {
             log.info("Registering provider: {}", provider.getName());
-            List<UrlRuleFilter> urlRuleFilters = configBuilder.buildUrlRuleFilters(provider);
             registerGitServlet(
                     context,
                     provider,
@@ -89,8 +91,7 @@ public final class GitProxyServletRegistrar {
                     gitProxyCtx.heartbeatIntervalSeconds(),
                     gitProxyCtx.failFast(),
                     gitProxyCtx.upstreamConnectTimeoutSeconds(),
-                    urlRuleFilters,
-                    gitProxyCtx.repoRegistry());
+                    gitProxyCtx.urlRuleRegistry());
             registerProxyServlet(
                     context,
                     provider,
@@ -111,7 +112,7 @@ public final class GitProxyServletRegistrar {
                     gitProxyCtx.pushIdentityResolver(),
                     gitProxyCtx.repoPermissionService(),
                     gitProxyCtx.fetchStore(),
-                    gitProxyCtx.repoRegistry());
+                    gitProxyCtx.urlRuleRegistry());
         }
     }
 
@@ -130,8 +131,7 @@ public final class GitProxyServletRegistrar {
             int heartbeatIntervalSeconds,
             boolean failFast,
             int connectTimeoutSeconds,
-            List<UrlRuleFilter> urlRuleFilters,
-            RepoRegistry repoRegistry) {
+            UrlRuleRegistry urlRuleRegistry) {
         var resolver = new StoreAndForwardRepositoryResolver(cache, provider);
 
         var factory = new StoreAndForwardReceivePackFactory(
@@ -146,8 +146,7 @@ public final class GitProxyServletRegistrar {
                 approvalGateway,
                 serviceUrl,
                 Duration.ofSeconds(heartbeatIntervalSeconds),
-                urlRuleFilters,
-                repoRegistry);
+                urlRuleRegistry);
         factory.setFailFast(failFast);
         factory.setConnectTimeoutSeconds(connectTimeoutSeconds);
 
@@ -214,7 +213,7 @@ public final class GitProxyServletRegistrar {
             PushIdentityResolver pushIdentityResolver,
             RepoPermissionService repoPermissionService,
             FetchStore fetchStore,
-            RepoRegistry repoRegistry) {
+            UrlRuleRegistry urlRuleRegistry) {
         String urlPattern = PROXY_PATH_PREFIX + provider.servletPath() + "/*";
 
         // PushStoreAuditFilter wraps the entire chain via try-finally; must be registered first.
@@ -229,18 +228,7 @@ public final class GitProxyServletRegistrar {
         filters.add(new EnrichPushCommitsFilter(provider, repositoryCache, PROXY_PATH_PREFIX));
         filters.add(new AllowApprovedPushFilter(pushStore, serviceUrl));
 
-        List<UrlRuleFilter> urlRuleFilters = configBuilder.buildUrlRuleFilters(provider);
-        filters.add(
-                new UrlRuleAggregateFilter(100, provider, urlRuleFilters, PROXY_PATH_PREFIX, fetchStore, repoRegistry));
-        long allowCount = urlRuleFilters.stream()
-                .filter(f -> f.getAccess() == org.finos.gitproxy.db.model.AccessRule.Access.ALLOW)
-                .count();
-        long denyCount = urlRuleFilters.size() - allowCount;
-        log.info(
-                "Registered {} YAML allow rule(s) and {} YAML deny rule(s) for provider {} (DB rules evaluated dynamically)",
-                allowCount,
-                denyCount,
-                provider.getName());
+        filters.add(new UrlRuleAggregateFilter(100, provider, PROXY_PATH_PREFIX, fetchStore, urlRuleRegistry));
 
         if (provider instanceof BitbucketProvider bitbucketProvider) {
             filters.add(new BitbucketIdentityFilter(bitbucketProvider));

@@ -10,20 +10,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.bson.Document;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** MongoDB implementation of {@link RepoRegistry}. */
-public class MongoRepoRegistry implements RepoRegistry {
+/** MongoDB implementation of {@link UrlRuleRegistry}. */
+public class MongoUrlRuleRegistry implements UrlRuleRegistry {
 
-    private static final Logger log = LoggerFactory.getLogger(MongoRepoRegistry.class);
+    private static final Logger log = LoggerFactory.getLogger(MongoUrlRuleRegistry.class);
     private static final String COLLECTION_NAME = "access_rules";
 
     private final MongoDatabase database;
 
-    public MongoRepoRegistry(MongoClient mongoClient, String databaseName) {
+    public MongoUrlRuleRegistry(MongoClient mongoClient, String databaseName) {
         this.database = mongoClient.getDatabase(databaseName);
     }
 
@@ -53,7 +53,7 @@ public class MongoRepoRegistry implements RepoRegistry {
     @Override
     public Optional<AccessRule> findById(String id) {
         Document doc = getCollection().find(Filters.eq("_id", id)).first();
-        return Optional.ofNullable(doc).map(MongoRepoRegistry::fromDocument);
+        return Optional.ofNullable(doc).map(MongoUrlRuleRegistry::fromDocument);
     }
 
     @Override

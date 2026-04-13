@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitProxyProvider;
@@ -17,18 +17,12 @@ import org.finos.gitproxy.provider.GitProxyProvider;
  * Pure-logic rule evaluator shared by both proxy-mode ({@link UrlRuleAggregateFilter}) and store-and-forward mode
  * ({@link org.finos.gitproxy.git.RepositoryUrlRuleHook}). Contains no Servlet or JGit dependencies.
  *
- * <p>Evaluation order:
+ * <p>Evaluation uses firewall / iptables semantics: all matching rules (config and DB) are collected, sorted by
+ * {@code order} ascending, and the first match wins regardless of whether it is an allow or deny rule. Rules from both
+ * sources participate in the same ordered list — the origin of a rule (config file vs. database) has no effect on
+ * priority. If two rules have the same order value and both match, a warning is logged and the result is unspecified.
  *
- * <ol>
- *   <li>Config rules — evaluated in ascending {@code order}, first match wins (allow or deny). This is firewall /
- *       iptables semantics: a lower-numbered allow rule beats a higher-numbered deny rule and vice versa.
- *   <li>DB deny rules — first match returns {@link Result.Denied}.
- *   <li>DB allow rules — first match returns {@link Result.Allowed}.
- *   <li>No rule matched — returns {@link Result.NotAllowed} (fail-closed).
- * </ol>
- *
- * <p>DB rules are fetched once per evaluation (not twice), then split into deny/allow lists in memory. DB rules do not
- * carry an {@code order} field and are therefore evaluated after all config rules.
+ * <p>If no rule matches the request, the proxy is fail-closed and returns {@link Result.NotAllowed}.
  */
 @Slf4j
 public class UrlRuleEvaluator {
@@ -42,29 +36,22 @@ public class UrlRuleEvaluator {
         /** An allow rule matched — request may proceed. */
         record Allowed(String ruleId) implements Result {}
 
-        /** Allow rules are configured but none matched — request must be rejected. */
+        /** No rule matched — request must be rejected (fail-closed). */
         record NotAllowed() implements Result {}
     }
 
     private static final ConcurrentHashMap<String, Pattern> REGEX_CACHE = new ConcurrentHashMap<>();
 
-    private final List<UrlRuleFilter> configRules;
-    private final RepoRegistry repoRegistry;
+    private final UrlRuleRegistry urlRuleRegistry;
     private final GitProxyProvider provider;
 
-    public UrlRuleEvaluator(List<UrlRuleFilter> configRules, RepoRegistry repoRegistry, GitProxyProvider provider) {
-        this.configRules = configRules != null
-                ? configRules.stream()
-                        .sorted(Comparator.comparingInt(UrlRuleFilter::getOrder))
-                        .toList()
-                : List.of();
-        this.repoRegistry = repoRegistry;
+    public UrlRuleEvaluator(UrlRuleRegistry urlRuleRegistry, GitProxyProvider provider) {
+        this.urlRuleRegistry = urlRuleRegistry;
         this.provider = provider;
     }
 
     /**
-     * Evaluates all configured rules for the given repository reference and operation. DB rules are fetched once from
-     * the registry and split into deny/allow lists in memory.
+     * Evaluates all configured rules for the given repository reference and operation.
      *
      * @param slug full path slug (e.g. {@code "owner/repo"} or {@code "/owner/repo"})
      * @param owner repository owner / organisation
@@ -73,42 +60,24 @@ public class UrlRuleEvaluator {
      * @return the evaluation result
      */
     public Result evaluate(String slug, String owner, String name, HttpOperation operation) {
-        // Fetch DB rules once — split into deny/allow in memory to avoid two registry queries
-        List<AccessRule> dbRules = (repoRegistry != null && provider != null)
-                ? repoRegistry.findEnabledForProvider(provider.getProviderId())
+        List<AccessRule> rules = (urlRuleRegistry != null && provider != null)
+                ? urlRuleRegistry.findEnabledForProvider(provider.getProviderId())
                 : List.of();
 
-        // ── Step 1: config rules — single ordered pass, first match wins ───────
-        for (UrlRuleFilter f : configRules) {
-            if (!f.appliesTo(operation) || !f.matchesRepo(slug, owner, name)) continue;
-            if (f.getAccess() == AccessRule.Access.DENY) {
-                log.debug("Denied by config rule (order {}): {}", f.getOrder(), f);
-                return new Result.Denied(f.toString());
-            } else {
-                log.debug("Allowed by config rule (order {}): {}", f.getOrder(), f);
-                return new Result.Allowed(f.toString());
-            }
-        }
-
-        // ── Step 2: DB rules — deny first, then allow ──────────────────────────
-        List<AccessRule> dbAllow = dbRules.stream()
-                .filter(r -> r.getAccess() == AccessRule.Access.ALLOW && operationMatches(r, operation))
+        List<AccessRule> sortedAll = rules.stream()
+                .filter(r -> operationMatches(r, operation))
+                .sorted(Comparator.comparingInt(AccessRule::getRuleOrder))
                 .toList();
 
-        for (AccessRule rule : dbRules) {
-            if (rule.getAccess() == AccessRule.Access.DENY
-                    && operationMatches(rule, operation)
-                    && matchesRepo(rule, slug, owner, name)) {
-                log.debug("Denied by DB rule: id={}", rule.getId());
-                return new Result.Denied(rule.getId());
-            }
-        }
-
-        // ── Step 3: allow rules matched ────────────────────────
-        for (AccessRule rule : dbAllow) {
-            if (matchesRepo(rule, slug, owner, name)) {
-                log.debug("Allowed by DB rule: id={}", rule.getId());
-                return new Result.Allowed(rule.getId());
+        for (AccessRule r : sortedAll) {
+            if (matchesRepo(r, slug, owner, name)) {
+                if (r.getAccess() == AccessRule.Access.DENY) {
+                    log.debug("Denied by rule (order {}, source {}): {}", r.getRuleOrder(), r.getSource(), r.getId());
+                    return new Result.Denied(r.getId());
+                } else {
+                    log.debug("Allowed by rule (order {}, source {}): {}", r.getRuleOrder(), r.getSource(), r.getId());
+                    return new Result.Allowed(r.getId());
+                }
             }
         }
 
@@ -127,11 +96,6 @@ public class UrlRuleEvaluator {
         };
     }
 
-    /**
-     * Returns {@code true} if the given {@link AccessRule} matches the repository reference. Slug/owner/name
-     * comparisons strip any leading {@code /} so that stored values like {@code coopernetes/repo} and
-     * {@code /coopernetes/repo} both match regardless of how the rule was saved.
-     */
     /**
      * Returns {@code true} if the given {@link AccessRule} matches the repository reference.
      *
@@ -154,7 +118,6 @@ public class UrlRuleEvaluator {
     static boolean matchPattern(String pattern, String value) {
         if (pattern == null || value == null) return false;
         if (pattern.startsWith("regex:")) {
-            // Regex: match against the raw value — users write patterns relative to the full slug form
             return REGEX_CACHE
                     .computeIfAbsent(pattern.substring(6), Pattern::compile)
                     .matcher(value)

@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.jdbc.mapper.AccessRuleRowMapper;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -12,14 +12,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** JDBC-backed {@link RepoRegistry}. Works with H2 and PostgreSQL. */
-public class JdbcRepoRegistry implements RepoRegistry {
+/** JDBC-backed {@link UrlRuleRegistry}. Works with H2 and PostgreSQL. */
+public class JdbcUrlRuleRegistry implements UrlRuleRegistry {
 
     private final DataSource dataSource;
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionTemplate tx;
 
-    public JdbcRepoRegistry(DataSource dataSource) {
+    public JdbcUrlRuleRegistry(DataSource dataSource) {
         this.dataSource = dataSource;
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
         this.tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));

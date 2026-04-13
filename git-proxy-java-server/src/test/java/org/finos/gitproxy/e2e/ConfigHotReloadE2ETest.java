@@ -11,7 +11,7 @@ import java.util.UUID;
 import org.finos.gitproxy.config.CommitConfig;
 import org.finos.gitproxy.config.DiffScanConfig;
 import org.finos.gitproxy.config.SecretScanConfig;
-import org.finos.gitproxy.db.memory.InMemoryRepoRegistry;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.jetty.reload.ConfigHolder;
 import org.finos.gitproxy.jetty.reload.LiveConfigLoader.Section;
 import org.junit.jupiter.api.*;
@@ -67,7 +67,7 @@ class ConfigHotReloadE2ETest {
                 DiffScanConfig.defaultConfig(),
                 SecretScanConfig.defaultConfig(),
                 List.of());
-        var configRegistry = new InMemoryRepoRegistry();
+        var configRegistry = new InMemoryUrlRuleRegistry();
         proxy = new HotReloadJettyFixture(gitea.getBaseUri(), configHolder, configRegistry);
 
         // Seed allow-all so requests reach the validation filters under test.

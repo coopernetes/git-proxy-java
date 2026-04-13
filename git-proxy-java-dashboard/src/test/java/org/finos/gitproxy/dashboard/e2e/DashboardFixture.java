@@ -14,7 +14,7 @@ import org.finos.gitproxy.dashboard.SecurityConfig;
 import org.finos.gitproxy.dashboard.SpringWebConfig;
 import org.finos.gitproxy.db.PushStoreFactory;
 import org.finos.gitproxy.db.memory.InMemoryFetchStore;
-import org.finos.gitproxy.db.memory.InMemoryRepoRegistry;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.jetty.config.GitProxyConfig;
 import org.finos.gitproxy.jetty.config.JettyConfigurationBuilder;
 import org.finos.gitproxy.jetty.reload.LiveConfigLoader;
@@ -78,7 +78,7 @@ class DashboardFixture implements AutoCloseable {
             bf.registerSingleton("providers", new InMemoryProviderRegistry(List.of()));
             bf.registerSingleton("configHolder", configHolder);
             bf.registerSingleton("liveConfigLoader", liveConfigLoader);
-            bf.registerSingleton("repoRegistry", new InMemoryRepoRegistry());
+            bf.registerSingleton("repoRegistry", new InMemoryUrlRuleRegistry());
             bf.registerSingleton("fetchStore", new InMemoryFetchStore());
             bf.registerSingleton("repoPermissionService", new RepoPermissionService(new InMemoryRepoPermissionStore()));
         });

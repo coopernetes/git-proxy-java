@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.sql.DataSource;
@@ -22,18 +21,17 @@ import org.finos.gitproxy.approval.UiApprovalGateway;
 import org.finos.gitproxy.config.CommitConfig;
 import org.finos.gitproxy.config.DiffScanConfig;
 import org.finos.gitproxy.config.SecretScanConfig;
-import org.finos.gitproxy.db.CompositeRepoRegistry;
+import org.finos.gitproxy.db.CompositeUrlRuleRegistry;
 import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.MongoStoreFactory;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.PushStoreFactory;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.jdbc.DataSourceFactory;
 import org.finos.gitproxy.db.jdbc.JdbcFetchStore;
-import org.finos.gitproxy.db.jdbc.JdbcRepoRegistry;
-import org.finos.gitproxy.db.memory.InMemoryRepoRegistry;
+import org.finos.gitproxy.db.jdbc.JdbcUrlRuleRegistry;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
-import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.git.LocalRepositoryCache;
 import org.finos.gitproxy.jetty.GitProxyContext;
 import org.finos.gitproxy.jetty.reload.ConfigHolder;
@@ -46,8 +44,6 @@ import org.finos.gitproxy.service.CachingTokenPushIdentityResolver;
 import org.finos.gitproxy.service.JdbcScmTokenCache;
 import org.finos.gitproxy.service.PushIdentityResolver;
 import org.finos.gitproxy.service.TokenPushIdentityResolver;
-import org.finos.gitproxy.servlet.filter.GitProxyFilter;
-import org.finos.gitproxy.servlet.filter.UrlRuleFilter;
 import org.finos.gitproxy.tls.SslUtil;
 import org.finos.gitproxy.user.CompositeUserStore;
 import org.finos.gitproxy.user.JdbcUserStore;
@@ -75,7 +71,7 @@ public class JettyConfigurationBuilder {
     private UserStore cachedUserStore;
     private JdbcScmTokenCache cachedTokenCache;
     private RepoPermissionService cachedRepoPermissionService;
-    private RepoRegistry cachedRepoRegistry;
+    private UrlRuleRegistry cachedUrlRuleRegistry;
     private ConfigHolder cachedConfigHolder;
 
     public JettyConfigurationBuilder(GitProxyConfig config) {
@@ -255,45 +251,69 @@ public class JettyConfigurationBuilder {
         return resolved.getProviderId();
     }
 
-    /** Creates URL rule filters for a given provider from configuration (both allow and deny rules). */
-    public List<UrlRuleFilter> buildUrlRuleFilters(GitProxyProvider provider) {
-        List<UrlRuleFilter> filters = new ArrayList<>();
-        buildUrlRuleFiltersForAccess(filters, provider, config.getRules().getAllow(), AccessRule.Access.ALLOW);
-        buildUrlRuleFiltersForAccess(filters, provider, config.getRules().getDeny(), AccessRule.Access.DENY);
-        return filters;
+    /**
+     * Builds all config-sourced URL access rules (both allow and deny). Rules are provider-scoped via the
+     * {@code provider} field — {@code null} means the rule applies to all providers. Call
+     * {@link org.finos.gitproxy.db.UrlRuleRegistry#seedFromConfig} with the result at startup.
+     */
+    public List<AccessRule> buildConfigRules() {
+        List<AccessRule> rules = new ArrayList<>();
+        buildConfigRulesForAccess(rules, config.getRules().getAllow(), AccessRule.Access.ALLOW);
+        buildConfigRulesForAccess(rules, config.getRules().getDeny(), AccessRule.Access.DENY);
+        return rules;
     }
 
-    private void buildUrlRuleFiltersForAccess(
-            List<UrlRuleFilter> filters, GitProxyProvider provider, List<RuleConfig> rules, AccessRule.Access access) {
-        for (RuleConfig rule : rules) {
+    private void buildConfigRulesForAccess(
+            List<AccessRule> rules, List<RuleConfig> ruleConfigs, AccessRule.Access access) {
+        for (RuleConfig rule : ruleConfigs) {
             if (!rule.isEnabled()) continue;
 
             // Resolve friendly names / type/host IDs to canonical IDs — validates at startup
             List<String> resolvedProviderIds = rule.getProviders().stream()
                     .map(n -> resolveToProviderId(access.name() + " rule (order=" + rule.getOrder() + ")", n))
                     .toList();
-            if (!resolvedProviderIds.isEmpty() && !resolvedProviderIds.contains(provider.getProviderId())) {
-                continue;
-            }
+            // null provider = applies to all providers; specific IDs = scoped
+            List<String> providerScopes =
+                    resolvedProviderIds.isEmpty() ? java.util.Collections.singletonList(null) : resolvedProviderIds;
 
             int order = rule.getOrder();
+            AccessRule.Operations ops = toOperations(rule.getOperations());
             String accessLabel = access.name().toLowerCase();
-            Set<HttpOperation> ops = toHttpOperations(rule.getOperations());
 
-            if (!rule.getSlugs().isEmpty()) {
-                filters.add(
-                        new UrlRuleFilter(order, ops, provider, rule.getSlugs(), UrlRuleFilter.Target.SLUG, access));
-                log.debug("Added slug {} rule for provider {}: {}", accessLabel, provider.getName(), rule.getSlugs());
-            }
-            if (!rule.getOwners().isEmpty()) {
-                filters.add(
-                        new UrlRuleFilter(order, ops, provider, rule.getOwners(), UrlRuleFilter.Target.OWNER, access));
-                log.debug("Added owner {} rule for provider {}: {}", accessLabel, provider.getName(), rule.getOwners());
-            }
-            if (!rule.getNames().isEmpty()) {
-                filters.add(
-                        new UrlRuleFilter(order, ops, provider, rule.getNames(), UrlRuleFilter.Target.NAME, access));
-                log.debug("Added name {} rule for provider {}: {}", accessLabel, provider.getName(), rule.getNames());
+            for (String providerId : providerScopes) {
+                for (String slug : rule.getSlugs()) {
+                    rules.add(AccessRule.builder()
+                            .ruleOrder(order)
+                            .access(access)
+                            .operations(ops)
+                            .provider(providerId)
+                            .slug(slug)
+                            .source(AccessRule.Source.CONFIG)
+                            .build());
+                    log.debug("Added slug {} rule for provider {}: {}", accessLabel, providerId, slug);
+                }
+                for (String owner : rule.getOwners()) {
+                    rules.add(AccessRule.builder()
+                            .ruleOrder(order)
+                            .access(access)
+                            .operations(ops)
+                            .provider(providerId)
+                            .owner(owner)
+                            .source(AccessRule.Source.CONFIG)
+                            .build());
+                    log.debug("Added owner {} rule for provider {}: {}", accessLabel, providerId, owner);
+                }
+                for (String name : rule.getNames()) {
+                    rules.add(AccessRule.builder()
+                            .ruleOrder(order)
+                            .access(access)
+                            .operations(ops)
+                            .provider(providerId)
+                            .name(name)
+                            .source(AccessRule.Source.CONFIG)
+                            .build());
+                    log.debug("Added name {} rule for provider {}: {}", accessLabel, providerId, name);
+                }
             }
         }
     }
@@ -406,7 +426,7 @@ public class JettyConfigurationBuilder {
         PushStore ps = buildPushStore();
         FetchStore fs = buildFetchStore();
         UserStore us = buildUserStore();
-        RepoRegistry rr = buildRepoRegistry();
+        UrlRuleRegistry rr = buildUrlRuleRegistry();
         var storeForwardCache = new LocalRepositoryCache(Files.createTempDirectory("git-proxy-java-sf-"), 0, true);
         log.info("Initialized store-and-forward LocalRepositoryCache (full clone)");
         var proxyCache = new LocalRepositoryCache();
@@ -530,12 +550,8 @@ public class JettyConfigurationBuilder {
     }
 
     /**
-     * Builds a {@link RepoRegistry}, seeding it with rules derived from the YAML allow and deny rules config. JDBC
-     * backends share the same {@link DataSource} as the push store.
-     */
-    /**
      * Builds the list of CONFIG-sourced {@link AccessRule}s from the {@code rules:} YAML section. Used both at startup
-     * (seeding the registry) and during hot-reload (re-seeding via {@link RepoRegistry#seedFromConfig}).
+     * (seeding the registry) and during hot-reload (re-seeding via {@link UrlRuleRegistry#seedFromConfig}).
      */
     public List<AccessRule> buildConfigRules(GitProxyConfig cfg) {
         List<AccessRule> rules = new ArrayList<>();
@@ -567,27 +583,27 @@ public class JettyConfigurationBuilder {
                 .toList();
     }
 
-    public RepoRegistry buildRepoRegistry() {
-        if (cachedRepoRegistry != null) return cachedRepoRegistry;
+    public UrlRuleRegistry buildUrlRuleRegistry() {
+        if (cachedUrlRuleRegistry != null) return cachedUrlRuleRegistry;
         // CONFIG rules live only in memory — never written to DB, no stale duplicates on restart.
-        InMemoryRepoRegistry configRegistry = new InMemoryRepoRegistry();
+        InMemoryUrlRuleRegistry configRegistry = new InMemoryUrlRuleRegistry();
         buildConfigRules(config).forEach(configRegistry::save);
 
         String type = config.getDatabase().getType();
-        RepoRegistry dbRegistry;
+        UrlRuleRegistry dbRegistry;
         if ("mongo".equals(type)) {
             dbRegistry = requireMongoStoreFactory().repoRegistry();
         } else {
-            dbRegistry = new JdbcRepoRegistry(requireJdbcDataSource());
+            dbRegistry = new JdbcUrlRuleRegistry(requireJdbcDataSource());
         }
 
-        cachedRepoRegistry = new CompositeRepoRegistry(configRegistry, dbRegistry);
-        cachedRepoRegistry.initialize();
+        cachedUrlRuleRegistry = new CompositeUrlRuleRegistry(configRegistry, dbRegistry);
+        cachedUrlRuleRegistry.initialize();
         log.info(
                 "RepoRegistry initialized ({} config rules, {} db rules)",
                 configRegistry.findAll().size(),
                 dbRegistry.findAll().size());
-        return cachedRepoRegistry;
+        return cachedUrlRuleRegistry;
     }
 
     /** Builds a {@link FetchStore}. JDBC backends share the same {@link DataSource} as the push store. */
@@ -656,15 +672,6 @@ public class JettyConfigurationBuilder {
             case "FETCH" -> AccessRule.Operations.FETCH;
             case "PUSH" -> AccessRule.Operations.PUSH;
             default -> AccessRule.Operations.BOTH;
-        };
-    }
-
-    private static Set<HttpOperation> toHttpOperations(List<String> ops) {
-        if (ops == null || ops.isEmpty() || ops.size() > 1) return GitProxyFilter.DEFAULT_OPERATIONS;
-        return switch (ops.get(0).toUpperCase()) {
-            case "FETCH" -> Set.of(HttpOperation.FETCH);
-            case "PUSH" -> Set.of(HttpOperation.PUSH);
-            default -> GitProxyFilter.DEFAULT_OPERATIONS;
         };
     }
 

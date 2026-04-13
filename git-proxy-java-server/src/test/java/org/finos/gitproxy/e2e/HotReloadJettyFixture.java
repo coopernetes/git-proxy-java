@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.EnumSet;
-import java.util.List;
 import org.eclipse.jetty.ee11.servlet.FilterHolder;
 import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee11.servlet.ServletHolder;
@@ -17,7 +16,7 @@ import org.finos.gitproxy.approval.AutoApprovalGateway;
 import org.finos.gitproxy.config.GpgConfig;
 import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.PushStoreFactory;
-import org.finos.gitproxy.db.memory.InMemoryRepoRegistry;
+import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.git.*;
 import org.finos.gitproxy.jetty.config.GitProxyConfigLoader;
 import org.finos.gitproxy.jetty.config.JettyConfigurationBuilder;
@@ -29,7 +28,7 @@ import org.finos.gitproxy.servlet.filter.*;
 
 /**
  * Variant of {@link JettyProxyFixture} that wires all hot-reloadable config through a live {@link ConfigHolder} and an
- * {@link InMemoryRepoRegistry}, enabling tests to verify that config changes take effect mid-test without restarting
+ * {@link InMemoryUrlRuleRegistry}, enabling tests to verify that config changes take effect mid-test without restarting
  * the server.
  *
  * <p>Both the transparent proxy path ({@code /proxy/...}) and the store-and-forward path ({@code /push/...}) use
@@ -48,9 +47,9 @@ class HotReloadJettyFixture implements AutoCloseable {
     private final PushStore pushStore;
     private final String providerId;
     private final ConfigHolder configHolder;
-    private final InMemoryRepoRegistry configRegistry;
+    private final InMemoryUrlRuleRegistry configRegistry;
 
-    HotReloadJettyFixture(URI giteaUri, ConfigHolder configHolder, InMemoryRepoRegistry configRegistry)
+    HotReloadJettyFixture(URI giteaUri, ConfigHolder configHolder, InMemoryUrlRuleRegistry configRegistry)
             throws Exception {
         this.configHolder = configHolder;
         this.configRegistry = configRegistry;
@@ -91,7 +90,6 @@ class HotReloadJettyFixture implements AutoCloseable {
                 approvalGateway,
                 null,
                 Duration.ofSeconds(30),
-                List.of(),
                 configRegistry));
         gitServlet.setUploadPackFactory(new StoreAndForwardUploadPackFactory());
 
@@ -125,12 +123,9 @@ class HotReloadJettyFixture implements AutoCloseable {
         addFilter(context, proxyMapping, new EnrichPushCommitsFilter(provider, proxyCache, PROXY_PREFIX));
         addFilter(context, proxyMapping, new AllowApprovedPushFilter(pushStore, serviceUrl));
         // Always register the URL rule filter, backed by the live configRegistry.
-        // Note: proxy mode is fail-closed — an empty registry (OpenMode) results in 403.
+        // Note: proxy is fail-closed — no matching rule results in 403.
         // Tests must seed the registry with at least one allow rule before making requests.
-        addFilter(
-                context,
-                proxyMapping,
-                new UrlRuleAggregateFilter(100, provider, List.of(), PROXY_PREFIX, null, configRegistry));
+        addFilter(context, proxyMapping, new UrlRuleAggregateFilter(100, provider, PROXY_PREFIX, null, configRegistry));
         addFilter(context, proxyMapping, new CheckEmptyBranchFilter());
         addFilter(context, proxyMapping, new CheckHiddenCommitsFilter(provider));
         addFilter(context, proxyMapping, new CheckAuthorEmailsFilter(configHolder::getCommitConfig));
@@ -168,7 +163,7 @@ class HotReloadJettyFixture implements AutoCloseable {
 
     /**
      * Reloads the specified config section by loading {@code overrideYaml} on top of the base classpath config and
-     * applying the result to the live {@link ConfigHolder} and/or {@link InMemoryRepoRegistry}.
+     * applying the result to the live {@link ConfigHolder} and/or {@link InMemoryUrlRuleRegistry}.
      *
      * <p>This exercises the same code path as {@link org.finos.gitproxy.jetty.reload.LiveConfigLoader} — the YAML is
      * parsed by {@link GitProxyConfigLoader#loadWithOverride}, then the relevant section is built by

@@ -5,16 +5,14 @@ import static org.finos.gitproxy.git.GitClientUtils.SymbolCodes.*;
 import static org.finos.gitproxy.git.GitClientUtils.sym;
 
 import java.util.Collection;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.transport.ReceiveCommand;
 import org.eclipse.jgit.transport.ReceivePack;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.PushStep;
 import org.finos.gitproxy.db.model.StepStatus;
 import org.finos.gitproxy.provider.GitProxyProvider;
 import org.finos.gitproxy.servlet.filter.UrlRuleEvaluator;
-import org.finos.gitproxy.servlet.filter.UrlRuleFilter;
 
 /**
  * Pre-receive hook that enforces URL allow/deny rules in store-and-forward mode. Rule evaluation is delegated entirely
@@ -31,37 +29,20 @@ public class RepositoryUrlRuleHook implements GitProxyHook {
     private final ValidationContext validationContext;
     private final PushContext pushContext;
 
-    /** Open-mode constructor — no rules configured; always passes. Used in tests and simple setups. */
-    public RepositoryUrlRuleHook(PushContext pushContext) {
-        this(List.of(), null, null, null, pushContext);
-    }
-
     public RepositoryUrlRuleHook(
-            List<UrlRuleFilter> urlRuleFilters,
-            RepoRegistry repoRegistry,
+            UrlRuleRegistry urlRuleRegistry,
             GitProxyProvider provider,
             ValidationContext validationContext,
             PushContext pushContext) {
-        this.evaluator = new UrlRuleEvaluator(urlRuleFilters, repoRegistry, provider);
+        this.evaluator = new UrlRuleEvaluator(urlRuleRegistry, provider);
         this.validationContext = validationContext;
         this.pushContext = pushContext;
     }
 
     @Override
     public void onPreReceive(ReceivePack rp, Collection<ReceiveCommand> commands) {
-        // Open mode: evaluator has no config rules and no registry
-        // (detected inside evaluator — returns OpenMode)
-
         String repoSlug = rp.getRepository().getConfig().getString("gitproxy", null, "repoSlug");
         if (repoSlug == null || repoSlug.isBlank()) {
-            // No repoSlug means we can't evaluate rules — fail closed
-            // Exception: if the evaluator is in pure open mode (no rules at all), allow it
-            UrlRuleEvaluator.Result probe = evaluator.evaluate(null, null, null, HttpOperation.PUSH);
-            if (probe instanceof UrlRuleEvaluator.Result.OpenMode) {
-                log.debug("No repoSlug and no rules configured — allowing push (open mode)");
-                recordPass();
-                return;
-            }
             log.warn("No repoSlug in repo config — cannot evaluate URL rules, blocking push (fail-closed)");
             blockPush(rp, commands, "Repository path unavailable");
             return;
@@ -84,12 +65,8 @@ public class RepositoryUrlRuleHook implements GitProxyHook {
                 log.debug("Push allowed by rule: {}", a.ruleId());
                 recordPass();
             }
-            case UrlRuleEvaluator.Result.OpenMode m -> {
-                log.debug("Push allowed — open mode (no allow rules configured)");
-                recordPass();
-            }
             case UrlRuleEvaluator.Result.NotAllowed n -> {
-                log.debug("Push blocked — no allow rule matched");
+                log.debug("Push blocked — no rule matched");
                 blockPush(rp, commands, "Repository is not in the allow list");
             }
         }

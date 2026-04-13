@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.FetchStore.RepoFetchSummary;
 import org.finos.gitproxy.db.PushStore;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.db.model.PushQuery;
 import org.finos.gitproxy.db.model.PushRecord;
@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.*;
 public class RepoController {
 
     @Autowired
-    private RepoRegistry repoRegistry;
+    private UrlRuleRegistry urlRuleRegistry;
 
     @Autowired
     private FetchStore fetchStore;
@@ -44,13 +44,13 @@ public class RepoController {
     /** List all access rules. */
     @GetMapping("/rules")
     public List<AccessRule> listRules() {
-        return repoRegistry.findAll();
+        return urlRuleRegistry.findAll();
     }
 
     /** Get a single access rule by ID. */
     @GetMapping("/rules/{id}")
     public ResponseEntity<AccessRule> getRule(@PathVariable String id) {
-        return repoRegistry
+        return urlRuleRegistry
                 .findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -64,7 +64,7 @@ public class RepoController {
             if (err != null) return err;
         }
         rule.setSource(AccessRule.Source.DB);
-        repoRegistry.save(rule);
+        urlRuleRegistry.save(rule);
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String login = auth != null ? auth.getName() : "unknown";
         log.info("Access rule created by login={}: id={}", login, rule.getId());
@@ -74,7 +74,7 @@ public class RepoController {
     /** Update an existing access rule. */
     @PutMapping("/rules/{id}")
     public ResponseEntity<?> updateRule(@PathVariable String id, @RequestBody AccessRule rule) {
-        if (repoRegistry.findById(id).isEmpty()) {
+        if (urlRuleRegistry.findById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         if (rule.getProvider() != null && !rule.getProvider().isBlank()) {
@@ -82,7 +82,7 @@ public class RepoController {
             if (err != null) return err;
         }
         rule.setId(id);
-        repoRegistry.update(rule);
+        urlRuleRegistry.update(rule);
         return ResponseEntity.ok(rule);
     }
 
@@ -107,11 +107,11 @@ public class RepoController {
     /** Delete an access rule. */
     @DeleteMapping("/rules/{id}")
     public ResponseEntity<Void> deleteRule(@PathVariable String id) {
-        var existing = repoRegistry.findById(id);
+        var existing = urlRuleRegistry.findById(id);
         if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        repoRegistry.delete(id);
+        urlRuleRegistry.delete(id);
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String login = auth != null ? auth.getName() : "unknown";
         log.info("Access rule deleted by login={}: id={}", login, id);

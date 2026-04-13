@@ -14,7 +14,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.component.LifeCycle;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.finos.gitproxy.approval.UiApprovalGateway;
-import org.finos.gitproxy.db.RepoRegistry;
+import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.jetty.GitProxyContext;
 import org.finos.gitproxy.jetty.GitProxyJettyApplication;
 import org.finos.gitproxy.jetty.GitProxyServletRegistrar;
@@ -72,7 +72,7 @@ public class GitProxyWithDashboardApplication {
         var pushStore = configBuilder.buildPushStore();
         log.info("Push store initialized: {}", pushStore.getClass().getSimpleName());
 
-        RepoRegistry repoRegistry = configBuilder.buildRepoRegistry();
+        UrlRuleRegistry urlRuleRegistry = configBuilder.buildUrlRuleRegistry();
 
         // Always use UiApprovalGateway when running with the dashboard — the REST API is what drives approval.
         // This is intentionally not derived from approval-mode config: the dashboard deployment always needs
@@ -92,7 +92,7 @@ public class GitProxyWithDashboardApplication {
                 configHolder,
                 gitProxyConfig,
                 configBuilder.getReloadConfig(),
-                ctx.repoRegistry(),
+                ctx.urlRuleRegistry(),
                 ctx.repoPermissionService());
         liveConfigLoader.start();
         server.addEventListener(new LifeCycle.Listener() {
@@ -111,7 +111,7 @@ public class GitProxyWithDashboardApplication {
                 gitProxyConfig,
                 configHolder,
                 liveConfigLoader,
-                repoRegistry,
+                urlRuleRegistry,
                 jdbcDataSource);
 
         server.setHandler(context);
@@ -132,7 +132,7 @@ public class GitProxyWithDashboardApplication {
             GitProxyConfig gitProxyConfig,
             ConfigHolder configHolder,
             LiveConfigLoader liveConfigLoader,
-            RepoRegistry repoRegistry,
+            UrlRuleRegistry urlRuleRegistry,
             javax.sql.DataSource jdbcDataSource) {
         var appContext = new AnnotationConfigWebApplicationContext();
         appContext.register(SpringWebConfig.class, SecurityConfig.class, SessionStoreConfig.class);
@@ -143,7 +143,7 @@ public class GitProxyWithDashboardApplication {
             bf.registerSingleton("gitProxyConfig", gitProxyConfig);
             bf.registerSingleton("configHolder", configHolder);
             bf.registerSingleton("liveConfigLoader", liveConfigLoader);
-            bf.registerSingleton("repoRegistry", repoRegistry);
+            bf.registerSingleton("repoRegistry", urlRuleRegistry);
             bf.registerSingleton("fetchStore", ctx.fetchStore());
             if (ctx.repoPermissionService() != null) {
                 bf.registerSingleton("repoPermissionService", ctx.repoPermissionService());
