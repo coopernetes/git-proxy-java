@@ -416,6 +416,15 @@ auth:
     # Generate: openssl req -new -x509 -key private.pem -out cert.pem -days 365
     # cert-path: /run/secrets/gitproxy-oidc-cert.pem
 
+    # Optional: explicit kid to embed in the private_key_jwt assertion header.
+    # Use this for providers that match the assertion against a registered JWKS by kid
+    # (Keycloak, Okta, Auth0, Dex). Without it, a random UUID kid is generated on each
+    # restart, which breaks authentication with those providers.
+    # Find the kid by inspecting your provider's JWKS endpoint and matching it to the
+    # public key you registered.
+    # Not needed when cert-path is set (Entra ID uses x5t instead of kid).
+    # key-id: my-registered-kid
+
   # OIDC claim containing the user's group memberships. Defaults to "groups",
   # which is standard for Keycloak, Okta, and most Entra ID configurations.
   groups-claim: groups
