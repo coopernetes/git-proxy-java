@@ -594,6 +594,84 @@ This lets operations teams push rule or permission changes by updating a ConfigM
 
 ---
 
+## Network requirements
+
+git-proxy-java opens outbound connections to upstream SCM providers (GitHub, GitLab, Bitbucket, Gitea) from the
+**server**, not from the developer's workstation. Your network team needs to allow egress from the proxy host, not from
+individual developer machines.
+
+### Outbound connections the proxy makes
+
+| Path | Library | Destination |
+|------|---------|-------------|
+| Store-and-forward upstream push | JGit Transport (HTTPS) | SCM provider git endpoint |
+| Transparent proxy forwarding | Jetty HttpClient (HTTPS) | SCM provider git endpoint |
+| SCM identity resolution (PAT verification) | Apache HttpClient 5 | SCM provider REST API |
+
+All three paths must be able to reach the upstream SCM provider. A common operational mistake is opening the firewall for
+one path but not the others — pushes appear to succeed locally but fail when the proxy tries to verify the committer's
+identity via the API.
+
+### Corporate HTTP proxy
+
+If outbound internet access requires routing through a corporate HTTP proxy, set the standard environment variables
+before starting git-proxy-java:
+
+```bash
+export HTTPS_PROXY=http://proxy.corp.example.com:8080
+export HTTP_PROXY=http://proxy.corp.example.com:8080
+export NO_PROXY=localhost,127.0.0.1,*.internal.example.com
+```
+
+git-proxy-java reads these at startup and configures all three outbound paths accordingly. No YAML config is needed.
+
+Many organisations run a local proxy relay (cntlm, Alpaca) that handles NTLM/Kerberos authentication to the corporate
+proxy transparently. Point `HTTPS_PROXY` at the relay (e.g. `http://localhost:3128`) and git-proxy-java will work
+without any auth configuration.
+
+> **Note:** Full proxy authentication (Basic, NTLM) in YAML config is tracked in
+> [#158](https://github.com/coopernetes/git-proxy-java/issues/158).
+
+### Connectivity diagnostics (dashboard)
+
+The dashboard admin panel includes a **Provider Connectivity** section (`Admin → Provider Connectivity`) that runs
+layered outbound checks against each configured provider. Use this to generate a sharable diagnostic report for your
+network team without requiring them to access server logs.
+
+**Baseline check** (all providers): for each provider runs in sequence and stops at the first failure:
+
+1. **TCP** — opens a socket to `host:port` (5 s timeout). Classifies the outcome as REFUSED, TIMEOUT, or RESET so a
+   firewall DROP vs REJECT is immediately distinguishable.
+2. **TLS** — completes the TLS handshake and reports the negotiated protocol, cipher suite, and peer certificate CN.
+   Detects MITM/SSL-inspection appliances that swap the upstream certificate.
+3. **HTTP** — sends `GET /` and records the HTTP status code and response time.
+
+**Targeted check** (single provider + optional repo path): runs the same three steps, then adds:
+
+4. **Git probe** — sends `GET /info/refs?service=git-upload-pack` and `GET /info/refs?service=git-receive-pack` with a
+   `User-Agent: git/2.x.x` header. Any HTTP response (200, 401, 403 …) means the request reached the upstream — git
+   URL patterns and the git user-agent are not being filtered. A TIMEOUT or RESET after TCP/TLS passed indicates a DLP
+   appliance blocking git-specific traffic specifically.
+
+The targeted check returns a structured `steps` log in the API response (`GET /api/admin/connectivity?provider=<name>`)
+that can be copied directly into a ticket for the network team.
+
+### DLP appliances and non-GET blocking
+
+Some enterprises deploy DLP (Data Loss Prevention) appliances that inspect or selectively block outbound HTTPS traffic.
+A common policy blocks anything other than GET requests to `github.com` or similar SCM hosts — this will prevent
+git-proxy-java from forwarding pushes upstream even if the proxy can reach the host.
+
+Symptoms: clones through the proxy succeed, but pushes fail at the upstream forwarding step with a 403 or a TCP reset.
+The git probe in the targeted connectivity check will show this as a TIMEOUT or RESET on the `git-receive-pack` step
+after TCP and TLS both pass.
+
+**Resolution:** work with your network team to allowlist the proxy server's egress IP for POST/PUT traffic to the SCM
+provider's git endpoint. A transparent HTTPS inspection proxy (MITM) will also break JGit's certificate pinning —
+the proxy host's egress IP should bypass SSL inspection, not just be allowlisted at the IP layer.
+
+---
+
 ## Production checklist
 
 ### Database
