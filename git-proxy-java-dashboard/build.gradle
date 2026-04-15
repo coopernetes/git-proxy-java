@@ -98,6 +98,14 @@ tasks.named('processResources') {
     if (!project.hasProperty('skipFrontend')) {
         dependsOn tasks.named('copyFrontend')
     }
+    // Inject the project version into version.properties so OpenApiController can read it at runtime.
+    filesMatching('version.properties') {
+        expand(appVersion: project.version)
+    }
+    // Inject the Swagger UI WebJar version into swagger-ui.html so the asset paths are correct.
+    filesMatching('**/swagger-ui.html') {
+        expand(swaggerUiVersion: swaggerUiVersion)
+    }
 }
 
 tasks.named('run') {
@@ -160,6 +168,12 @@ dependencies {
     runtimeOnly "org.postgresql:postgresql:${postgresVersion}"
     // MongoDB driver — compile-scoped because MongoSessionRepository uses the sync client directly.
     implementation "org.mongodb:mongodb-driver-sync:${mongoVersion}"
+
+    // OpenAPI spec generation — core model + YAML/JSON serialisation only (no JAX-RS required).
+    // The spec is built programmatically from Spring's RequestMappingHandlerMapping.
+    implementation "io.swagger.core.v3:swagger-core-jakarta:${swaggerCoreVersion}"
+    // Swagger UI static assets served from /webjars/** via the WebJar resource handler.
+    runtimeOnly "org.webjars:swagger-ui:${swaggerUiVersion}"
 
     // Gestalt config (needed to catch GestaltException from GitProxyConfigLoader)
     implementation "com.github.gestalt-config:gestalt-core:${gestaltVersion}"

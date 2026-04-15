@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 import org.finos.gitproxy.jetty.reload.LiveConfigLoader;
 import org.finos.gitproxy.jetty.reload.LiveConfigLoader.Section;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>This endpoint requires {@code ROLE_ADMIN}.
  */
+@Tag(name = "Admin", description = "Administrative operations — requires ROLE_ADMIN")
 @RestController
 @RequestMapping("/api/config")
 public class ConfigReloadController {
@@ -37,6 +40,7 @@ public class ConfigReloadController {
     @Autowired
     private LiveConfigLoader liveConfigLoader;
 
+    @Operation(operationId = "reloadConfig", summary = "Trigger a live config reload")
     @PostMapping("/reload")
     public ResponseEntity<Map<String, String>> reload(
             @RequestParam(name = "section", defaultValue = "all") String sectionParam) {

@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 import org.finos.gitproxy.permission.RepoPermission;
 import org.finos.gitproxy.permission.RepoPermissionService;
@@ -9,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Users", description = "User management — requires ROLE_ADMIN")
 @RestController
 @RequestMapping("/api/users/{username}/permissions")
 public class PermissionController {
@@ -19,7 +22,7 @@ public class PermissionController {
     @Autowired
     private ReadOnlyUserStore userStore;
 
-    /** List all permissions for a user. Requires authentication. */
+    @Operation(operationId = "listUserPermissions", summary = "List permissions for a user")
     @GetMapping
     public ResponseEntity<?> list(@PathVariable String username) {
         if (userStore.findByUsername(username).isEmpty()) {
@@ -28,7 +31,7 @@ public class PermissionController {
         return ResponseEntity.ok(permissionService.findByUsername(username));
     }
 
-    /** Add a permission for a user. Requires ROLE_ADMIN. */
+    @Operation(operationId = "addUserPermission", summary = "Grant a permission to a user")
     @PostMapping
     public ResponseEntity<?> add(@PathVariable String username, @RequestBody AddPermissionRequest req) {
         if (userStore.findByUsername(username).isEmpty()) {
@@ -71,7 +74,7 @@ public class PermissionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(permission);
     }
 
-    /** Delete a permission. Requires ROLE_ADMIN. Config-sourced permissions cannot be deleted. */
+    @Operation(operationId = "deleteUserPermission", summary = "Revoke a permission from a user")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable String username, @PathVariable String id) {
         if (userStore.findByUsername(username).isEmpty()) {

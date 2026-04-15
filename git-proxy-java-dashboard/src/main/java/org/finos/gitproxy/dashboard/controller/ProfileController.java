@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 import org.finos.gitproxy.user.EmailConflictException;
 import org.finos.gitproxy.user.LockedByConfigException;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>All endpoints return {@code 501 Not Implemented} when the active {@link UserStore} is read-only (e.g.
  * {@code StaticUserStore} used with a memory or mongo database backend).
  */
+@Tag(name = "Profile", description = "Self-service profile management for the authenticated user")
 @RestController
 @RequestMapping("/api/me")
 public class ProfileController {
@@ -43,6 +46,7 @@ public class ProfileController {
 
     // ---- email claims ----
 
+    @Operation(operationId = "addEmail", summary = "Add an email claim to the current user's profile")
     @PostMapping("/emails")
     public ResponseEntity<?> addEmail(@RequestBody Map<String, String> body) {
         if (!(userStore instanceof UserStore mutable)) return NOT_MUTABLE;
@@ -63,6 +67,7 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("email", email));
     }
 
+    @Operation(operationId = "removeEmail", summary = "Remove an email claim from the current user's profile")
     @DeleteMapping("/emails/{email}")
     public ResponseEntity<?> removeEmail(@PathVariable String email) {
         if (!(userStore instanceof UserStore mutable)) return NOT_MUTABLE;
@@ -79,6 +84,7 @@ public class ProfileController {
 
     // ---- SCM identity claims ----
 
+    @Operation(operationId = "addScmIdentity", summary = "Add an SCM identity to the current user's profile")
     @PostMapping("/identities")
     public ResponseEntity<?> addScmIdentity(@RequestBody Map<String, String> body) {
         if (!(userStore instanceof UserStore mutable)) return NOT_MUTABLE;
@@ -102,6 +108,7 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("provider", provider, "username", scmUsername));
     }
 
+    @Operation(operationId = "removeScmIdentity", summary = "Remove an SCM identity from the current user's profile")
     @DeleteMapping("/identities/{provider}/{scmUsername}")
     public ResponseEntity<?> removeScmIdentity(@PathVariable String provider, @PathVariable String scmUsername) {
         if (!(userStore instanceof UserStore mutable)) return NOT_MUTABLE;

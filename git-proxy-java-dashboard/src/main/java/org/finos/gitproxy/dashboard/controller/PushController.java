@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -21,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+@Tag(name = "Push", description = "Push records and the approval workflow")
 @RestController
 @RequestMapping("/api/push")
 public class PushController {
@@ -50,6 +53,7 @@ public class PushController {
      * List push records. Optional query params: status, project, repo, user, search (matches project OR repo name),
      * limit (default 50).
      */
+    @Operation(operationId = "listPushes", summary = "List push records")
     @GetMapping
     public List<PushRecord> list(
             @RequestParam(required = false) String status,
@@ -85,6 +89,7 @@ public class PushController {
      * Look up a push record by its commit reference ({commitFrom}_{commitTo}). Used by the transparent proxy flow where
      * we link to a push before it has been saved with a UUID.
      */
+    @Operation(operationId = "getPushByRef", summary = "Get a push record by commit reference")
     @GetMapping("/by-ref/{ref}")
     public ResponseEntity<PushRecord> getByRef(@PathVariable String ref) {
         // ref format: {commitFrom}_{commitTo} (may be short 8-char SHAs)
@@ -119,6 +124,7 @@ public class PushController {
      * content can be large (tens of thousands of lines) and is served separately via {@code GET /{id}/diff}. All other
      * step content is included (typically small validation output).
      */
+    @Operation(operationId = "getPush", summary = "Get a push record")
     @GetMapping("/{id}")
     public ResponseEntity<PushRecord> getById(@PathVariable String id) {
         return pushStore
@@ -156,6 +162,7 @@ public class PushController {
      * block page load — the dashboard fetches this lazily and decides whether to render inline or link to the
      * standalone diff page based on size.
      */
+    @Operation(operationId = "getPushDiff", summary = "Get the unified diff for a push")
     @GetMapping("/{id}/diff")
     public ResponseEntity<Map<String, Object>> getDiff(@PathVariable String id) {
         return pushStore
@@ -189,6 +196,7 @@ public class PushController {
      * Approve a push. Body: { "reviewerUsername": "...", "reviewerEmail": "...", "reason": "...", "attestations": {
      * "question-id": "answer", ... } }
      */
+    @Operation(operationId = "approvePush", summary = "Approve a push")
     @PostMapping("/{id}/authorise")
     public ResponseEntity<?> approve(@PathVariable String id, @RequestBody ApproveBody body) {
         return pushStore
@@ -255,6 +263,7 @@ public class PushController {
     }
 
     /** Reject a push. Body: { "reviewerUsername": "...", "reviewerEmail": "...", "reason": "..." } (reason required) */
+    @Operation(operationId = "rejectPush", summary = "Reject a push")
     @PostMapping("/{id}/reject")
     public ResponseEntity<?> reject(@PathVariable String id, @RequestBody Map<String, String> body) {
         String reason = body.get("reason");
@@ -357,6 +366,7 @@ public class PushController {
     }
 
     /** Cancel a push. Only the pusher or an admin may cancel. Body: { "reviewerUsername": "..." } */
+    @Operation(operationId = "cancelPush", summary = "Cancel a push")
     @PostMapping("/{id}/cancel")
     public ResponseEntity<?> cancel(@PathVariable String id, @RequestBody(required = false) Map<String, String> body) {
         return pushStore

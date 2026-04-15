@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,6 +26,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Repos", description = "Access control rules and repository traffic")
 @Slf4j
 @RestController
 @RequestMapping("/api/repos")
@@ -41,13 +44,13 @@ public class RepoController {
     @Resource(name = "providers")
     private ProviderRegistry providerSource;
 
-    /** List all access rules. */
+    @Operation(operationId = "listRules", summary = "List access control rules")
     @GetMapping("/rules")
     public List<AccessRule> listRules() {
         return urlRuleRegistry.findAll();
     }
 
-    /** Get a single access rule by ID. */
+    @Operation(operationId = "getRule", summary = "Get an access control rule")
     @GetMapping("/rules/{id}")
     public ResponseEntity<AccessRule> getRule(@PathVariable String id) {
         return urlRuleRegistry
@@ -56,7 +59,7 @@ public class RepoController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /** Create a new access rule. */
+    @Operation(operationId = "createRule", summary = "Create an access control rule")
     @PostMapping("/rules")
     public ResponseEntity<?> createRule(@RequestBody AccessRule rule) {
         if (rule.getProvider() != null && !rule.getProvider().isBlank()) {
@@ -71,7 +74,7 @@ public class RepoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(rule);
     }
 
-    /** Update an existing access rule. */
+    @Operation(operationId = "updateRule", summary = "Update an access control rule")
     @PutMapping("/rules/{id}")
     public ResponseEntity<?> updateRule(@PathVariable String id, @RequestBody AccessRule rule) {
         if (urlRuleRegistry.findById(id).isEmpty()) {
@@ -104,7 +107,7 @@ public class RepoController {
         return null;
     }
 
-    /** Delete an access rule. */
+    @Operation(operationId = "deleteRule", summary = "Delete an access control rule")
     @DeleteMapping("/rules/{id}")
     public ResponseEntity<Void> deleteRule(@PathVariable String id) {
         var existing = urlRuleRegistry.findById(id);
@@ -122,6 +125,7 @@ public class RepoController {
      * Active repos view — aggregates push records and fetch records by repo, showing observed traffic regardless of
      * access rule configuration.
      */
+    @Operation(operationId = "listActiveRepos", summary = "List repositories with observed push/fetch traffic")
     @GetMapping("/active")
     public List<Map<String, Object>> activeRepos() {
         // Keyed by "provider|owner|repoName"

@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Auth", description = "Current user profile and session information")
 @RestController
 @RequestMapping("/api")
 public class AuthController {
@@ -28,6 +31,7 @@ public class AuthController {
      * Returns the currently authenticated user's full profile: username, emails (with verified flag), SCM identities,
      * authorities, and repo permissions.
      */
+    @Operation(operationId = "getCurrentUser", summary = "Get the authenticated user's profile")
     @GetMapping("/me")
     public Map<String, Object> me() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

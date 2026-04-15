@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import org.finos.gitproxy.jetty.config.GitProxyConfig;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code docker-entrypoint.sh}. Serving it from Spring means it works in all environments (Gradle run, Docker, bare
  * JAR) without needing to inject files into the static asset directory at container startup.
  */
+@Tag(name = "System", description = "Health check and API metadata")
 @RestController
 @RequestMapping("/api")
 public class RuntimeConfigController {
@@ -23,6 +26,7 @@ public class RuntimeConfigController {
     @Autowired
     private GitProxyConfig gitProxyConfig;
 
+    @Operation(operationId = "getRuntimeConfig", summary = "Get frontend runtime configuration")
     @GetMapping("/runtime-config")
     public Map<String, Object> runtimeConfig() {
         List<String> allowedOrigins = gitProxyConfig.getServer().getAllowedOrigins();

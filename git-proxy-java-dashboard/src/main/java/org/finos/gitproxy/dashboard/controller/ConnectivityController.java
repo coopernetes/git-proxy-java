@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -56,6 +58,7 @@ import org.springframework.web.server.ResponseStatusException;
  *
  * <p>Requires {@code ROLE_ADMIN}.
  */
+@Tag(name = "Admin", description = "Administrative operations — requires ROLE_ADMIN")
 @Slf4j
 @RestController
 public class ConnectivityController {
@@ -85,6 +88,7 @@ public class ConnectivityController {
      * @param repoPath optional — repo path (e.g. {@code /owner/repo.git}) appended to the provider base URI for the git
      *     probe step; requires {@code provider}
      */
+    @Operation(operationId = "checkConnectivity", summary = "Test outbound connectivity to configured providers")
     @GetMapping("/api/admin/connectivity")
     public Map<String, Object> check(
             @RequestParam(name = "provider", required = false) String providerName,
