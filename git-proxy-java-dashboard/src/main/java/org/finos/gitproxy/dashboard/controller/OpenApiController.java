@@ -24,6 +24,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -65,6 +67,13 @@ public class OpenApiController {
         } catch (IOException ignored) {
         }
         return props.getProperty("version", "unknown");
+    }
+
+    public record VersionResponse(String version, String apiDocs) {}
+
+    @GetMapping
+    public ResponseEntity<VersionResponse> getSpec() {
+        return ResponseEntity.ok(new VersionResponse(readVersion(), "/api/openapi.json"));
     }
 
     @PostConstruct

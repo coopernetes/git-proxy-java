@@ -148,6 +148,7 @@ public class SecurityConfig {
 
         http.securityMatcher(protectedPaths)
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
+                                "/api",
                                 "/api/runtime-config",
                                 "/api/health",
                                 "/api/openapi.yaml",
