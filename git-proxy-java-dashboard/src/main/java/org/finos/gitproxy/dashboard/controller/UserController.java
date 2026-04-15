@@ -1,5 +1,7 @@
 package org.finos.gitproxy.dashboard.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -18,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Users", description = "User management — requires ROLE_ADMIN")
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -31,13 +34,13 @@ public class UserController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    /** List all users with a summary suitable for the admin list view. */
+    @Operation(operationId = "listUsers", summary = "List all users")
     @GetMapping
     public List<UserSummary> list() {
         return userStore.findAll().stream().map(this::toSummary).toList();
     }
 
-    /** Get full detail for a single user. */
+    @Operation(operationId = "getUser", summary = "Get user details")
     @GetMapping("/{username}")
     public ResponseEntity<UserDetail> get(@PathVariable String username) {
         return userStore
@@ -46,7 +49,7 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /** Create a new local user. Requires ROLE_ADMIN. */
+    @Operation(operationId = "createUser", summary = "Create a local user")
     @PostMapping
     public ResponseEntity<?> create(@RequestBody CreateUserRequest req) {
         if (!(userStore instanceof UserStore jdbc)) {
@@ -72,7 +75,7 @@ public class UserController {
         }
     }
 
-    /** Delete a user. Requires ROLE_ADMIN. */
+    @Operation(operationId = "deleteUser", summary = "Delete a user")
     @DeleteMapping("/{username}")
     public ResponseEntity<?> delete(@PathVariable String username) {
         if (!(userStore instanceof UserStore jdbc)) {
@@ -96,7 +99,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Reset a user's password. Requires ROLE_ADMIN. */
+    @Operation(operationId = "resetUserPassword", summary = "Reset a user's password")
     @PostMapping("/{username}/reset-password")
     public ResponseEntity<?> resetPassword(@PathVariable String username, @RequestBody ResetPasswordRequest req) {
         if (!(userStore instanceof UserStore jdbc)) {
@@ -114,7 +117,7 @@ public class UserController {
         }
     }
 
-    /** Add an email address to a user. Requires ROLE_ADMIN. */
+    @Operation(operationId = "addUserEmail", summary = "Add an email address to a user")
     @PostMapping("/{username}/emails")
     public ResponseEntity<?> addEmail(@PathVariable String username, @RequestBody AddEmailRequest req) {
         if (!(userStore instanceof UserStore mutable)) {
@@ -137,7 +140,7 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("email", req.email()));
     }
 
-    /** Remove an email address from a user. Requires ROLE_ADMIN. */
+    @Operation(operationId = "removeUserEmail", summary = "Remove an email address from a user")
     @DeleteMapping("/{username}/emails/{email}")
     public ResponseEntity<?> removeEmail(@PathVariable String username, @PathVariable String email) {
         if (!(userStore instanceof UserStore mutable)) {
@@ -157,7 +160,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Add an SCM identity to a user. Requires ROLE_ADMIN. */
+    @Operation(operationId = "addUserScmIdentity", summary = "Add an SCM identity to a user")
     @PostMapping("/{username}/identities")
     public ResponseEntity<?> addIdentity(@PathVariable String username, @RequestBody ScmIdentityRequest req) {
         if (!(userStore instanceof UserStore mutable)) {
@@ -184,7 +187,7 @@ public class UserController {
                 .body(Map.of("provider", req.provider(), "scmUsername", req.scmUsername()));
     }
 
-    /** Remove an SCM identity from a user. Requires ROLE_ADMIN. */
+    @Operation(operationId = "removeUserScmIdentity", summary = "Remove an SCM identity from a user")
     @DeleteMapping("/{username}/identities/{provider}/{scmUsername}")
     public ResponseEntity<?> removeIdentity(
             @PathVariable String username, @PathVariable String provider, @PathVariable String scmUsername) {

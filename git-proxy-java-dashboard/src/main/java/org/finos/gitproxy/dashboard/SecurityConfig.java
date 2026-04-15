@@ -147,7 +147,12 @@ public class SecurityConfig {
                 : new String[] {"/api/**", "/login", "/logout"};
 
         http.securityMatcher(protectedPaths)
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/runtime-config", "/api/health")
+                .authorizeHttpRequests(auth -> auth.requestMatchers(
+                                "/api/runtime-config",
+                                "/api/health",
+                                "/api/openapi.yaml",
+                                "/api/openapi.json",
+                                "/webjars/**")
                         .permitAll()
                         .requestMatchers("/api/users", "/api/users/**")
                         .hasRole("ADMIN")
