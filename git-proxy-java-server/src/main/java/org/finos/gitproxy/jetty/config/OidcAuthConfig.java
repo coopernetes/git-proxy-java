@@ -95,4 +95,24 @@ public class OidcAuthConfig {
      * <p>Example: {@code /run/secrets/gitproxy-oidc-cert.pem}
      */
     private String certPath = "";
+
+    /**
+     * Explicit {@code kid} (key ID) to include in the {@code private_key_jwt} assertion header. Use this when the IdP
+     * matches the client assertion against a registered JWKS by {@code kid} — Keycloak, Okta, Auth0, and Dex all work
+     * this way.
+     *
+     * <p>Find the correct value by inspecting your provider's JWKS endpoint (e.g.
+     * {@code <issuer>/protocol/openid-connect/certs} on Keycloak) and matching it to the public key you registered.
+     *
+     * <p>Precedence when {@code private-key-path} is set:
+     *
+     * <ol>
+     *   <li>{@code cert-path} set → {@code x5t#S256} thumbprint (Entra ID)
+     *   <li>{@code key-id} set → explicit {@code kid} (Keycloak, Okta, Auth0, Dex)
+     *   <li>Neither → random UUID {@code kid} (only suitable for providers that accept any {@code kid})
+     * </ol>
+     *
+     * <p>Example: {@code my-registered-kid}
+     */
+    private String keyId = "";
 }

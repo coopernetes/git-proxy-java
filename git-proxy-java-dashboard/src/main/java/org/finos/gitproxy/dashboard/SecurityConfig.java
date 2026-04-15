@@ -415,7 +415,8 @@ public class SecurityConfig {
                                     userInfo.oidcUserService(buildOidcUserService(roleMappings, groupsClaim)));
 
                     if (usePrivateKeyJwt) {
-                        RSAKey rsaKey = loadRsaKey(oidcCfg.getPrivateKeyPath(), oidcCfg.getCertPath());
+                        RSAKey rsaKey = loadRsaKey(
+                                oidcCfg.getPrivateKeyPath(), oidcCfg.getCertPath(), oidcCfg.getKeyId());
                         Function<ClientRegistration, JWK> jwkResolver = reg ->
                                 ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(reg.getClientAuthenticationMethod())
                                         ? rsaKey
@@ -595,10 +596,12 @@ public class SecurityConfig {
      * {@link NimbusJwtClientAuthenticationParametersConverter}. The public key is derived from the CRT parameters
      * embedded in the private key — no separate public key file is needed.
      *
-     * <p>When {@code certPath} is non-blank, the SHA-256 thumbprint of the certificate is computed and set as
-     * {@code x5t#S256} on the key. This is required for Entra ID, which matches registered certificates by thumbprint
-     * rather than {@code kid}. Providers that match on {@code kid} (Keycloak, Dex) leave {@code certPath} blank and
-     * receive a random {@code kid} instead.
+     * <p>Key-ID precedence when {@code private-key-path} is set:
+     * <ol>
+     *   <li>{@code certPath} non-blank → SHA-256 thumbprint set as {@code x5t#S256} (Entra ID)
+     *   <li>{@code keyId} non-blank → used as explicit {@code kid} (Keycloak, Okta, Auth0, Dex)
+     *   <li>Neither → random UUID {@code kid} (suitable only for providers that accept any {@code kid})
+     * </ol>
      *
      * <p>Generate a suitable key pair with:
      *
@@ -608,7 +611,7 @@ public class SecurityConfig {
      * openssl req -new -x509 -key private.pem -out cert.pem -days 365   # Entra ID only
      * </pre>
      */
-    private static RSAKey loadRsaKey(String pemPath, String certPath) {
+    static RSAKey loadRsaKey(String pemPath, String certPath, String keyId) {
         try {
             String pem = Files.readString(Path.of(pemPath))
                     .replaceAll("-----[^-]+-----", "")
@@ -626,6 +629,8 @@ public class SecurityConfig {
                     byte[] sha256 = MessageDigest.getInstance("SHA-256").digest(cert.getEncoded());
                     builder.x509CertSHA256Thumbprint(Base64URL.encode(sha256));
                 }
+            } else if (keyId != null && !keyId.isBlank()) {
+                builder.keyID(keyId);
             } else {
                 builder.keyID(UUID.randomUUID().toString());
             }
