@@ -1,13 +1,16 @@
 package org.finos.gitproxy.dashboard;
 
+import com.mongodb.client.MongoClient;
 import jakarta.servlet.Filter;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
+import org.finos.gitproxy.dashboard.session.MongoSessionRepository;
 import org.finos.gitproxy.jetty.config.GitProxyConfig;
 import org.finos.gitproxy.jetty.config.ServerConfig.RedisConfig;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -31,6 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>{@code none} (default) — in-memory {@link MapSessionRepository}; sessions are lost on restart
  *   <li>{@code jdbc} — {@link JdbcIndexedSessionRepository}; persisted to the configured JDBC database
  *   <li>{@code redis} — {@link RedisIndexedSessionRepository}; persisted to Redis/Valkey
+ *   <li>{@code mongo} — {@link MongoSessionRepository}; persisted to the configured MongoDB database
  * </ul>
  *
  * <p>The {@code springSessionRepositoryFilter} bean is always registered so that
@@ -48,6 +52,14 @@ public class SessionStoreConfig {
     @Autowired(required = false)
     private DataSource dataSource;
 
+    /** Injected only for MongoDB deployments — null for JDBC deployments. */
+    @Autowired(required = false)
+    private MongoClient mongoClient;
+
+    @Autowired(required = false)
+    @Qualifier("mongoDatabaseName")
+    private String mongoDatabaseName;
+
     @Bean
     @SuppressWarnings("unchecked")
     public SessionRepository<?> sessionRepository() {
@@ -56,6 +68,7 @@ public class SessionStoreConfig {
         return switch (store) {
             case "jdbc" -> buildJdbc(timeout);
             case "redis" -> buildRedis(timeout);
+            case "mongo" -> buildMongo(timeout);
             default -> {
                 log.info("Session store: in-memory (server.session-store=none). Sessions will not survive restarts.");
                 var repo = new MapSessionRepository(new ConcurrentHashMap<>());
@@ -77,7 +90,7 @@ public class SessionStoreConfig {
         if (dataSource == null) {
             throw new IllegalStateException(
                     "server.session-store=jdbc requires a JDBC database (h2-file, h2-mem, or postgres)."
-                            + " Current database.type is mongo — use session-store: none or provision a JDBC database.");
+                            + " Current database.type is mongo — use session-store: mongo (or none/redis).");
         }
         log.info("Session store: JDBC (server.session-store=jdbc)");
         var jdbcOps = new JdbcTemplate(dataSource);
@@ -117,5 +130,16 @@ public class SessionStoreConfig {
         var repo = new RedisIndexedSessionRepository(template);
         repo.setDefaultMaxInactiveInterval(timeout);
         return repo;
+    }
+
+    // ── MongoDB ───────────────────────────────────────────────────────────────
+
+    private MongoSessionRepository buildMongo(Duration timeout) {
+        if (mongoClient == null || mongoDatabaseName == null) {
+            throw new IllegalStateException("server.session-store=mongo requires database.type=mongo."
+                    + " Current database.type is not mongo — use session-store: jdbc, redis, or none.");
+        }
+        log.info("Session store: MongoDB (server.session-store=mongo)");
+        return new MongoSessionRepository(mongoClient, mongoDatabaseName, timeout);
     }
 }

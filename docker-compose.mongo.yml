@@ -21,6 +21,7 @@ services:
       GITPROXY_DATABASE_TYPE: mongo
       GITPROXY_DATABASE_URL: mongodb://gitproxy:gitproxy@mongo:27017
       GITPROXY_DATABASE_NAME: gitproxy
+      GITPROXY_SERVER_SESSION_STORE: mongo
     depends_on:
       mongo:
         condition: service_healthy

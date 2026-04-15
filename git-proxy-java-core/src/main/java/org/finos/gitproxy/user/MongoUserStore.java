@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 public class MongoUserStore implements UserStore {
 
     private static final Logger log = LoggerFactory.getLogger(MongoUserStore.class);
-    private static final String COLLECTION_NAME = "users";
+    private static final String COLLECTION_NAME = "proxy_users";
 
     private final MongoDatabase database;
 

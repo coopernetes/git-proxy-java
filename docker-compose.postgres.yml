@@ -22,6 +22,7 @@ services:
       GITPROXY_DATABASE_URL: "jdbc:postgresql://postgres:5432/gitproxy?sslmode=disable"
       GITPROXY_DATABASE_USERNAME: gitproxy
       GITPROXY_DATABASE_PASSWORD: gitproxy
+      GITPROXY_SERVER_SESSION_STORE: jdbc
     depends_on:
       postgres:
         condition: service_healthy

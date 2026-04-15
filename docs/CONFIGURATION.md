@@ -130,6 +130,7 @@ server:
   # Options:
   #   none   — in-memory (default); sessions lost on restart, not shared across pods
   #   jdbc   — persisted to the configured JDBC database; zero new infrastructure required
+  #   mongo   — persisted to the configured MongoDB database; zero new infrastructure required
   #   redis  — persisted to a Redis or Valkey instance; configure via server.redis.*
   # Use jdbc or redis for multi-instance deployments so sessions survive pod restarts
   # and remain valid across all replicas.
@@ -181,7 +182,18 @@ server:
 
 A minimal single-replica Redis or Valkey pod is sufficient — sessions are small and low-throughput. No persistence or clustering required for this use case.
 
-> **MongoDB deployments:** MongoDB-backed session storage is planned (#139). In the meantime, use `session-store: jdbc` with a separate PostgreSQL instance, or stand up a Redis pod.
+**MongoDB:**
+
+```yaml
+server:
+  session-store: mongo
+
+database:
+  type: mongo
+  url: mongodb://gitproxy:secret@mongo.internal:27017/gitproxy
+```
+
+Sessions are stored in the `proxy_sessions` collection alongside the other `proxy_*` collections. A TTL index on `expireAt` lets MongoDB expire idle sessions server-side — no background cleanup task runs in the proxy. The session store reuses the same connection pool as the rest of the MongoDB-backed stores, so no extra configuration is needed. Requires `database.type: mongo`.
 
 ## TLS
 
@@ -311,6 +323,22 @@ database:
   url: mongodb://gitproxy:secret@mongo.internal:27017
   name: gitproxy
 ```
+
+### MongoDB: coexisting with the upstream Node.js git-proxy
+
+If you are migrating from [finos/git-proxy](https://github.com/finos/git-proxy) (the Node.js implementation) and pointing this proxy at a database that previously held its data, the two applications use incompatible document schemas. The safest path is to **provision a new MongoDB database** (e.g. `gitproxy-java`) and point `database.url` at it. This avoids all collision risk and keeps indexes, backups, and ops tooling cleanly separated.
+
+If provisioning a separate database is not feasible, this proxy now uses collection names that do not collide with the upstream Node.js implementation:
+
+| Collection         | Written by                        | Notes                                                                  |
+| ------------------ | --------------------------------- | ---------------------------------------------------------------------- |
+| `proxy_users`      | `MongoUserStore`                  | Renamed from `users` to avoid collision with upstream's `users`.       |
+| `proxy_pushes`     | `MongoPushStore`                  | Renamed from `pushes` to avoid collision with upstream's `pushes`.     |
+| `repo_permissions` | `MongoRepoPermissionStore`        | No upstream equivalent.                                                |
+| `access_rules`     | `MongoUrlRuleRegistry`            | No upstream equivalent.                                                |
+| `fetch_records`    | `MongoFetchStore`                 | No upstream equivalent.                                                |
+
+This means you _can_ point both apps at the same MongoDB database without corrupting each other's data. We still recommend separate databases for operational clarity — shared databases make backups, restores, and index tuning harder to reason about — but it is no longer a correctness hazard. Starting with 1.0.0, these collection names are part of the project's stability contract and will not be renamed without an in-place migration path.
 
 ## Authentication
 

@@ -25,6 +25,16 @@ public final class MongoStoreFactory implements AutoCloseable {
         this.databaseName = databaseName;
     }
 
+    /** Returns the shared {@link MongoClient} so callers (e.g. session store) can reuse the connection pool. */
+    public MongoClient getMongoClient() {
+        return client;
+    }
+
+    /** Returns the configured database name. */
+    public String getDatabaseName() {
+        return databaseName;
+    }
+
     /** Create and initialize a {@link PushStore} backed by this factory's client. */
     public PushStore pushStore() {
         MongoPushStore store = new MongoPushStore(client, databaseName);
