@@ -249,7 +249,11 @@ tasks.register('downloadGitleaks') {
         out.parentFile.mkdirs()
 
         def tarName = "gitleaks_${gitleaksVersion}_${gitleaksTarSuffix}.tar.gz"
-        def tarUrl  = "https://github.com/gitleaks/gitleaks/releases/download/v${gitleaksVersion}/${tarName}"
+        def gitleaksDownloadUrl = 'https://github.com/gitleaks/gitleaks/releases/download'
+        if (System.getenv('GITLEAKS_DOWNLOAD_URL')) {
+            gitleaksDownloadUrl = System.getenv('GITLEAKS_DOWNLOAD_URL')
+        }
+        def tarUrl  = "${gitleaksDownloadUrl}/v${gitleaksVersion}/${tarName}"
         def tmpDir  = layout.buildDirectory.dir("tmp/gitleaks").get().asFile
         tmpDir.mkdirs()
         def tarFile = new File(tmpDir, tarName)

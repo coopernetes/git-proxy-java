@@ -29,6 +29,7 @@ import org.finos.gitproxy.provider.ProviderRegistry;
 import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.filter.DelegatingFilterProxy;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 import org.springframework.web.servlet.DispatcherServlet;
 
 /**
@@ -185,6 +186,15 @@ public class GitProxyWithDashboardApplication {
         var holder = new ServletHolder("spring-dispatcher", dispatcher);
         holder.setInitOrder(1);
         context.addServlet(holder, "/*");
+
+        // ForwardedHeaderFilter — must be registered first so that X-Forwarded-Proto/Host/Port
+        // headers from TLS-terminating ingress (OCP Route, nginx, etc.) are resolved before any
+        // downstream filter builds absolute URLs (e.g. OAuth2 redirect URIs in Spring Security).
+        var forwardedHeaderFilter = new FilterHolder(new ForwardedHeaderFilter());
+        forwardedHeaderFilter.setAsyncSupported(true);
+        for (String path : new String[] {"/api/*", "/login", "/logout", "/", "/oauth2/*", "/login/oauth2/*"}) {
+            context.addFilter(forwardedHeaderFilter, path, EnumSet.of(DispatcherType.REQUEST, DispatcherType.ERROR));
+        }
 
         // Spring Session filter — must be registered before Spring Security so that the distributed
         // session store is in place before Security reads authentication state from the session.

@@ -52,7 +52,7 @@ public class BlockedContentDiffCheck implements DiffCheck {
             for (Pattern pattern : block.getPatterns()) {
                 if (pattern.matcher(content).find()) {
                     String location = currentFile != null ? " in " + currentFile : "";
-                    violations.add("blocked pattern: " + pattern.pattern() + location);
+                    violations.add("blocked pattern match" + location);
                 }
             }
         }
