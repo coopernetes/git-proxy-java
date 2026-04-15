@@ -104,6 +104,7 @@ public class GitProxyWithDashboardApplication {
 
         // Spring MVC DispatcherServlet at /* - git-specific paths take precedence per servlet spec
         var jdbcDataSource = configBuilder.getJdbcDataSourceOrNull();
+        var mongoFactory = configBuilder.getMongoStoreFactoryOrNull();
         registerSpringServlet(
                 context,
                 ctx,
@@ -112,7 +113,8 @@ public class GitProxyWithDashboardApplication {
                 configHolder,
                 liveConfigLoader,
                 urlRuleRegistry,
-                jdbcDataSource);
+                jdbcDataSource,
+                mongoFactory);
 
         server.setHandler(context);
         server.start();
@@ -133,7 +135,8 @@ public class GitProxyWithDashboardApplication {
             ConfigHolder configHolder,
             LiveConfigLoader liveConfigLoader,
             UrlRuleRegistry urlRuleRegistry,
-            javax.sql.DataSource jdbcDataSource) {
+            javax.sql.DataSource jdbcDataSource,
+            org.finos.gitproxy.db.MongoStoreFactory mongoFactory) {
         var appContext = new AnnotationConfigWebApplicationContext();
         appContext.register(SpringWebConfig.class, SecurityConfig.class, SessionStoreConfig.class);
         appContext.addBeanFactoryPostProcessor(bf -> {
@@ -152,6 +155,11 @@ public class GitProxyWithDashboardApplication {
             // when session-store=jdbc. Null for MongoDB deployments (no JDBC DataSource available).
             if (jdbcDataSource != null) {
                 bf.registerSingleton("dataSource", jdbcDataSource);
+            }
+            // Expose the shared MongoClient + database name for session-store=mongo. Null for JDBC deployments.
+            if (mongoFactory != null) {
+                bf.registerSingleton("mongoClient", mongoFactory.getMongoClient());
+                bf.registerSingleton("mongoDatabaseName", mongoFactory.getDatabaseName());
             }
         });
 

@@ -158,7 +158,8 @@ dependencies {
     // Database drivers at runtime (whichever store is configured)
     runtimeOnly "com.h2database:h2:${h2Version}"
     runtimeOnly "org.postgresql:postgresql:${postgresVersion}"
-    runtimeOnly "org.mongodb:mongodb-driver-sync:${mongoVersion}"
+    // MongoDB driver — compile-scoped because MongoSessionRepository uses the sync client directly.
+    implementation "org.mongodb:mongodb-driver-sync:${mongoVersion}"
 
     // Gestalt config (needed to catch GestaltException from GitProxyConfigLoader)
     implementation "com.github.gestalt-config:gestalt-core:${gestaltVersion}"
@@ -180,6 +181,7 @@ dependencies {
     // Testcontainers for e2e tests (LDAP + OIDC provider integration)
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation "org.testcontainers:testcontainers-junit-jupiter:${testContainersVersion}"
+    testImplementation "org.testcontainers:testcontainers-mongodb:${testContainersVersion}"
 
     // Include core + server coverage in the aggregated JaCoCo report
     jacocoAggregation project(':git-proxy-java-core')

@@ -28,7 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 public class MongoPushStore implements PushStore {
 
     private static final Logger log = LoggerFactory.getLogger(MongoPushStore.class);
-    private static final String COLLECTION_NAME = "pushes";
+    private static final String COLLECTION_NAME = "proxy_pushes";
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final TypeReference<Map<String, String>> ANSWERS_TYPE = new TypeReference<>() {};
 

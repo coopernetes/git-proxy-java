@@ -782,6 +782,16 @@ public class JettyConfigurationBuilder {
         return requireJdbcDataSource();
     }
 
+    /**
+     * Returns the shared {@link MongoStoreFactory} if {@code database.type=mongo}, else {@code null}. Callers that need
+     * a {@link com.mongodb.client.MongoClient} (e.g. the dashboard's session store wiring) should go through this
+     * accessor so the underlying connection pool is reused across stores.
+     */
+    public MongoStoreFactory getMongoStoreFactoryOrNull() {
+        if (!"mongo".equals(config.getDatabase().getType())) return null;
+        return requireMongoStoreFactory();
+    }
+
     private DataSource requireJdbcDataSource() {
         if (cachedDataSource == null) {
             DatabaseConfig db = config.getDatabase();
