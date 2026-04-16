@@ -39,7 +39,14 @@ public class OidcAuthConfig {
     private String jwkSetUri = "";
 
     /**
-     * Override for the token endpoint URL. When blank, defaults to {@code {issuerUri}/token}. Useful in local
+     * Override for the authorization endpoint URL. When blank, the value from OIDC discovery is used. Rarely needed —
+     * only set this when the provider's discovery document points to an endpoint that is unreachable from the client's
+     * browser (e.g. an internal hostname that is only routable inside the cluster).
+     */
+    private String authorizationUri = "";
+
+    /**
+     * Override for the token endpoint URL. When blank, the value from OIDC discovery is used. Useful in local
      * development when the server-side token exchange must reach the OIDC provider via a different hostname than the
      * browser-facing authorization URL (e.g. Podman injects the host {@code /etc/hosts} into containers, so
      * {@code host.containers.internal} can be used to reach a port-mapped provider from inside a container).
@@ -47,8 +54,13 @@ public class OidcAuthConfig {
     private String tokenUri = "";
 
     /**
-     * Override for the UserInfo endpoint URL. When blank, defaults to {@code {issuerUri}/userinfo}. See
-     * {@code token-uri} for when this override is needed.
+     * Override for the UserInfo endpoint URL. When blank, the value from OIDC discovery is used.
+     *
+     * <p><b>Required for Entra ID</b> — OIDC discovery for Entra points to {@code graph.microsoft.com/oidc/userinfo},
+     * which does not return {@code preferred_username}. Set this to
+     * {@code https://login.microsoftonline.com/{tenant}/v2.0/userinfo} to get the full claim set.
+     *
+     * <p>Example: {@code https://login.microsoftonline.com/{tenant}/v2.0/userinfo}
      */
     private String userInfoUri = "";
 

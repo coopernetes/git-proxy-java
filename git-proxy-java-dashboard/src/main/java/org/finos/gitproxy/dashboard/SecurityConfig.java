@@ -69,7 +69,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -372,45 +371,23 @@ public class SecurityConfig {
                 ? ClientAuthenticationMethod.PRIVATE_KEY_JWT
                 : ClientAuthenticationMethod.CLIENT_SECRET_BASIC;
 
-        ClientRegistration registration;
-        if (!oidcCfg.getJwkSetUri().isBlank()) {
-            // Manual registration: skip OIDC discovery and issuer validation. Used when the provider's
-            // reported issuer URL does not match the URL used to reach it (e.g. Entra ID, whose tokens
-            // carry iss=https://sts.windows.net/{tenant}/ rather than the discovery base URL).
-            // Endpoint paths follow the standard OIDC convention relative to issuerUri.
-            var builder = ClientRegistration.withRegistrationId("gitproxy")
-                    .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                    .clientId(oidcCfg.getClientId())
-                    .authorizationUri(oidcCfg.getIssuerUri() + "/authorize")
-                    .tokenUri(
-                            oidcCfg.getTokenUri().isBlank() ? oidcCfg.getIssuerUri() + "/token" : oidcCfg.getTokenUri())
-                    .jwkSetUri(oidcCfg.getJwkSetUri())
-                    .userInfoUri(
-                            oidcCfg.getUserInfoUri().isBlank()
-                                    ? oidcCfg.getIssuerUri() + "/userinfo"
-                                    : oidcCfg.getUserInfoUri())
-                    .userNameAttributeName(oidcCfg.getUserNameAttribute())
-                    .scope("openid", "profile", "email")
-                    .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
-                    .clientAuthenticationMethod(authMethod);
-            if (!usePrivateKeyJwt) {
-                builder.clientSecret(oidcCfg.getClientSecret());
-            }
-            registration = builder.build();
-        } else {
-            // Standard path: fetch OIDC discovery document at startup. The OIDC server must be reachable
-            // when the Spring context initializes (in Docker Compose this is guaranteed via depends_on).
-            var builder = ClientRegistrations.fromIssuerLocation(oidcCfg.getIssuerUri())
-                    .registrationId("gitproxy")
-                    .clientId(oidcCfg.getClientId())
-                    .scope("openid", "profile", "email")
-                    .userNameAttributeName(oidcCfg.getUserNameAttribute())
-                    .clientAuthenticationMethod(authMethod);
-            if (!usePrivateKeyJwt) {
-                builder.clientSecret(oidcCfg.getClientSecret());
-            }
-            registration = builder.build();
-        }
+        // Fetch OIDC discovery document at startup, then apply any explicit overrides on top.
+        // The OIDC server must be reachable when the Spring context initializes.
+        // Override properties (authorization-uri, token-uri, user-info-uri, jwk-set-uri) are optional:
+        // leave them blank to accept whatever the discovery document advertises.
+        var builder = ClientRegistrations.fromIssuerLocation(oidcCfg.getIssuerUri())
+                .registrationId("gitproxy")
+                .clientId(oidcCfg.getClientId())
+                .scope("openid", "profile", "email")
+                .userNameAttributeName(oidcCfg.getUserNameAttribute())
+                .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
+                .clientAuthenticationMethod(authMethod);
+        if (!oidcCfg.getAuthorizationUri().isBlank()) builder.authorizationUri(oidcCfg.getAuthorizationUri());
+        if (!oidcCfg.getTokenUri().isBlank()) builder.tokenUri(oidcCfg.getTokenUri());
+        if (!oidcCfg.getUserInfoUri().isBlank()) builder.userInfoUri(oidcCfg.getUserInfoUri());
+        if (!oidcCfg.getJwkSetUri().isBlank()) builder.jwkSetUri(oidcCfg.getJwkSetUri());
+        if (!usePrivateKeyJwt) builder.clientSecret(oidcCfg.getClientSecret());
+        ClientRegistration registration = builder.build();
 
         http.oauth2Login(oauth2 -> {
                     oauth2.clientRegistrationRepository(new InMemoryClientRegistrationRepository(registration))
