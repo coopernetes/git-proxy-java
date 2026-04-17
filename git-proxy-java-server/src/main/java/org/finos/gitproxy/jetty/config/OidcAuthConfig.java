@@ -54,13 +54,10 @@ public class OidcAuthConfig {
     private String tokenUri = "";
 
     /**
-     * Override for the UserInfo endpoint URL. When blank, the value from OIDC discovery is used.
+     * Override for the UserInfo endpoint URL. When blank, the value from OIDC discovery is used. Rarely needed —
+     * only set this when the provider's discovered UserInfo endpoint is unreachable or must be substituted.
      *
-     * <p><b>Required for Entra ID</b> — OIDC discovery for Entra points to {@code graph.microsoft.com/oidc/userinfo},
-     * which does not return {@code preferred_username}. Set this to
-     * {@code https://login.microsoftonline.com/{tenant}/v2.0/userinfo} to get the full claim set.
-     *
-     * <p>Example: {@code https://login.microsoftonline.com/{tenant}/v2.0/userinfo}
+     * <p>For Entra ID, prefer setting {@code skip-user-info: true} instead of overriding this URL.
      */
     private String userInfoUri = "";
 
@@ -107,6 +104,20 @@ public class OidcAuthConfig {
      * <p>Example: {@code /run/secrets/gitproxy-oidc-cert.pem}
      */
     private String certPath = "";
+
+    /**
+     * Skip the UserInfo endpoint call entirely. When {@code true}, all claims are read from the ID token and the
+     * UserInfo endpoint is never contacted.
+     *
+     * <p><b>Required for Entra ID</b> — Entra's discovered UserInfo endpoint ({@code graph.microsoft.com/oidc/userinfo})
+     * returns HTTP 200 but omits {@code preferred_username}. This is a Microsoft design constraint present on all Entra
+     * tenants; it is not a tenant configuration issue. With the {@code profile} scope, the Entra v2.0 ID token contains
+     * all required claims ({@code preferred_username}, {@code groups}, {@code email}).
+     *
+     * <p>Set to {@code false} (the default) for standard OIDC providers (Keycloak, Okta, Dex) that return all required
+     * claims from their UserInfo endpoints.
+     */
+    private boolean skipUserInfo = false;
 
     /**
      * Explicit {@code kid} (key ID) to include in the {@code private_key_jwt} assertion header. Use this when the IdP
