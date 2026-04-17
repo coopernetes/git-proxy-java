@@ -394,8 +394,8 @@ public class SecurityConfig {
                             .authorizedClientRepository(new HttpSessionOAuth2AuthorizedClientRepository())
                             .successHandler(successHandler)
                             .failureUrl("/login.html?error")
-                            .userInfoEndpoint(userInfo ->
-                                    userInfo.oidcUserService(buildOidcUserService(roleMappings, groupsClaim)));
+                            .userInfoEndpoint(userInfo -> userInfo.oidcUserService(
+                                    buildOidcUserService(roleMappings, groupsClaim, oidcCfg.isSkipUserInfo())));
 
                     if (usePrivateKeyJwt) {
                         RSAKey rsaKey =
@@ -501,8 +501,9 @@ public class SecurityConfig {
      * {@code roleMappings} is non-empty, access is <em>deny-by-default</em>: the user must belong to at least one
      * mapped group, otherwise authentication is rejected.
      */
-    private OidcUserService buildOidcUserService(Map<String, List<String>> roleMappings, String groupsClaim) {
-        return new OidcUserService() {
+    private OidcUserService buildOidcUserService(
+            Map<String, List<String>> roleMappings, String groupsClaim, boolean skipUserInfo) {
+        OidcUserService service = new OidcUserService() {
             @Override
             public OidcUser loadUser(OidcUserRequest userRequest) {
                 OidcUser oidcUser = super.loadUser(userRequest);
@@ -539,6 +540,14 @@ public class SecurityConfig {
                         authorities, oidcUser.getIdToken(), oidcUser.getUserInfo(), nameAttributeKey);
             }
         };
+        if (skipUserInfo) {
+            // skip-user-info=true: all claims are read from the ID token; the UserInfo endpoint is
+            // never contacted. Required for Entra ID — graph.microsoft.com/oidc/userinfo returns 200
+            // but omits preferred_username, causing DefaultOAuth2UserService to throw before the ID
+            // token merge. All required claims are present in the Entra v2.0 ID token with profile scope.
+            service.setRetrieveUserInfo(req -> false);
+        }
+        return service;
     }
 
     /**
