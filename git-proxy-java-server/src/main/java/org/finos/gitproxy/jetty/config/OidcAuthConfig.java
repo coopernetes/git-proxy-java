@@ -54,8 +54,8 @@ public class OidcAuthConfig {
     private String tokenUri = "";
 
     /**
-     * Override for the UserInfo endpoint URL. When blank, the value from OIDC discovery is used. Rarely needed —
-     * only set this when the provider's discovered UserInfo endpoint is unreachable or must be substituted.
+     * Override for the UserInfo endpoint URL. When blank, the value from OIDC discovery is used. Rarely needed — only
+     * set this when the provider's discovered UserInfo endpoint is unreachable or must be substituted.
      *
      * <p>For Entra ID, prefer setting {@code skip-user-info: true} instead of overriding this URL.
      */
@@ -109,10 +109,11 @@ public class OidcAuthConfig {
      * Skip the UserInfo endpoint call entirely. When {@code true}, all claims are read from the ID token and the
      * UserInfo endpoint is never contacted.
      *
-     * <p><b>Required for Entra ID</b> — Entra's discovered UserInfo endpoint ({@code graph.microsoft.com/oidc/userinfo})
-     * returns HTTP 200 but omits {@code preferred_username}. This is a Microsoft design constraint present on all Entra
-     * tenants; it is not a tenant configuration issue. With the {@code profile} scope, the Entra v2.0 ID token contains
-     * all required claims ({@code preferred_username}, {@code groups}, {@code email}).
+     * <p><b>Required for Entra ID</b> — Entra's discovered UserInfo endpoint
+     * ({@code graph.microsoft.com/oidc/userinfo}) returns HTTP 200 but omits {@code preferred_username}. This is a
+     * Microsoft design constraint present on all Entra tenants; it is not a tenant configuration issue. With the
+     * {@code profile} scope, the Entra v2.0 ID token contains all required claims ({@code preferred_username},
+     * {@code groups}, {@code email}).
      *
      * <p>Set to {@code false} (the default) for standard OIDC providers (Keycloak, Okta, Dex) that return all required
      * claims from their UserInfo endpoints.

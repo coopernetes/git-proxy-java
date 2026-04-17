@@ -394,8 +394,8 @@ public class SecurityConfig {
                             .authorizedClientRepository(new HttpSessionOAuth2AuthorizedClientRepository())
                             .successHandler(successHandler)
                             .failureUrl("/login.html?error")
-                            .userInfoEndpoint(userInfo ->
-                                    userInfo.oidcUserService(buildOidcUserService(roleMappings, groupsClaim, oidcCfg.isSkipUserInfo())));
+                            .userInfoEndpoint(userInfo -> userInfo.oidcUserService(
+                                    buildOidcUserService(roleMappings, groupsClaim, oidcCfg.isSkipUserInfo())));
 
                     if (usePrivateKeyJwt) {
                         RSAKey rsaKey =
