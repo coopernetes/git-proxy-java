@@ -31,7 +31,6 @@ ext {
 
     // Jackson
     jacksonBomVersion = '3.1.1'
-    jacksonLegacyBomVersion = '2.18.6'
 
     // Spring
     springVersion = '7.0.6'

@@ -6,9 +6,9 @@ FROM docker.io/eclipse-temurin:21-jdk@sha256:06a4f4be86d459307036eb97c55a24686bd
 # Install Node.js directly from the official distribution with SHA256 verification.
 # To update: download the new tarball, verify against nodejs.org/dist/vX.Y.Z/SHASUMS256.txt,
 # and update both NODE_VERSION and NODE_SHA256 below.
-ARG NODE_VERSION=24.14.1
-ARG NODE_SHA256_AMD64=ace9fa104992ed0829642629c46ca7bd7fd6e76278cb96c958c4b387d29658ea
-ARG NODE_SHA256_ARM64=734ff04fa7f8ed2e8a78d40cacf5ac3fc4515dac2858757cbab313eb483ba8a2
+ARG NODE_VERSION=24.15.0
+ARG NODE_SHA256_AMD64=44836872d9aec49f1e6b52a9a922872db9a2b02d235a616a5681b6a85fec8d89
+ARG NODE_SHA256_ARM64=73afc234d558c24919875f51c2d1ea002a2ada4ea6f83601a383869fefa64eed
 ARG TARGETARCH
 RUN case "${TARGETARCH}" in \
       arm64) NODE_ARCH=linux-arm64; NODE_SHA256="${NODE_SHA256_ARM64}" ;; \
