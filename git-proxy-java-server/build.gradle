@@ -62,9 +62,7 @@ dependencies {
     implementation "com.github.gestalt-config:gestalt-core:${gestaltVersion}"
     implementation "com.github.gestalt-config:gestalt-yaml:${gestaltVersion}"
 
-    // Jackson BOM — keeps all Jackson modules in sync
-    implementation platform("com.fasterxml.jackson:jackson-bom:${jacksonLegacyBomVersion}")
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    // Jackson BOM — inherited from core's api platform(); JSR310 support is built into databind 3.x
 
     // Database drivers - include all so standalone Jetty server can use any backend
     runtimeOnly "com.h2database:h2:${h2Version}"
