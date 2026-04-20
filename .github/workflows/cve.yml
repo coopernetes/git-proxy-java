@@ -38,7 +38,7 @@ jobs:
 
   grype-gradle:
     name: CVE / Gradle
-    if: false # use this job as a fallback if depcheck has failures due to changes in NVD API or similar issues.
+    if: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -80,7 +80,8 @@ jobs:
           retention-days: 30
 
   depcheck:
-    name: CVE / Gradle
+    name: CVE / Dependency Check (Gradle)
+    if: false # disabled — NVD API reliability issues; re-enable when stable
     runs-on: ubuntu-latest
     permissions:
       contents: read
