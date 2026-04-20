@@ -86,6 +86,8 @@ jobs:
       contents: read
       security-events: write
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    env:
+      GRYPE_VERSION: "0.111.0"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
@@ -95,6 +97,7 @@ jobs:
         id: scan
         with:
           image: ghcr.io/${{ github.repository }}@${{ needs.build-and-push.outputs.digest }}
+          grype-version: ${{ env.GRYPE_VERSION }}
           fail-build: true
           severity-cutoff: high
           only-fixed: true
@@ -107,8 +110,6 @@ jobs:
 
       - name: Install grype
         if: always()
-        env:
-          GRYPE_VERSION: "0.111.0"
         run: |
           curl -sSfL -o /tmp/grype.tar.gz \
             https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz
