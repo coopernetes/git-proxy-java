@@ -126,7 +126,7 @@ public class GitProxyWithDashboardApplication {
         server.start();
 
         log.info("JGit Proxy with Dashboard started on port {}", connector.getPort());
-        log.info("  Dashboard:  http://localhost:{}/dashboard/", connector.getPort());
+        log.info("  Dashboard (Service URL):  {}", gitProxyConfig.getServer().getServiceUrl());
         log.info("  API:        http://localhost:{}/api", connector.getPort());
         log.info("  Health:     http://localhost:{}/api/health", connector.getPort());
         log.info("  Swagger UI: http://localhost:{}/swagger-ui", connector.getPort());

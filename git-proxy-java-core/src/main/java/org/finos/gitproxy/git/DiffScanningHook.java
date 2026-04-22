@@ -51,11 +51,6 @@ public class DiffScanningHook implements GitProxyHook {
             }
 
             try {
-                if (diff.isEmpty()) {
-                    logs.add("SKIP: " + cmd.getRefName() + " - empty diff");
-                    continue;
-                }
-
                 BlockedContentDiffCheck check = new BlockedContentDiffCheck(diffScanConfig.getBlock());
                 List<Violation> violations = check.check(diff).orElse(List.of());
 
