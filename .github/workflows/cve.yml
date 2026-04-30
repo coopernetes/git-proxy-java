@@ -43,7 +43,7 @@ jobs:
           grype dir:git-proxy-java-dashboard/frontend \
             --config .grype.yaml \
             --only-fixed \
-            --output table > grype-npm-report.txt || true
+            --output table | tee grype-npm-report.txt || true
 
       - name: Upload scan reports
         if: ${{ always() }}
@@ -90,7 +90,7 @@ jobs:
           grype sbom:build/reports/cyclonedx/bom.json \
             --config .grype.yaml \
             --only-fixed \
-            --output table > grype-gradle-report.txt || true
+            --output table | tee grype-gradle-report.txt || true
 
       - name: Upload scan reports
         if: ${{ always() }}
