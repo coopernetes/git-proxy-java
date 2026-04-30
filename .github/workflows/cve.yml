@@ -36,13 +36,34 @@ jobs:
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
 
+      - name: Generate human-readable report
+        if: ${{ always() }}
+        run: |
+          grype dir:git-proxy-java-dashboard/frontend \
+            --config .grype.yaml \
+            --only-fixed \
+            --output table > grype-report.txt || true
+          grype dir:git-proxy-java-dashboard/frontend \
+            --config .grype.yaml \
+            --only-fixed \
+            --output json > grype-report.json || true
+
+      - name: Upload scan reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
+        with:
+          name: grype-npm-scan
+          path: |
+            grype-report.txt
+            grype-report.json
+          retention-days: 30
+
   grype-gradle:
     name: CVE / Gradle
     if: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
@@ -65,18 +86,26 @@ jobs:
           only-fixed: true
           config: .grype.yaml
 
-      - name: Upload SARIF report
+      - name: Generate human-readable report
         if: ${{ always() }}
-        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # ratchet:github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: ${{ steps.scan.outputs.sarif }}
+        run: |
+          grype sbom:build/reports/cyclonedx/bom.json \
+            --config .grype.yaml \
+            --only-fixed \
+            --output table > grype-report.txt || true
+          grype sbom:build/reports/cyclonedx/bom.json \
+            --config .grype.yaml \
+            --only-fixed \
+            --output json > grype-report.json || true
 
-      - name: Upload SBOM
+      - name: Upload scan reports
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
         with:
-          name: sbom-gradle
-          path: build/reports/cyclonedx/bom.json
+          name: grype-gradle-scan
+          path: |
+            grype-report.txt
+            grype-report.json
           retention-days: 30
 
   depcheck:
