@@ -36,17 +36,14 @@ jobs:
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
 
-      - name: Generate human-readable report
+      - name: Generate table report
         if: ${{ always() }}
         run: |
+          export PATH="$(dirname $(find /opt/hostedtoolcache/grype -name grype -type f | head -1)):$PATH"
           grype dir:git-proxy-java-dashboard/frontend \
             --config .grype.yaml \
             --only-fixed \
-            --output table > grype-report.txt || true
-          grype dir:git-proxy-java-dashboard/frontend \
-            --config .grype.yaml \
-            --only-fixed \
-            --output json > grype-report.json || true
+            --output table > grype-npm-report.txt || true
 
       - name: Upload scan reports
         if: ${{ always() }}
@@ -54,8 +51,8 @@ jobs:
         with:
           name: grype-npm-scan
           path: |
-            grype-report.txt
-            grype-report.json
+            grype-npm-report.txt
+            ${{ steps.scan.outputs.json }}
           retention-days: 30
 
   grype-gradle:
@@ -86,17 +83,14 @@ jobs:
           only-fixed: true
           config: .grype.yaml
 
-      - name: Generate human-readable report
+      - name: Generate table report
         if: ${{ always() }}
         run: |
+          export PATH="$(dirname $(find /opt/hostedtoolcache/grype -name grype -type f | head -1)):$PATH"
           grype sbom:build/reports/cyclonedx/bom.json \
             --config .grype.yaml \
             --only-fixed \
-            --output table > grype-report.txt || true
-          grype sbom:build/reports/cyclonedx/bom.json \
-            --config .grype.yaml \
-            --only-fixed \
-            --output json > grype-report.json || true
+            --output table > grype-gradle-report.txt || true
 
       - name: Upload scan reports
         if: ${{ always() }}
@@ -104,8 +98,8 @@ jobs:
         with:
           name: grype-gradle-scan
           path: |
-            grype-report.txt
-            grype-report.json
+            grype-gradle-report.txt
+            ${{ steps.scan.outputs.json }}
           retention-days: 30
 
   depcheck:
