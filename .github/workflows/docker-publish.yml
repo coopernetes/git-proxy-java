@@ -93,7 +93,7 @@ jobs:
         with:
           image: ghcr.io/${{ github.repository }}@${{ needs.build-and-push.outputs.digest }}
           grype-version: ${{ env.GRYPE_VERSION }}
-          fail-build: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          fail-build: true
           severity-cutoff: high
           only-fixed: true
           config: .grype.yaml
