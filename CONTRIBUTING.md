@@ -431,13 +431,20 @@ architecture and [docs/internals/GIT_INTERNALS.md](docs/internals/GIT_INTERNALS.
 
 ## Releases
 
-Releases follow a two-phase process to ensure every published image is identical to what was already scanned and running as `:edge`.
+Releases follow a two-phase process to ensure every published image is identical to what was already scanned and running
+as `:edge`.
 
-**Phase 1 — version bump.** Create a `release/<version>` branch, update `version` in `build.gradle`, open a PR, and enable auto-merge. The PR must pass all CI, CodeQL, CVE, and container scan checks before it can merge. Use the `/release` Claude command to automate this.
+**Phase 1 — version bump.** Create a `release/<version>` branch, update `version` in `build.gradle`, open a PR, and
+enable auto-merge. The PR must pass all CI, CodeQL, CVE, and container scan checks before it can merge. Use the
+`/release` Claude command to automate this.
 
-**Phase 2 — tag.** Once the version bump lands on `main`, push an annotated tag (`v<version>`). The tag ruleset enforces the same checks must have passed on that commit. The publish workflow then promotes the already-built `:edge` image directly to the release tags (`:v1.0.0`, `:latest`, etc.) — no rebuild occurs. Use the `/release-tag` Claude command for this step.
+**Phase 2 — tag.** Once the version bump lands on `main`, push an annotated tag (`v<version>`). The tag ruleset enforces
+the same checks must have passed on that commit. The publish workflow then promotes the already-built `:edge` image
+directly to the release tags (`:v1.0.0`, `:latest`, etc.) — no rebuild occurs. Use the `/release-tag` Claude command for
+this step.
 
-This means every release image is byte-for-byte identical to the `:edge` image that was scanned when the version bump merged.
+This means every release image is byte-for-byte identical to the `:edge` image that was scanned when the version bump
+merged.
 
 ## Issues and pull requests
 

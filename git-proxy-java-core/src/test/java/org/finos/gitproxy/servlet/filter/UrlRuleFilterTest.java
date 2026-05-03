@@ -16,14 +16,17 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.FetchRecord;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GenericProxyProvider;
 import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class UrlRuleFilterTest {
 
@@ -343,6 +346,80 @@ class UrlRuleFilterTest {
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-receive-pack"), resp.mock);
 
         verify(resp.mock).sendError(403);
+    }
+
+    // --- Gap 2: recordFetch on blocked /info/refs ---
+
+    @Test
+    void infoRefs_fetchBlocked_notAllowed_recordsFetch() throws Exception {
+        FetchStore fetchStore = mock(FetchStore.class);
+        var registry = new InMemoryUrlRuleRegistry();
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, "/proxy", fetchStore, registry);
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock).sendError(403);
+        ArgumentCaptor<FetchRecord> captor = ArgumentCaptor.forClass(FetchRecord.class);
+        verify(fetchStore).record(captor.capture());
+        assertEquals(FetchRecord.Result.BLOCKED, captor.getValue().getResult());
+    }
+
+    @Test
+    void infoRefs_fetchBlocked_denyRule_recordsFetch() throws Exception {
+        FetchStore fetchStore = mock(FetchStore.class);
+        var registry = new InMemoryUrlRuleRegistry();
+        registry.save(AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.DENY)
+                .operations(AccessRule.Operations.BOTH)
+                .slug("/owner/repo")
+                .build());
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, "/proxy", fetchStore, registry);
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock).sendError(403);
+        ArgumentCaptor<FetchRecord> captor = ArgumentCaptor.forClass(FetchRecord.class);
+        verify(fetchStore).record(captor.capture());
+        assertEquals(FetchRecord.Result.BLOCKED, captor.getValue().getResult());
+    }
+
+    @Test
+    void infoRefs_pushBlocked_doesNotRecordFetch() throws Exception {
+        FetchStore fetchStore = mock(FetchStore.class);
+        var registry = new InMemoryUrlRuleRegistry();
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, "/proxy", fetchStore, registry);
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-receive-pack"), resp.mock);
+
+        verify(resp.mock).sendError(403);
+        verify(fetchStore, never()).record(any());
+    }
+
+    @Test
+    void infoRefs_fetchAllowed_doesNotRecordFetch() throws Exception {
+        FetchStore fetchStore = mock(FetchStore.class);
+        var registry = new InMemoryUrlRuleRegistry();
+        registry.save(AccessRule.builder()
+                .ruleOrder(100)
+                .access(AccessRule.Access.ALLOW)
+                .operations(AccessRule.Operations.BOTH)
+                .slug("/owner/repo")
+                .build());
+        var aggregate = new UrlRuleAggregateFilter(50, GITHUB, "/proxy", fetchStore, registry);
+        GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
+        FakeResponse resp = new FakeResponse();
+
+        aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
+
+        verify(resp.mock, never()).sendError(anyInt());
+        verify(fetchStore, never()).record(any());
     }
 
     @Test
