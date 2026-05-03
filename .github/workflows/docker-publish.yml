@@ -18,14 +18,16 @@ permissions:
 
 jobs:
   build-and-push:
+    # Tags are released by promoting the already-built edge image — no rebuild needed.
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     outputs:
       digest: ${{ steps.push.outputs.digest }}
     permissions:
       contents: read
       packages: write
-      id-token: write # required for SLSA provenance signing
-      attestations: write # required for GitHub artifact attestations
+      id-token: write
+      attestations: write
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
@@ -49,7 +51,6 @@ jobs:
           tags: |
             type=ref,event=pr
             type=raw,value=edge,enable={{is_default_branch}}
-            type=raw,value=${{ github.ref_name }}-pending,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push
@@ -98,39 +99,24 @@ jobs:
           tar -xzf "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin grype
 
       - name: Scan image
-        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # ratchet:anchore/scan-action@v7
-        id: scan
-        with:
-          image: ghcr.io/${{ github.repository }}@${{ needs.build-and-push.outputs.digest }}
-          fail-build: true
-          severity-cutoff: high
-          only-fixed: true
-          config: .grype.yaml
-
-      # SARIF upload intentionally omitted — OS-layer CVEs from the base image are triaged
-      # by internal scanning with application context. Uploading here creates misleading noise
-      # in the GitHub Security tab (high CVSS score ≠ high actual risk for this workload).
-      # The build still fails on high/critical with a fix available via fail-build: true above.
-
-      - name: Generate scan report
-        if: always()
         run: |
           grype ghcr.io/${{ github.repository }}@${{ needs.build-and-push.outputs.digest }} \
             --config .grype.yaml \
-            --only-fixed \
-            --output table | tee grype-report.txt || true
+            -o "template=grype-report.txt" \
+            -o "json=grype-report.json"
 
-      - name: Upload scan report
+      - name: Upload scan reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
         with:
           name: grype-container-scan
-          path: grype-report.txt
+          path: |
+            grype-report.txt
+            grype-report.json
           retention-days: 30
 
   publish-release:
-    name: Publish Release Tags
-    needs: [build-and-push, scan]
+    name: Publish Release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -138,6 +124,12 @@ jobs:
       packages: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # ratchet:docker/setup-buildx-action@v4
+
       - name: Log in to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # ratchet:docker/login-action@v4
         with:
@@ -145,35 +137,56 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # ratchet:docker/setup-buildx-action@v4
+      - name: Install grype
+        env:
+          GRYPE_VERSION: "0.112.0"
+        run: |
+          cd /tmp
+          curl -sSfL -o "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
+            "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o "grype_${GRYPE_VERSION}_checksums.txt" \
+            "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_checksums.txt"
+          grep "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "grype_${GRYPE_VERSION}_checksums.txt" | sha256sum --check
+          tar -xzf "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin grype
 
-      # Retag the scanned ephemeral image to final release tags without rebuilding.
-      # Only runs after scan passes — latest always points to a clean image.
-      - name: Retag to release version and latest
+      # Resolve the digest of the already-built, already-scanned edge image.
+      # The tag ruleset enforces Container Scan passed on this commit before the tag
+      # could be pushed, so edge is guaranteed clean at this point.
+      - name: Resolve edge digest
+        id: edge
+        run: |
+          DIGEST=$(docker buildx imagetools inspect \
+            ghcr.io/${{ github.repository }}:edge \
+            --format '{{.Manifest.Digest}}')
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Promoting edge digest: ${DIGEST}"
+
+      - name: Scan edge image
+        run: |
+          grype ghcr.io/${{ github.repository }}@${{ steps.edge.outputs.digest }} \
+            --config .grype.yaml \
+            -o "template=grype-report.txt" \
+            -o "json=grype-report.json"
+
+      - name: Upload scan reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
+        with:
+          name: grype-release-scan
+          path: |
+            grype-report.txt
+            grype-report.json
+          retention-days: 90
+
+      - name: Promote edge to release tags
         run: |
           VERSION=${GITHUB_REF_NAME}
           MAJOR=$(echo ${VERSION} | cut -d. -f1)
           MINOR=$(echo ${VERSION} | cut -d. -f1-2)
-          SOURCE="ghcr.io/${{ github.repository }}@${{ needs.build-and-push.outputs.digest }}"
+          SOURCE="ghcr.io/${{ github.repository }}@${{ steps.edge.outputs.digest }}"
           docker buildx imagetools create \
             --tag "ghcr.io/${{ github.repository }}:${VERSION}" \
             --tag "ghcr.io/${{ github.repository }}:${MINOR}" \
             --tag "ghcr.io/${{ github.repository }}:${MAJOR}" \
             --tag "ghcr.io/${{ github.repository }}:latest" \
             ${SOURCE}
-
-      - name: Delete ephemeral pending tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PACKAGE_NAME=$(basename ${{ github.repository }})
-          TAG="${GITHUB_REF_NAME}-pending"
-          VERSION_ID=$(gh api "/user/packages/container/${PACKAGE_NAME}/versions" \
-            --paginate --jq ".[] | select(.metadata.container.tags[] == \"${TAG}\") | .id")
-          if [ -n "${VERSION_ID}" ]; then
-            gh api --method DELETE "/user/packages/container/${PACKAGE_NAME}/versions/${VERSION_ID}"
-            echo "Deleted ephemeral tag ${TAG}"
-          else
-            echo "No ephemeral tag ${TAG} found — nothing to clean up"
-          fi
