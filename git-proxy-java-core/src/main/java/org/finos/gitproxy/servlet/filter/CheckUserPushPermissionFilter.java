@@ -107,8 +107,9 @@ public class CheckUserPushPermissionFilter extends AbstractGitProxyFilter {
                     user.getUsername(),
                     providerId,
                     slug);
-            String repoUrl =
-                    providerId != null && slug != null ? String.format("https://%s%s", providerId, slug) : slug;
+            String repoUrl = requestDetails.getProvider() != null && slug != null
+                    ? requestDetails.getProvider().getUri().toString().replaceAll("/$", "") + slug
+                    : slug;
             String title = sym(NO_ENTRY) + "  Push Blocked - Unauthorized";
             String message = sym(CROSS_MARK) + "  " + user.getUsername() + " is not allowed to push to:\n" + "   "
                     + sym(LINK) + "  " + repoUrl;

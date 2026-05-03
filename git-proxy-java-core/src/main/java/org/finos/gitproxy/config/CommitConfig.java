@@ -50,6 +50,10 @@ public class CommitConfig {
     @Builder.Default
     private AuthorConfig author = AuthorConfig.builder().build();
 
+    /** Configuration for committer email validation. */
+    @Builder.Default
+    private CommitterConfig committer = CommitterConfig.builder().build();
+
     /** Configuration for commit message validation. */
     @Builder.Default
     private MessageConfig message = MessageConfig.builder().build();
@@ -58,6 +62,16 @@ public class CommitConfig {
     @Data
     @Builder
     public static class AuthorConfig {
+
+        /** Configuration for email validation. */
+        @Builder.Default
+        private EmailConfig email = EmailConfig.builder().build();
+    }
+
+    /** Configuration for committer validation. */
+    @Data
+    @Builder
+    public static class CommitterConfig {
 
         /** Configuration for email validation. */
         @Builder.Default

@@ -14,8 +14,15 @@ import org.finos.gitproxy.config.CommitConfig;
 import org.finos.gitproxy.git.Commit;
 
 /**
- * Validates that every author email in the pushed commits passes format checks and matches the configured domain/local
- * rules.
+ * Validates committer and author emails in the pushed commits against configured domain/local rules.
+ *
+ * <p>Committer validation ({@code commit.committer.email.*}) is the primary corporate control: the committer is the
+ * employee who authored or rebased the change, and must use their work identity. Author validation
+ * ({@code commit.author.email.*}) is an optional stricter policy: when configured, it also checks the original author
+ * email, which effectively disallows rebasing commits from contributors outside the allowed domain.
+ *
+ * <p>Each policy is independent — configure one, both, or neither. Violations from each are reported separately with
+ * explicit labels so developers know exactly which identity triggered the block and what to do about it.
  */
 @RequiredArgsConstructor
 public class AuthorEmailCheck implements CommitCheck {
@@ -24,22 +31,38 @@ public class AuthorEmailCheck implements CommitCheck {
 
     @Override
     public List<Violation> check(List<Commit> commits) {
-        Set<String> emails = commits.stream().map(c -> c.getAuthor().getEmail()).collect(Collectors.toSet());
-
         List<Violation> violations = new ArrayList<>();
-        for (String email : emails) {
-            String reason = violationReason(email);
+
+        Set<String> committerEmails =
+                commits.stream().map(c -> c.getCommitter().getEmail()).collect(Collectors.toSet());
+        for (String email : committerEmails) {
+            String reason = violationReason(email, config.getCommitter().getEmail());
             if (reason != null) {
-                String detail = sym(CROSS_MARK) + "  " + email + ": " + reason + "\n"
-                        + "  \u2192 git config user.email \"you@example.com\"";
-                violations.add(new Violation(email, reason, detail));
+                String detail = sym(CROSS_MARK) + "  committer email (" + email + "): " + reason + "\n"
+                        + "  \u2192 The committer is you — the person who ran git commit or git rebase.\n"
+                        + "  \u2192 Fix: git config user.email \"you@corp.com\"";
+                violations.add(new Violation("committer:" + email, reason, detail));
             }
         }
+
+        Set<String> authorEmails =
+                commits.stream().map(c -> c.getAuthor().getEmail()).collect(Collectors.toSet());
+        for (String email : authorEmails) {
+            String reason = violationReason(email, config.getAuthor().getEmail());
+            if (reason != null) {
+                String detail = sym(CROSS_MARK) + "  author email (" + email + "): " + reason + "\n"
+                        + "  \u2192 This commit was originally authored by someone outside the allowed domain.\n"
+                        + "  \u2192 Rebasing external commits onto this branch is not permitted by policy.\n"
+                        + "  \u2192 Alternative: open a PR from the original author's fork instead of rebasing.";
+                violations.add(new Violation("author:" + email, reason, detail));
+            }
+        }
+
         return violations;
     }
 
-    /** Returns the reason the email is rejected, or {@code null} if it is allowed. */
-    private String violationReason(String email) {
+    /** Returns the reason the email is rejected under the given email config, or {@code null} if it is allowed. */
+    private String violationReason(String email, CommitConfig.EmailConfig emailConfig) {
         if (email == null || email.isEmpty()) {
             return "empty email";
         }
@@ -54,12 +77,12 @@ public class AuthorEmailCheck implements CommitCheck {
         String local = parts[0];
         String domain = parts[1];
 
-        Pattern localBlock = config.getAuthor().getEmail().getLocal().getBlock();
+        Pattern localBlock = emailConfig.getLocal().getBlock();
         if (localBlock != null && localBlock.matcher(local).find()) {
             return "blocked local part (" + local + ")";
         }
 
-        Pattern domainAllow = config.getAuthor().getEmail().getDomain().getAllow();
+        Pattern domainAllow = emailConfig.getDomain().getAllow();
         if (domainAllow != null && !domainAllow.matcher(domain).find()) {
             return "domain not allowed (" + domain + ")";
         }

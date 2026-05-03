@@ -580,18 +580,31 @@ accepts the internal username, not an email address.
 
 ## Commit validation
 
-Per-commit checks (identity, author email, message content) apply to both store-and-forward and transparent proxy modes.
+Per-commit checks (identity, email policy, message content) apply to both store-and-forward and transparent proxy modes.
 
 ```yaml
 commit:
-  author:
+  # Committer email policy — the committer is the employee who ran git commit or git rebase.
+  # This is the primary corporate control: enforce that your staff use their work identity.
+  # Rebased commits from external contributors still pass as long as the committer email is valid.
+  committer:
     email:
       domain:
-        # Regex the email domain must match. Omit to allow all domains.
-        allow: "(corp\\.example\\.com|contractors\\.example\\.com)$"
+        # Regex the committer email domain must match. Omit to allow all domains.
+        allow: "corp\\.example\\.com$"
       local:
         # Regex blocking specific local-parts (before @). Omit to allow all.
         block: "^(noreply|no-reply|bot|nobody)$"
+
+  # Author email policy — the author is whoever originally wrote the commit.
+  # Configure this only if you want to disallow rebasing external contributors' commits.
+  # When set, any commit whose author email is outside the allowed domain is blocked —
+  # developers must open PRs from the original fork rather than rebasing upstream changes.
+  # Omit this block entirely to allow external author emails (the most common setup).
+  author:
+    email:
+      domain:
+        allow: "corp\\.example\\.com$"
 
   message:
     block:

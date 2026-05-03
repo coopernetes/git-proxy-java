@@ -20,10 +20,16 @@ public class CommitSettings {
     private String identityVerification = "warn";
 
     private AuthorSettings author = new AuthorSettings();
+    private CommitterSettings committer = new CommitterSettings();
     private MessageSettings message = new MessageSettings();
 
     @Data
     public static class AuthorSettings {
+        private EmailSettings email = new EmailSettings();
+    }
+
+    @Data
+    public static class CommitterSettings {
         private EmailSettings email = new EmailSettings();
     }
 
