@@ -228,7 +228,7 @@ class JettyProxyFixture implements AutoCloseable {
         return pushStore;
     }
 
-    /** The provider ID (type/host) used by this fixture — use this when seeding permission grants. */
+    /** The provider ID used by this fixture — use this when seeding permission grants. */
     String getProviderId() {
         return providerId;
     }
