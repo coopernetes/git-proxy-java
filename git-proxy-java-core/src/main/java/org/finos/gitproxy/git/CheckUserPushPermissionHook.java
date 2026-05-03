@@ -119,8 +119,8 @@ public class CheckUserPushPermissionHook implements GitProxyHook {
                     user.getUsername(),
                     providerId,
                     repoSlug);
-            String repoRef = providerId != null && repoSlug != null
-                    ? String.format("https://%s%s", providerId, repoSlug)
+            String repoRef = provider != null && repoSlug != null
+                    ? provider.getUri().toString().replaceAll("/$", "") + repoSlug
                     : repoSlug;
             String detail = GitClientUtils.format(
                     sym(NO_ENTRY) + "  Push Blocked - Unauthorized",

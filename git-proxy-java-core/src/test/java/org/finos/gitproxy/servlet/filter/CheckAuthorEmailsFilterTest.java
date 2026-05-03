@@ -95,7 +95,7 @@ class CheckAuthorEmailsFilterTest {
 
     private CommitConfig testConfig() {
         return CommitConfig.builder()
-                .author(CommitConfig.AuthorConfig.builder()
+                .committer(CommitConfig.CommitterConfig.builder()
                         .email(CommitConfig.EmailConfig.builder()
                                 .domain(CommitConfig.DomainConfig.builder()
                                         .allow(Pattern.compile("(example\\.com|company\\.org)$"))

@@ -307,8 +307,49 @@ public class JettyConfigurationBuilder {
      */
     public CommitConfig buildCommitConfig() {
         CommitSettings cs = config.getCommit();
-        CommitSettings.EmailSettings email = cs.getAuthor().getEmail();
 
+        CommitConfig.AuthorConfig authorConfig =
+                buildAuthorConfig(cs.getAuthor().getEmail());
+        CommitConfig.CommitterConfig committerConfig =
+                buildCommitterConfig(cs.getCommitter().getEmail());
+
+        CommitConfig.MessageConfig messageConfig = CommitConfig.MessageConfig.builder()
+                .block(buildBlockConfig(cs.getMessage().getBlock()))
+                .build();
+
+        CommitConfig.IdentityVerificationMode identityVerificationMode =
+                CommitConfig.IdentityVerificationMode.fromString(cs.getIdentityVerification());
+
+        CommitConfig commitConfig = CommitConfig.builder()
+                .identityVerification(identityVerificationMode)
+                .author(authorConfig)
+                .committer(committerConfig)
+                .message(messageConfig)
+                .build();
+
+        log.info(
+                "Loaded commit config: committer.domain.allow={}, committer.local.block={}, message.literals={}, message.patterns={}",
+                cs.getCommitter().getEmail().getDomain().getAllow(),
+                cs.getCommitter().getEmail().getLocal().getBlock(),
+                commitConfig.getMessage().getBlock().getLiterals().size(),
+                commitConfig.getMessage().getBlock().getPatterns().size());
+
+        return commitConfig;
+    }
+
+    private CommitConfig.AuthorConfig buildAuthorConfig(CommitSettings.EmailSettings email) {
+        return CommitConfig.AuthorConfig.builder()
+                .email(buildEmailConfig(email))
+                .build();
+    }
+
+    private CommitConfig.CommitterConfig buildCommitterConfig(CommitSettings.EmailSettings email) {
+        return CommitConfig.CommitterConfig.builder()
+                .email(buildEmailConfig(email))
+                .build();
+    }
+
+    private CommitConfig.EmailConfig buildEmailConfig(CommitSettings.EmailSettings email) {
         String domainAllow = email.getDomain().getAllow();
         CommitConfig.DomainConfig domainConfig = (domainAllow != null && !domainAllow.isBlank())
                 ? CommitConfig.DomainConfig.builder()
@@ -323,32 +364,10 @@ public class JettyConfigurationBuilder {
                         .build()
                 : CommitConfig.LocalConfig.builder().build();
 
-        CommitConfig.MessageConfig messageConfig = CommitConfig.MessageConfig.builder()
-                .block(buildBlockConfig(cs.getMessage().getBlock()))
+        return CommitConfig.EmailConfig.builder()
+                .domain(domainConfig)
+                .local(localConfig)
                 .build();
-
-        CommitConfig.IdentityVerificationMode identityVerificationMode =
-                CommitConfig.IdentityVerificationMode.fromString(cs.getIdentityVerification());
-
-        CommitConfig commitConfig = CommitConfig.builder()
-                .identityVerification(identityVerificationMode)
-                .author(CommitConfig.AuthorConfig.builder()
-                        .email(CommitConfig.EmailConfig.builder()
-                                .domain(domainConfig)
-                                .local(localConfig)
-                                .build())
-                        .build())
-                .message(messageConfig)
-                .build();
-
-        log.info(
-                "Loaded commit config: domain.allow={}, local.block={}, message.literals={}, message.patterns={}",
-                domainAllow != null ? domainAllow : "(none)",
-                localBlock != null ? localBlock : "(none)",
-                commitConfig.getMessage().getBlock().getLiterals().size(),
-                commitConfig.getMessage().getBlock().getPatterns().size());
-
-        return commitConfig;
     }
 
     /**
