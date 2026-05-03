@@ -27,30 +27,16 @@ jobs:
           grep "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "grype_${GRYPE_VERSION}_checksums.txt" | sha256sum --check
           tar -xzf "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin grype
 
+      # Single scan — fail on high+, emit template report and JSON in one pass.
+      # SARIF upload intentionally omitted — OS-layer CVEs are triaged with application
+      # context; uploading creates misleading noise in the GitHub Security tab.
       - name: Scan image
-        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # ratchet:anchore/scan-action@v7
-        id: scan
-        with:
-          image: ghcr.io/coopernetes/git-proxy-java:latest
-          fail-build: true
-          severity-cutoff: high
-          only-fixed: true
-          config: .grype.yaml
-
-      # SARIF upload intentionally omitted — OS-layer CVEs from the base image are triaged
-      # by internal scanning with application context. Uploading here creates misleading noise
-      # in the GitHub Security tab (high CVSS score ≠ high actual risk for this workload).
-      # The build still fails on high/critical with a fix available via fail-build: true above.
-
-      - name: Generate human-readable report
         if: always()
         run: |
           grype ghcr.io/coopernetes/git-proxy-java:latest \
             --config .grype.yaml \
-            --output table > grype-report.txt || true
-          grype ghcr.io/coopernetes/git-proxy-java:latest \
-            --config .grype.yaml \
-            --output json > grype-report.json || true
+            -o "template=grype-report.txt" \
+            -o "json=grype-report.json"
 
       - name: Upload scan reports
         if: always()

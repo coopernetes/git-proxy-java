@@ -12,6 +12,10 @@ allowed-tools:
 This is phase 2 of the release process. Phase 1 (`/release`) bumped the version and pushed to main.
 This command creates the git tag and pushes it, which triggers the Docker publish workflow.
 
+When the tag is pushed, the publish workflow promotes the already-built `:edge` image to the release
+tags (`:v<version>`, `:latest`, etc.) — it does **not** rebuild the image. The image being released is
+byte-for-byte identical to what was scanned when the version bump merged to main.
+
 Arguments passed: `$ARGUMENTS`
 
 `$ARGUMENTS` is the version string (without `v` prefix), e.g. `1.0.0-alpha.9`.
@@ -24,15 +28,16 @@ Arguments passed: `$ARGUMENTS`
 
 2. **Verify checks passed.** Run:
    ```
-   gh run list --branch main --limit 4 --json name,status,conclusion
+   gh run list --branch main --limit 6 --json name,status,conclusion
    ```
    Confirm that these checks all show `conclusion: "success"`:
    - `CI / Build & Test`
    - `CI / E2E Test`
    - `CodeQL / java-kotlin`
    - `CodeQL / actions`
-   - `CVE / Dependency Check (Gradle)`
-   - `CVE / Grype (npm)`
+   - `CVE / Gradle`
+   - `CVE / npm`
+   - `Container Scan`
 
    If any are still in progress or failed, tell the user and stop.
 

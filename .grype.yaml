@@ -1,4 +1,6 @@
 fail-on-severity: high
+sort-by: severity
+output-template-file: .grype-report.tmpl
 
 ignore:
   # OS packages with no fix available — upstream patch not yet released or won't be released.

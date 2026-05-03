@@ -1,0 +1,6 @@
+{{- range .Matches -}}
+{{.Vulnerability.ID}}  {{.Vulnerability.Severity}}  {{.Artifact.Name}} {{.Artifact.Version}} ({{.Artifact.Type}})
+  Fix state: {{.Vulnerability.Fix.State}}
+  Fixed in:  {{range $i, $v := .Vulnerability.Fix.Versions}}{{if $i}}, {{end}}{{$v}}{{end}}
+
+{{ end -}}
