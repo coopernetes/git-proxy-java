@@ -93,33 +93,35 @@ class JettyConfigurationBuilderTest {
         var builder = new JettyConfigurationBuilder(configWithGithub());
         var registry = builder.buildProviderRegistry();
 
-        // Lookup by friendly name
-        assertNotNull(registry.getProvider("github"));
-        assertInstanceOf(GitHubProvider.class, registry.getProvider("github"));
+        // Lookup by name
+        assertTrue(registry.getProvider("github").isPresent());
+        assertInstanceOf(GitHubProvider.class, registry.getProvider("github").orElseThrow());
         // Lookup by name via resolveProvider
-        assertNotNull(registry.resolveProvider("github"));
-        assertSame(registry.getProvider("github"), registry.resolveProvider("github"));
-        // Friendly name and ID resolve to same provider
+        assertTrue(registry.resolveProvider("github").isPresent());
+        assertSame(
+                registry.getProvider("github").orElseThrow(),
+                registry.resolveProvider("github").orElseThrow());
+        // Name resolves to a stable provider ID
         assertEquals(
-                registry.resolveProvider("github").getProviderId(),
-                registry.resolveProvider("github").getProviderId());
+                registry.resolveProvider("github").orElseThrow().getProviderId(),
+                registry.resolveProvider("github").orElseThrow().getProviderId());
     }
 
-    // ---- buildConfigPermissions — friendly name resolution (#127) ----
+    // ---- buildConfigPermissions — provider name resolution ----
 
     @Test
-    void buildConfigPermissions_friendlyName_resolvesToCanonicalId() {
+    void buildConfigPermissions_name_stored_on_permission() {
         var config = configWithGithub();
         var permission = new PermissionConfig();
         permission.setUsername("alice");
-        permission.setProvider("github"); // friendly name
+        permission.setProvider("github");
         permission.setPath("/org/repo");
         config.setPermissions(List.of(permission));
 
         List<RepoPermission> perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
 
         assertEquals(1, perms.size());
-        // Name is both the friendly form and the canonical ID
+
         assertEquals("github", perms.get(0).getProvider());
         assertEquals("alice", perms.get(0).getUsername());
     }
@@ -139,20 +141,20 @@ class JettyConfigurationBuilderTest {
         assertTrue(ex.getMessage().contains("github"), "error should list configured providers");
     }
 
-    // ---- buildConfigRules — friendly name resolution (#127) ----
+    // ---- buildConfigRules — provider name resolution ----
 
     @Test
-    void buildConfigRules_friendlyName_resolvesToCanonicalId() {
+    void buildConfigRules_name_stored_on_rule() {
         var config = configWithGithub();
         var ruleConfig = new RuleConfig();
-        ruleConfig.setProviders(List.of("github")); // friendly name
+        ruleConfig.setProviders(List.of("github"));
         ruleConfig.setSlugs(List.of("/org/repo"));
         config.getRules().setAllow(List.of(ruleConfig));
 
         List<AccessRule> rules = new JettyConfigurationBuilder(config).buildConfigRules(config);
 
         assertFalse(rules.isEmpty());
-        // Provider field in AccessRule must be the canonical type/host ID for evaluator to work
+
         assertEquals("github", rules.get(0).getProvider());
     }
 
@@ -170,20 +172,22 @@ class JettyConfigurationBuilderTest {
         assertNull(rules.get(0).getProvider()); // null = all providers
     }
 
-    // ---- buildConfigRules — friendly name scoping (#127) ----
+    // ---- buildConfigRules — provider name scoping ----
 
     @Test
-    void buildConfigRules_friendlyName_producesRuleWithGithubProviderId() {
+    void buildConfigRules_name_scopes_rule_to_provider() {
         var config = configWithGithub();
         var ruleConfig = new RuleConfig();
         ruleConfig.setOrder(110);
-        ruleConfig.setProviders(List.of("github")); // friendly name
+        ruleConfig.setProviders(List.of("github"));
         ruleConfig.setSlugs(List.of("/org/repo"));
         config.getRules().setAllow(List.of(ruleConfig));
 
         var builder = new JettyConfigurationBuilder(config);
-        var githubProviderId =
-                builder.buildProviderRegistry().getProvider("github").getProviderId();
+        var githubProviderId = builder.buildProviderRegistry()
+                .getProvider("github")
+                .orElseThrow()
+                .getProviderId();
         var rules = builder.buildConfigRules();
 
         assertFalse(rules.isEmpty(), "rule scoped to 'github' should produce at least one AccessRule");
@@ -193,7 +197,7 @@ class JettyConfigurationBuilderTest {
     }
 
     @Test
-    void buildConfigRules_friendlyName_doesNotProduceRuleForOtherProvider() {
+    void buildConfigRules_name_excludes_other_provider() {
         var config = configWithGithubAndGitlab();
         var ruleConfig = new RuleConfig();
         ruleConfig.setOrder(110);
@@ -202,8 +206,10 @@ class JettyConfigurationBuilderTest {
         config.getRules().setAllow(List.of(ruleConfig));
 
         var builder = new JettyConfigurationBuilder(config);
-        var gitlabProviderId =
-                builder.buildProviderRegistry().getProvider("gitlab").getProviderId();
+        var gitlabProviderId = builder.buildProviderRegistry()
+                .getProvider("gitlab")
+                .orElseThrow()
+                .getProviderId();
         var rules = builder.buildConfigRules();
 
         assertTrue(

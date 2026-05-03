@@ -4,15 +4,16 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.ToString;
 
-/** In-memory {@link ProviderRegistry} backed by a {@link LinkedHashMap} keyed by friendly provider name. */
+/** In-memory {@link ProviderRegistry} backed by a {@link LinkedHashMap} keyed by provider name. */
 @ToString
 public class InMemoryProviderRegistry implements ProviderRegistry {
 
     private final Map<String, GitProxyProvider> providers;
 
-    /** Construct from a map of friendly name → provider. Insertion order is preserved. */
+    /** Construct from a name → provider map. Insertion order is preserved. */
     public InMemoryProviderRegistry(Map<String, GitProxyProvider> providers) {
         this.providers = new LinkedHashMap<>(providers);
     }
@@ -26,8 +27,8 @@ public class InMemoryProviderRegistry implements ProviderRegistry {
     }
 
     @Override
-    public GitProxyProvider getProvider(String name) {
-        return providers.get(name);
+    public Optional<GitProxyProvider> getProvider(String name) {
+        return Optional.ofNullable(providers.get(name));
     }
 
     @Override

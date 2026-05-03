@@ -161,10 +161,7 @@ public class JettyConfigurationBuilder {
         return cachedProviders;
     }
 
-    /**
-     * Builds and caches a {@link ProviderRegistry} keyed by each provider's name (the YAML config map key, e.g.
-     * {@code "github"}), which is also the canonical provider ID stored in the database.
-     */
+    /** Builds and caches a {@link ProviderRegistry} keyed by provider name. */
     public ProviderRegistry buildProviderRegistry() {
         if (cachedProviderRegistry != null) return cachedProviderRegistry;
         Map<String, GitProxyProvider> byName = new LinkedHashMap<>();
@@ -190,22 +187,22 @@ public class JettyConfigurationBuilder {
         config.getUsers()
                 .forEach(uc -> uc.getScmIdentities().forEach(s -> {
                     if (!"proxy".equals(s.getProvider())) {
-                        resolveToProviderId("User '" + uc.getUsername() + "' scm-identity", s.getProvider());
+                        resolveProviderName("User '" + uc.getUsername() + "' scm-identity", s.getProvider());
                     }
                 }));
 
         config.getPermissions()
-                .forEach(p -> resolveToProviderId("Permission for user '" + p.getUsername() + "'", p.getProvider()));
+                .forEach(p -> resolveProviderName("Permission for user '" + p.getUsername() + "'", p.getProvider()));
 
         config.getRules()
                 .getAllow()
                 .forEach(rule -> rule.getProviders()
-                        .forEach(pid -> resolveToProviderId("ALLOW rule (order=" + rule.getOrder() + ")", pid)));
+                        .forEach(pid -> resolveProviderName("ALLOW rule (order=" + rule.getOrder() + ")", pid)));
 
         config.getRules()
                 .getDeny()
                 .forEach(rule -> rule.getProviders()
-                        .forEach(pid -> resolveToProviderId("DENY rule (order=" + rule.getOrder() + ")", pid)));
+                        .forEach(pid -> resolveProviderName("DENY rule (order=" + rule.getOrder() + ")", pid)));
 
         log.debug(
                 "Provider reference validation passed ({} users, {} permissions, {} allow rules, {} deny rules)",
@@ -216,24 +213,25 @@ public class JettyConfigurationBuilder {
     }
 
     /**
-     * Resolves a provider name to the canonical provider ID. Returns {@code null} for null/blank input (meaning
-     * "applies to all providers"). Throws {@link IllegalStateException} on startup if the name is unknown —
+     * Validates that {@code name} refers to a configured provider and returns it. Returns {@code null} for null/blank
+     * input (meaning "applies to all providers"). Throws {@link IllegalStateException} on startup if unknown —
      * misconfiguration must be caught early.
      */
-    private String resolveToProviderId(String context, String nameOrId) {
-        if (nameOrId == null || nameOrId.isBlank()) return null;
-        GitProxyProvider resolved = buildProviderRegistry().resolveProvider(nameOrId);
-        if (resolved == null) {
-            String known = buildProviderRegistry().getProviders().stream()
-                    .map(p -> "'" + p.getName() + "'")
-                    .collect(Collectors.joining(", "));
-            throw new IllegalStateException(String.format(
-                    "%s references unknown provider '%s'. "
-                            + "Use the provider name from providers: config (e.g. 'github'). "
-                            + "Configured providers: %s",
-                    context, nameOrId, known));
-        }
-        return resolved.getProviderId();
+    private String resolveProviderName(String context, String name) {
+        if (name == null || name.isBlank()) return null;
+        return buildProviderRegistry()
+                .resolveProvider(name)
+                .orElseThrow(() -> {
+                    String known = buildProviderRegistry().getProviders().stream()
+                            .map(p -> "'" + p.getName() + "'")
+                            .collect(Collectors.joining(", "));
+                    return new IllegalStateException(String.format(
+                            "%s references unknown provider '%s'. "
+                                    + "Use the provider name from providers: config (e.g. 'github'). "
+                                    + "Configured providers: %s",
+                            context, name, known));
+                })
+                .getName();
     }
 
     /**
@@ -253,9 +251,9 @@ public class JettyConfigurationBuilder {
         for (RuleConfig rule : ruleConfigs) {
             if (!rule.isEnabled()) continue;
 
-            // Resolve provider names to canonical IDs — validates at startup
+            // Validate provider names and resolve to stored IDs — validates at startup
             List<String> resolvedProviderIds = rule.getProviders().stream()
-                    .map(n -> resolveToProviderId(access.name() + " rule (order=" + rule.getOrder() + ")", n))
+                    .map(n -> resolveProviderName(access.name() + " rule (order=" + rule.getOrder() + ")", n))
                     .toList();
             // null provider = applies to all providers; specific IDs = scoped
             List<String> providerScopes =
@@ -553,7 +551,7 @@ public class JettyConfigurationBuilder {
         return cfg.getPermissions().stream()
                 .map(p -> {
                     String resolvedId =
-                            resolveToProviderId("Permission for user '" + p.getUsername() + "'", p.getProvider());
+                            resolveProviderName("Permission for user '" + p.getUsername() + "'", p.getProvider());
                     return RepoPermission.builder()
                             .username(p.getUsername())
                             .provider(resolvedId)
@@ -615,7 +613,7 @@ public class JettyConfigurationBuilder {
             for (String rawProvider : rawProviders) {
                 // null → applies to all providers (no resolution needed)
                 String resolvedId =
-                        resolveToProviderId(access.name() + " rule (order=" + rule.getOrder() + ")", rawProvider);
+                        resolveProviderName(access.name() + " rule (order=" + rule.getOrder() + ")", rawProvider);
                 for (String rawSlug : rule.getSlugs()) {
                     String slug = rawSlug.startsWith("/") ? rawSlug : "/" + rawSlug;
                     result.add(AccessRule.builder()
@@ -671,7 +669,7 @@ public class JettyConfigurationBuilder {
                                 // "proxy" is a synthetic provider for push-username lookup — no resolution needed
                                 String resolvedProvider = "proxy".equals(s.getProvider())
                                         ? "proxy"
-                                        : resolveToProviderId(
+                                        : resolveProviderName(
                                                 "User '" + uc.getUsername() + "' scm-identity", s.getProvider());
                                 return ScmIdentity.builder()
                                         .provider(resolvedProvider)

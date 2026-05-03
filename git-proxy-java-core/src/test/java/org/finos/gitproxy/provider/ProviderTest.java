@@ -124,13 +124,13 @@ class ProviderTest {
     void registry_fromMap_getByFriendlyName() {
         var github = new GitHubProvider("/proxy");
         var registry = new InMemoryProviderRegistry(Map.of("github", github));
-        assertSame(github, registry.getProvider("github"));
+        assertSame(github, registry.getProvider("github").orElseThrow());
     }
 
     @Test
-    void registry_fromMap_unknownName_returnsNull() {
+    void registry_fromMap_unknownName_returnsEmpty() {
         var registry = new InMemoryProviderRegistry(Map.of());
-        assertNull(registry.getProvider("unknown"));
+        assertTrue(registry.getProvider("unknown").isEmpty());
     }
 
     @Test
@@ -138,8 +138,8 @@ class ProviderTest {
         var github = new GitHubProvider("/proxy");
         var gitlab = new GitLabProvider("/proxy");
         var registry = new InMemoryProviderRegistry(List.of(github, gitlab));
-        assertSame(github, registry.getProvider("github"));
-        assertSame(gitlab, registry.getProvider("gitlab"));
+        assertSame(github, registry.getProvider("github").orElseThrow());
+        assertSame(gitlab, registry.getProvider("gitlab").orElseThrow());
     }
 
     @Test
@@ -158,21 +158,21 @@ class ProviderTest {
     }
 
     @Test
-    void registry_resolveProvider_byFriendlyName() {
+    void registry_resolveProvider_byName() {
         var github = new GitHubProvider("/proxy");
         var registry = new InMemoryProviderRegistry(Map.of("github", github));
-        assertSame(github, registry.resolveProvider("github"));
+        assertSame(github, registry.resolveProvider("github").orElseThrow());
     }
 
     @Test
-    void registry_resolveProvider_unknown_returnsNull() {
+    void registry_resolveProvider_unknown_returnsEmpty() {
         var registry = new InMemoryProviderRegistry(Map.of());
-        assertNull(registry.resolveProvider("nonexistent"));
+        assertTrue(registry.resolveProvider("nonexistent").isEmpty());
     }
 
     @Test
-    void registry_resolveProvider_null_returnsNull() {
+    void registry_resolveProvider_null_returnsEmpty() {
         var registry = new InMemoryProviderRegistry(Map.of());
-        assertNull(registry.resolveProvider(null));
+        assertTrue(registry.resolveProvider(null).isEmpty());
     }
 }
