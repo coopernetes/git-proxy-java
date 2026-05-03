@@ -141,7 +141,6 @@ public class JettyConfigurationBuilder {
     public List<GitProxyProvider> buildProviders() {
         if (cachedProviders != null) return cachedProviders;
         List<GitProxyProvider> providers = new ArrayList<>();
-        Map<String, String> seenProviderIds = new LinkedHashMap<>();
 
         config.getProviders().forEach((name, providerConfig) -> {
             if (!providerConfig.isEnabled()) {
@@ -150,19 +149,8 @@ public class JettyConfigurationBuilder {
             }
             GitProxyProvider provider = createProvider(name, providerConfig);
             if (provider != null) {
-                String existingName = seenProviderIds.put(provider.getProviderId(), provider.getName());
-                if (existingName != null) {
-                    throw new IllegalStateException(String.format(
-                            "Provider ID conflict: '%s' and '%s' both resolve to '%s'. "
-                                    + "Each provider must have a unique type/host combination.",
-                            existingName, provider.getName(), provider.getProviderId()));
-                }
                 providers.add(provider);
-                log.info(
-                        "Configured provider: {} -> {} (id={})",
-                        provider.getName(),
-                        provider.getUri(),
-                        provider.getProviderId());
+                log.info("Configured provider: {} -> {}", provider.getName(), provider.getUri());
             }
         });
 
@@ -174,9 +162,8 @@ public class JettyConfigurationBuilder {
     }
 
     /**
-     * Builds and caches a {@link ProviderRegistry} keyed by each provider's friendly name (the YAML config map key,
-     * e.g. {@code "github"}). The registry's {@link ProviderRegistry#resolveProvider} default method also accepts
-     * canonical {@code type/host} IDs (e.g. {@code "github/github.com"}) for backwards compatibility.
+     * Builds and caches a {@link ProviderRegistry} keyed by each provider's name (the YAML config map key, e.g.
+     * {@code "github"}), which is also the canonical provider ID stored in the database.
      */
     public ProviderRegistry buildProviderRegistry() {
         if (cachedProviderRegistry != null) return cachedProviderRegistry;
@@ -229,22 +216,20 @@ public class JettyConfigurationBuilder {
     }
 
     /**
-     * Resolves a provider reference (either a friendly name like {@code "github"} or a canonical {@code type/host} ID
-     * like {@code "github/github.com"}) to the canonical provider ID. Returns {@code null} for null/blank input
-     * (meaning "applies to all providers"). Throws {@link IllegalStateException} on startup if the reference is unknown
-     * — misconfiguration must be caught early.
+     * Resolves a provider name to the canonical provider ID. Returns {@code null} for null/blank input (meaning
+     * "applies to all providers"). Throws {@link IllegalStateException} on startup if the name is unknown —
+     * misconfiguration must be caught early.
      */
     private String resolveToProviderId(String context, String nameOrId) {
         if (nameOrId == null || nameOrId.isBlank()) return null;
         GitProxyProvider resolved = buildProviderRegistry().resolveProvider(nameOrId);
         if (resolved == null) {
             String known = buildProviderRegistry().getProviders().stream()
-                    .map(p -> "'" + p.getName() + "' (" + p.getProviderId() + ")")
+                    .map(p -> "'" + p.getName() + "'")
                     .collect(Collectors.joining(", "));
             throw new IllegalStateException(String.format(
                     "%s references unknown provider '%s'. "
-                            + "Use the friendly name from providers: config (e.g. 'github') "
-                            + "or the type/host ID (e.g. 'github/github.com'). "
+                            + "Use the provider name from providers: config (e.g. 'github'). "
                             + "Configured providers: %s",
                     context, nameOrId, known));
         }
@@ -268,7 +253,7 @@ public class JettyConfigurationBuilder {
         for (RuleConfig rule : ruleConfigs) {
             if (!rule.isEnabled()) continue;
 
-            // Resolve friendly names / type/host IDs to canonical IDs — validates at startup
+            // Resolve provider names to canonical IDs — validates at startup
             List<String> resolvedProviderIds = rule.getProviders().stream()
                     .map(n -> resolveToProviderId(access.name() + " rule (order=" + rule.getOrder() + ")", n))
                     .toList();

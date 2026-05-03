@@ -12,17 +12,26 @@ jobs:
     name: Container Scan
     runs-on: ubuntu-latest
     env:
-      GRYPE_VERSION: "0.111.1"
+      GRYPE_VERSION: "0.112.0"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Install grype
+        run: |
+          cd /tmp
+          curl -sSfL -o "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
+            "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o "grype_${GRYPE_VERSION}_checksums.txt" \
+            "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_checksums.txt"
+          grep "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "grype_${GRYPE_VERSION}_checksums.txt" | sha256sum --check
+          tar -xzf "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin grype
 
       - name: Scan image
         uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # ratchet:anchore/scan-action@v7
         id: scan
         with:
           image: ghcr.io/coopernetes/git-proxy-java:latest
-          grype-version: ${{ env.GRYPE_VERSION }}
           fail-build: true
           severity-cutoff: high
           only-fixed: true
@@ -32,17 +41,6 @@ jobs:
       # by internal scanning with application context. Uploading here creates misleading noise
       # in the GitHub Security tab (high CVSS score ≠ high actual risk for this workload).
       # The build still fails on high/critical with a fix available via fail-build: true above.
-
-      - name: Install grype
-        if: always()
-        run: |
-          cd /tmp
-          curl -sSfL -o "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
-            "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
-          curl -sSfL -o "grype_${GRYPE_VERSION}_checksums.txt" \
-            "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_checksums.txt"
-          grep "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "grype_${GRYPE_VERSION}_checksums.txt" | sha256sum --check
-          tar -xzf "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin grype
 
       - name: Generate human-readable report
         if: always()

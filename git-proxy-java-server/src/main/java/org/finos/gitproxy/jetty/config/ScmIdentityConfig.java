@@ -6,8 +6,8 @@ import lombok.Data;
 @Data
 public class ScmIdentityConfig {
     /**
-     * Provider ID in {@code type/host} format, e.g. {@code github/github.com} or {@code gitlab/gitlab.com}. Must match
-     * the provider ID derived from the configured provider (type + URI host).
+     * Provider name (the YAML config map key, e.g. {@code github} or {@code internal-gitlab}). Must match a configured
+     * provider name.
      */
     private String provider = "";
 

@@ -89,10 +89,10 @@ class RepoControllerTest {
     @Test
     void createRule_knownProvider_returns201() {
         var p = mock(GitProxyProvider.class);
-        when(p.getProviderId()).thenReturn("github/github.com");
+        when(p.getProviderId()).thenReturn("github");
         when(providerSource.getProviders()).thenReturn(List.of(p));
 
-        var rule = AccessRule.builder().provider("github/github.com").build();
+        var rule = AccessRule.builder().provider("github").build();
         var resp = controller.createRule(rule);
 
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
@@ -102,10 +102,10 @@ class RepoControllerTest {
     @Test
     void createRule_unknownProvider_returns400() {
         var p = mock(GitProxyProvider.class);
-        when(p.getProviderId()).thenReturn("github/github.com");
+        when(p.getProviderId()).thenReturn("github");
         when(providerSource.getProviders()).thenReturn(List.of(p));
 
-        var rule = AccessRule.builder().provider("github").build(); // bare name — invalid
+        var rule = AccessRule.builder().provider("nonexistent-provider").build();
         var resp = controller.createRule(rule);
 
         assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
