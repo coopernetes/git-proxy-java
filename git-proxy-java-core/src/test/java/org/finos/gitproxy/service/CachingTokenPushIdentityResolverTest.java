@@ -31,7 +31,7 @@ class CachingTokenPushIdentityResolverTest {
         when(provider.getName()).thenReturn("github");
         when(provider.getType()).thenReturn("github");
         when(provider.getUri()).thenReturn(URI.create("https://github.com"));
-        when(provider.getProviderId()).thenReturn("github/github.com");
+        when(provider.getProviderId()).thenReturn("github");
         resolver = new CachingTokenPushIdentityResolver(delegate, cache, userStore);
     }
 
@@ -51,7 +51,7 @@ class CachingTokenPushIdentityResolverTest {
     @Test
     void cacheHit_returnsCachedUser_delegateNotCalled() {
         UserEntry alice = entry("alice");
-        when(cache.lookup(eq("github/github.com"), anyString())).thenReturn(Optional.of("alice"));
+        when(cache.lookup(eq("github"), anyString())).thenReturn(Optional.of("alice"));
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(alice));
 
         var result = resolver.resolve(provider, "me", "good-token");
@@ -67,14 +67,14 @@ class CachingTokenPushIdentityResolverTest {
     @Test
     void cacheMiss_delegateResolves_storesAndReturns() {
         UserEntry alice = entry("alice");
-        when(cache.lookup(eq("github/github.com"), anyString())).thenReturn(Optional.empty());
+        when(cache.lookup(eq("github"), anyString())).thenReturn(Optional.empty());
         when(delegate.resolve(provider, "me", "good-token")).thenReturn(Optional.of(alice));
 
         var result = resolver.resolve(provider, "me", "good-token");
 
         assertTrue(result.isPresent());
         assertEquals("alice", result.get().getUsername());
-        verify(cache).store(eq("github/github.com"), anyString(), eq("alice"));
+        verify(cache).store(eq("github"), anyString(), eq("alice"));
         verifyNoMoreInteractions(userStore);
     }
 
@@ -82,7 +82,7 @@ class CachingTokenPushIdentityResolverTest {
 
     @Test
     void cacheMiss_delegateEmpty_nothingStored() {
-        when(cache.lookup(eq("github/github.com"), anyString())).thenReturn(Optional.empty());
+        when(cache.lookup(eq("github"), anyString())).thenReturn(Optional.empty());
         when(delegate.resolve(provider, "me", "bad-token")).thenReturn(Optional.empty());
 
         var result = resolver.resolve(provider, "me", "bad-token");
@@ -95,7 +95,7 @@ class CachingTokenPushIdentityResolverTest {
 
     @Test
     void sameToken_lookupCalledWithSameHash() {
-        when(cache.lookup(eq("github/github.com"), anyString())).thenReturn(Optional.empty());
+        when(cache.lookup(eq("github"), anyString())).thenReturn(Optional.empty());
         when(delegate.resolve(any(), any(), any())).thenReturn(Optional.empty());
 
         resolver.resolve(provider, "me", "my-token");
@@ -103,7 +103,7 @@ class CachingTokenPushIdentityResolverTest {
 
         // Capture both hash arguments and assert they are equal
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(cache, times(2)).lookup(eq("github/github.com"), captor.capture());
+        verify(cache, times(2)).lookup(eq("github"), captor.capture());
         assertEquals(captor.getAllValues().get(0), captor.getAllValues().get(1));
     }
 
@@ -111,14 +111,14 @@ class CachingTokenPushIdentityResolverTest {
 
     @Test
     void differentTokens_differentHashes() {
-        when(cache.lookup(eq("github/github.com"), anyString())).thenReturn(Optional.empty());
+        when(cache.lookup(eq("github"), anyString())).thenReturn(Optional.empty());
         when(delegate.resolve(any(), any(), any())).thenReturn(Optional.empty());
 
         resolver.resolve(provider, "me", "token-a");
         resolver.resolve(provider, "me", "token-b");
 
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(cache, times(2)).lookup(eq("github/github.com"), captor.capture());
+        verify(cache, times(2)).lookup(eq("github"), captor.capture());
         assertNotEquals(captor.getAllValues().get(0), captor.getAllValues().get(1));
     }
 

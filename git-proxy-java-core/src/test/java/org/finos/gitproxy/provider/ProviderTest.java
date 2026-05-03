@@ -165,17 +165,9 @@ class ProviderTest {
     }
 
     @Test
-    void registry_resolveProvider_byTypeHostId() {
-        var github = new GitHubProvider("/proxy");
-        var registry = new InMemoryProviderRegistry(Map.of("github", github));
-        // "github/github.com" is the canonical type/host ID
-        assertSame(github, registry.resolveProvider("github/github.com"));
-    }
-
-    @Test
     void registry_resolveProvider_unknown_returnsNull() {
         var registry = new InMemoryProviderRegistry(Map.of());
-        assertNull(registry.resolveProvider("nonexistent/host.example.com"));
+        assertNull(registry.resolveProvider("nonexistent"));
     }
 
     @Test

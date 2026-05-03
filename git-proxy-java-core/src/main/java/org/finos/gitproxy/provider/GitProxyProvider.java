@@ -14,13 +14,12 @@ public interface GitProxyProvider {
     String getType();
 
     /**
-     * Unique provider identity combining type and host (e.g. "github/github.com", "github/github.corp.example.com").
-     * Used for SCM identity resolution, permission matching, token caching, and DB storage. Two providers of the same
-     * type but different hosts (e.g. public GitHub and internal GHES) have distinct provider IDs — tokens, identities,
-     * and permissions are never shared across hosts.
+     * Canonical provider identity — equals the user-configured name (the YAML config map key, e.g. {@code "github"},
+     * {@code "internal"}). Used for SCM identity resolution, permission matching, token caching, and DB storage.
+     * Provider names are unique by YAML map key constraint and stable across hostname changes.
      */
     default String getProviderId() {
-        return getType() + "/" + getUri().getHost();
+        return getName();
     }
 
     URI getUri();

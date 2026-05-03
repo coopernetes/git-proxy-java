@@ -4,9 +4,8 @@ import java.util.List;
 import org.finos.gitproxy.db.UrlRuleRegistry;
 
 /**
- * Registry of configured git proxy providers. Keyed by the friendly name used as the config map key (e.g.
- * {@code github}, {@code internal-gitlab}), independent of the internal {@code type/host} provider ID used for request
- * routing.
+ * Registry of configured git proxy providers. Keyed by the user-configured name (the YAML config map key, e.g.
+ * {@code github}, {@code internal-gitlab}), which is also the canonical provider ID stored in the database.
  *
  * <p>Consistent with {@link UrlRuleRegistry} — a lookup/discovery mechanism, not a CRUD store.
  */
@@ -23,21 +22,13 @@ public interface ProviderRegistry {
     List<GitProxyProvider> getProviders();
 
     /**
-     * Resolves a provider by either its friendly name (e.g. {@code "github"}) or its canonical {@code type/host} ID
-     * (e.g. {@code "github/github.com"}). Friendly name is tried first.
+     * Resolves a provider by its name (the YAML config map key, e.g. {@code "github"}). Null/blank input returns null
+     * (meaning "applies to all providers").
      *
-     * <p>This is the entry point for validating config references in {@code permissions:}, {@code rules:}, and
-     * {@code scm-identities:} — both forms are accepted so operators can use whichever is more readable.
-     *
-     * @return the provider, or {@code null} if neither a friendly name nor an ID match
+     * @return the provider, or {@code null} if not found
      */
     default GitProxyProvider resolveProvider(String nameOrId) {
         if (nameOrId == null || nameOrId.isBlank()) return null;
-        GitProxyProvider byName = getProvider(nameOrId);
-        if (byName != null) return byName;
-        return getProviders().stream()
-                .filter(p -> p.getProviderId().equals(nameOrId))
-                .findFirst()
-                .orElse(null);
+        return getProvider(nameOrId);
     }
 }

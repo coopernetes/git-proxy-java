@@ -175,14 +175,13 @@ class ApprovalPreReceiveHookTest {
                 .id(recordId)
                 .status(PushStatus.APPROVED)
                 .resolvedUser("alice")
-                .provider("github/github.com")
+                .provider("github")
                 .url("/owner/repo")
                 .attestation(att)
                 .build();
         when(pushStore.findById(recordId)).thenReturn(Optional.of(record));
         RepoPermissionService perms = mock(RepoPermissionService.class);
-        when(perms.isBypassReviewAllowed("alice", "github/github.com", "/owner/repo"))
-                .thenReturn(false);
+        when(perms.isBypassReviewAllowed("alice", "github", "/owner/repo")).thenReturn(false);
 
         RevCommit c1 = createCommit("init");
         RevCommit c2 = createCommit("second");
@@ -193,7 +192,7 @@ class ApprovalPreReceiveHookTest {
                 .onPreReceive(rp, List.of(cmd));
 
         assertEquals(ReceiveCommand.Result.REJECTED_OTHER_REASON, cmd.getResult());
-        verify(perms).isBypassReviewAllowed("alice", "github/github.com", "/owner/repo");
+        verify(perms).isBypassReviewAllowed("alice", "github", "/owner/repo");
     }
 
     @Test
@@ -210,14 +209,13 @@ class ApprovalPreReceiveHookTest {
                 .id(recordId)
                 .status(PushStatus.APPROVED)
                 .resolvedUser("alice")
-                .provider("github/github.com")
+                .provider("github")
                 .url("/owner/repo")
                 .attestation(att)
                 .build();
         when(pushStore.findById(recordId)).thenReturn(Optional.of(record));
         RepoPermissionService perms = mock(RepoPermissionService.class);
-        when(perms.isBypassReviewAllowed("alice", "github/github.com", "/owner/repo"))
-                .thenReturn(true);
+        when(perms.isBypassReviewAllowed("alice", "github", "/owner/repo")).thenReturn(true);
 
         RevCommit c1 = createCommit("init");
         RevCommit c2 = createCommit("second");
@@ -241,7 +239,7 @@ class ApprovalPreReceiveHookTest {
                 .id(recordId)
                 .status(PushStatus.PENDING)
                 .resolvedUser("alice")
-                .provider("github/github.com")
+                .provider("github")
                 .url("/owner/repo")
                 .build();
         Attestation att = Attestation.builder()
@@ -253,7 +251,7 @@ class ApprovalPreReceiveHookTest {
                 .id(recordId)
                 .status(PushStatus.APPROVED)
                 .resolvedUser("alice")
-                .provider("github/github.com")
+                .provider("github")
                 .url("/owner/repo")
                 .attestation(att)
                 .build();
@@ -261,8 +259,7 @@ class ApprovalPreReceiveHookTest {
         when(approvalGateway.waitForApproval(eq(recordId), any(), any(Duration.class)))
                 .thenReturn(ApprovalResult.APPROVED);
         RepoPermissionService perms = mock(RepoPermissionService.class);
-        when(perms.isBypassReviewAllowed("alice", "github/github.com", "/owner/repo"))
-                .thenReturn(false);
+        when(perms.isBypassReviewAllowed("alice", "github", "/owner/repo")).thenReturn(false);
 
         RevCommit c1 = createCommit("init");
         RevCommit c2 = createCommit("second");
@@ -273,7 +270,7 @@ class ApprovalPreReceiveHookTest {
                 .onPreReceive(rp, List.of(cmd));
 
         assertEquals(ReceiveCommand.Result.REJECTED_OTHER_REASON, cmd.getResult());
-        verify(perms).isBypassReviewAllowed("alice", "github/github.com", "/owner/repo");
+        verify(perms).isBypassReviewAllowed("alice", "github", "/owner/repo");
     }
 
     @Test
@@ -291,7 +288,7 @@ class ApprovalPreReceiveHookTest {
                 .id(recordId)
                 .status(PushStatus.APPROVED)
                 .resolvedUser("alice")
-                .provider("github/github.com")
+                .provider("github")
                 .url("/owner/repo")
                 .attestation(att)
                 .build();

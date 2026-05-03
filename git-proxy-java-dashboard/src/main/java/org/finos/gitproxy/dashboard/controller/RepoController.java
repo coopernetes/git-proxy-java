@@ -90,8 +90,7 @@ public class RepoController {
     }
 
     /**
-     * Returns a 400 response if {@code providerId} is not a configured provider ID, or {@code null} if it is valid.
-     * Provider IDs must be in {@code type/host} format (e.g. {@code "gitea/gitea"}).
+     * Returns a 400 response if {@code providerId} is not a configured provider name, or {@code null} if it is valid.
      */
     private ResponseEntity<?> validateProviderId(String providerId) {
         Set<String> known = providerSource.getProviders().stream()
@@ -99,10 +98,7 @@ public class RepoController {
                 .collect(Collectors.toSet());
         if (!known.contains(providerId)) {
             return ResponseEntity.badRequest()
-                    .body(Map.of(
-                            "error",
-                            "Unknown provider ID '" + providerId + "'. Must be one of: " + known
-                                    + ". Provider IDs are in type/host format (e.g. 'gitea/gitea')."));
+                    .body(Map.of("error", "Unknown provider '" + providerId + "'. Must be one of: " + known));
         }
         return null;
     }

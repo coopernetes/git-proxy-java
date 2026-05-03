@@ -10,6 +10,7 @@ import org.finos.gitproxy.db.PushStoreFactory;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.permission.RepoPermission;
 import org.finos.gitproxy.provider.GitHubProvider;
+import org.finos.gitproxy.provider.GitProxyProvider;
 import org.junit.jupiter.api.Test;
 
 class JettyConfigurationBuilderTest {
@@ -95,13 +96,13 @@ class JettyConfigurationBuilderTest {
         // Lookup by friendly name
         assertNotNull(registry.getProvider("github"));
         assertInstanceOf(GitHubProvider.class, registry.getProvider("github"));
-        // Lookup by type/host ID via resolveProvider
-        assertNotNull(registry.resolveProvider("github/github.com"));
-        assertSame(registry.getProvider("github"), registry.resolveProvider("github/github.com"));
+        // Lookup by name via resolveProvider
+        assertNotNull(registry.resolveProvider("github"));
+        assertSame(registry.getProvider("github"), registry.resolveProvider("github"));
         // Friendly name and ID resolve to same provider
         assertEquals(
                 registry.resolveProvider("github").getProviderId(),
-                registry.resolveProvider("github/github.com").getProviderId());
+                registry.resolveProvider("github").getProviderId());
     }
 
     // ---- buildConfigPermissions — friendly name resolution (#127) ----
@@ -118,24 +119,9 @@ class JettyConfigurationBuilderTest {
         List<RepoPermission> perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
 
         assertEquals(1, perms.size());
-        // Friendly name must be resolved to the canonical type/host ID
-        assertEquals("github/github.com", perms.get(0).getProvider());
+        // Name is both the friendly form and the canonical ID
+        assertEquals("github", perms.get(0).getProvider());
         assertEquals("alice", perms.get(0).getUsername());
-    }
-
-    @Test
-    void buildConfigPermissions_typeHostId_backwardsCompat() {
-        var config = configWithGithub();
-        var permission = new PermissionConfig();
-        permission.setUsername("bob");
-        permission.setProvider("github/github.com"); // legacy type/host form
-        permission.setPath("/org/repo");
-        config.setPermissions(List.of(permission));
-
-        List<RepoPermission> perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
-
-        assertEquals(1, perms.size());
-        assertEquals("github/github.com", perms.get(0).getProvider());
     }
 
     @Test
@@ -150,9 +136,7 @@ class JettyConfigurationBuilderTest {
         var builder = new JettyConfigurationBuilder(config);
         var ex = assertThrows(IllegalStateException.class, () -> builder.buildConfigPermissions(config));
         assertTrue(ex.getMessage().contains("nonexistent"), "error should name the unknown provider");
-        assertTrue(
-                ex.getMessage().contains("github") || ex.getMessage().contains("github/github.com"),
-                "error should list configured providers");
+        assertTrue(ex.getMessage().contains("github"), "error should list configured providers");
     }
 
     // ---- buildConfigRules — friendly name resolution (#127) ----
@@ -169,7 +153,7 @@ class JettyConfigurationBuilderTest {
 
         assertFalse(rules.isEmpty());
         // Provider field in AccessRule must be the canonical type/host ID for evaluator to work
-        assertEquals("github/github.com", rules.get(0).getProvider());
+        assertEquals("github", rules.get(0).getProvider());
     }
 
     @Test
@@ -227,6 +211,52 @@ class JettyConfigurationBuilderTest {
                 "rule scoped to 'github' should not produce a rule for the GitLab provider");
     }
 
+    // ---- multi-provider: same type, different hostnames ----
+
+    @Test
+    void twoProvidersOfSameType_differentNames_haveDistinctProviderIds() {
+        var config = configWithTwoGitHubProviders();
+        var builder = new JettyConfigurationBuilder(config);
+        var providers = builder.buildProviders();
+
+        assertEquals(2, providers.size());
+        var ids = providers.stream().map(GitProxyProvider::getProviderId).toList();
+        assertTrue(ids.contains("github"), "public GitHub should have id 'github'");
+        assertTrue(ids.contains("internal-github"), "internal GHES should have id 'internal-github'");
+        assertNotEquals(
+                providers.get(0).getProviderId(),
+                providers.get(1).getProviderId(),
+                "two providers of the same type must have distinct IDs");
+    }
+
+    @Test
+    void twoProvidersOfSameType_permissionsAreKeptSeparate() {
+        var config = configWithTwoGitHubProviders();
+        var publicPerm = new PermissionConfig();
+        publicPerm.setUsername("alice");
+        publicPerm.setProvider("github");
+        publicPerm.setPath("/org/public-repo");
+        var internalPerm = new PermissionConfig();
+        internalPerm.setUsername("bob");
+        internalPerm.setProvider("internal-github");
+        internalPerm.setPath("/corp/internal-repo");
+        config.setPermissions(List.of(publicPerm, internalPerm));
+
+        var perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
+
+        assertEquals(2, perms.size());
+        var alicePerm = perms.stream()
+                .filter(p -> "alice".equals(p.getUsername()))
+                .findFirst()
+                .orElseThrow();
+        var bobPerm = perms.stream()
+                .filter(p -> "bob".equals(p.getUsername()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("github", alicePerm.getProvider());
+        assertEquals("internal-github", bobPerm.getProvider());
+    }
+
     // ---- helpers ----
 
     private static GitProxyConfig configWithApprovalMode(String mode) {
@@ -250,6 +280,18 @@ class JettyConfigurationBuilderTest {
         var gitlab = new ProviderConfig();
         gitlab.setEnabled(true);
         config.setProviders(Map.of("github", github, "gitlab", gitlab));
+        return config;
+    }
+
+    private static GitProxyConfig configWithTwoGitHubProviders() {
+        var config = new GitProxyConfig();
+        var publicGitHub = new ProviderConfig();
+        publicGitHub.setEnabled(true);
+        var internalGitHub = new ProviderConfig();
+        internalGitHub.setEnabled(true);
+        internalGitHub.setType("github");
+        internalGitHub.setUri("https://github.internal.example.com");
+        config.setProviders(Map.of("github", publicGitHub, "internal-github", internalGitHub));
         return config;
     }
 }
