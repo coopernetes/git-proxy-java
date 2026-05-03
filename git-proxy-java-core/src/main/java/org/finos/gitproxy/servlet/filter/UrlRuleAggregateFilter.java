@@ -160,11 +160,13 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
         switch (result) {
             case UrlRuleEvaluator.Result.Denied d -> {
                 log.debug("Blocking /info/refs — matched deny rule: {}", d.ruleId());
+                if (effectiveOp == HttpOperation.FETCH && fetchStore != null) recordFetch(request, false);
                 setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository blocked by deny rule");
                 response.sendError(provider.getBlockedInfoRefsStatus());
             }
             case UrlRuleEvaluator.Result.NotAllowed n -> {
                 log.debug("Blocking /info/refs — no rule matched");
+                if (effectiveOp == HttpOperation.FETCH && fetchStore != null) recordFetch(request, false);
                 setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository not in allow rules");
                 response.sendError(provider.getBlockedInfoRefsStatus());
             }

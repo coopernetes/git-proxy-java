@@ -91,7 +91,8 @@ public final class GitProxyServletRegistrar {
                     gitProxyCtx.heartbeatIntervalSeconds(),
                     gitProxyCtx.failFast(),
                     gitProxyCtx.upstreamConnectTimeoutSeconds(),
-                    gitProxyCtx.urlRuleRegistry());
+                    gitProxyCtx.urlRuleRegistry(),
+                    gitProxyCtx.fetchStore());
             registerProxyServlet(
                     context,
                     provider,
@@ -131,7 +132,8 @@ public final class GitProxyServletRegistrar {
             int heartbeatIntervalSeconds,
             boolean failFast,
             int connectTimeoutSeconds,
-            UrlRuleRegistry urlRuleRegistry) {
+            UrlRuleRegistry urlRuleRegistry,
+            FetchStore fetchStore) {
         var resolver = new StoreAndForwardRepositoryResolver(cache, provider);
 
         var factory = new StoreAndForwardReceivePackFactory(
@@ -166,6 +168,15 @@ public final class GitProxyServletRegistrar {
                 new FilterHolder(new SmartHttpErrorFilter()), pushMapping, EnumSet.of(DispatcherType.REQUEST));
         context.addFilter(
                 new FilterHolder(new BasicAuthChallengeFilter()), pushMapping, EnumSet.of(DispatcherType.REQUEST));
+        context.addFilter(
+                new FilterHolder(new ParseGitRequestFilter(provider, PUSH_PATH_PREFIX)),
+                pushMapping,
+                EnumSet.of(DispatcherType.REQUEST));
+        context.addFilter(
+                new FilterHolder(
+                        new UrlRuleAggregateFilter(100, provider, PUSH_PATH_PREFIX, fetchStore, urlRuleRegistry)),
+                pushMapping,
+                EnumSet.of(DispatcherType.REQUEST));
 
         log.info("Registered GitServlet for {} at {}", provider.getName(), pushMapping);
     }

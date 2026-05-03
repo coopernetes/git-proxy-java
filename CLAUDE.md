@@ -99,8 +99,10 @@ overrides, and provider-specific settings.
 
 ## Commit conventions
 
-- Always squash related commits into one before pushing — use `git reset --soft` to squash, not `git rebase -i` (requires TTY).
-- Always include a `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer in every commit. This is a project transparency requirement.
+- Always squash related commits into one before pushing — use `git reset --soft` to squash, not `git rebase -i`
+  (requires TTY).
+- Always include a `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer in every commit. This is a
+  project transparency requirement.
 - Always include `closes #N` / `resolves #N` in commit messages when addressing a GitHub issue.
 - Never add `[ci skip]` to commits unless explicitly asked.
 
