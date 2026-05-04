@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   addUserEmail,
@@ -727,17 +727,17 @@ function PermissionsTab({ username, isAdmin }: { username: string; isAdmin: bool
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  function loadPermissions() {
+  const loadPermissions = useCallback(() => {
     setLoading(true)
     fetchUserPermissions(username)
       .then(setPermissions)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }
+  }, [username])
 
   useEffect(() => {
-    loadPermissions()
-  }, [username])
+    void Promise.resolve().then(() => loadPermissions())
+  }, [loadPermissions])
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -868,17 +868,17 @@ export function UserDetail({ authProvider, currentUser }: UserDetailProps) {
   const isLocalAuth = authProvider === 'local'
   const isAdmin = currentUser?.authorities?.includes('ROLE_ADMIN') ?? false
 
-  function loadUser() {
+  const loadUser = useCallback(() => {
     if (!username) return
     fetchUser(username)
       .then(setUser)
       .catch(() => setError('User not found'))
       .finally(() => setLoading(false))
-  }
+  }, [username])
 
   useEffect(() => {
     loadUser()
-  }, [username])
+  }, [loadUser])
 
   if (loading)
     return <div className="max-w-3xl mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>

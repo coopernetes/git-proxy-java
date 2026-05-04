@@ -156,7 +156,7 @@ export function PushList({ currentUser }: PushListProps) {
 
   // Clear selection when leaving PENDING filter
   useEffect(() => {
-    if (filterStatus !== 'PENDING') setSelectedIds(new Set())
+    if (filterStatus !== 'PENDING') void Promise.resolve().then(() => setSelectedIds(new Set()))
   }, [filterStatus])
 
   // Load data when filters or page changes
@@ -171,7 +171,7 @@ export function PushList({ currentUser }: PushListProps) {
 
   // Load counts once on mount
   useEffect(() => {
-    loadCounts()
+    void Promise.resolve().then(() => loadCounts())
   }, [loadCounts])
 
   function handleRepoChange(value: string) {
