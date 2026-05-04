@@ -48,10 +48,13 @@ if [[ -n "$DB" && "$DB" != "postgres" && "$DB" != "mongo" ]]; then
   exit 1
 fi
 
-if command -v podman &>/dev/null; then
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+  COMPOSE="docker compose"
+elif command -v podman &>/dev/null && podman info &>/dev/null 2>&1; then
   COMPOSE="podman compose"
 else
-  COMPOSE="docker compose"
+  echo "No working container runtime found (tried docker, podman)" >&2
+  exit 1
 fi
 
 ARGS=(-f docker-compose.yml)

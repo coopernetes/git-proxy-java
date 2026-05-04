@@ -162,13 +162,18 @@ public class UrlRuleAggregateFilter extends AbstractProviderAwareGitProxyFilter 
                 log.debug("Blocking /info/refs — matched deny rule: {}", d.ruleId());
                 if (effectiveOp == HttpOperation.FETCH && fetchStore != null) recordFetch(request, false);
                 setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository blocked by deny rule");
-                response.sendError(provider.getBlockedInfoRefsStatus());
+                response.sendError(
+                        provider.getBlockedInfoRefsStatus(),
+                        "Repository access denied: this repository has been explicitly blocked by an administrator.");
             }
             case UrlRuleEvaluator.Result.NotAllowed n -> {
                 log.debug("Blocking /info/refs — no rule matched");
                 if (effectiveOp == HttpOperation.FETCH && fetchStore != null) recordFetch(request, false);
                 setResult(request, GitRequestDetails.GitResult.REJECTED, "Repository not in allow rules");
-                response.sendError(provider.getBlockedInfoRefsStatus());
+                response.sendError(
+                        provider.getBlockedInfoRefsStatus(),
+                        "Repository access denied: this repository is not in the allow list."
+                                + " Contact an administrator to add it.");
             }
             case UrlRuleEvaluator.Result.Allowed a -> {
                 /* pass through — request is permitted */

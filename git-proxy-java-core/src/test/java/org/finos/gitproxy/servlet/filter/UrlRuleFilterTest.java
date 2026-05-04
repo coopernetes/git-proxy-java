@@ -281,7 +281,7 @@ class UrlRuleFilterTest {
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
 
-        verify(resp.mock).sendError(403);
+        verify(resp.mock).sendError(eq(403), anyString());
         assertEquals(GitRequestDetails.GitResult.REJECTED, details.getResult());
     }
 
@@ -345,7 +345,7 @@ class UrlRuleFilterTest {
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-receive-pack"), resp.mock);
 
-        verify(resp.mock).sendError(403);
+        verify(resp.mock).sendError(eq(403), anyString());
     }
 
     // --- Gap 2: recordFetch on blocked /info/refs ---
@@ -360,7 +360,7 @@ class UrlRuleFilterTest {
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
 
-        verify(resp.mock).sendError(403);
+        verify(resp.mock).sendError(eq(403), anyString());
         ArgumentCaptor<FetchRecord> captor = ArgumentCaptor.forClass(FetchRecord.class);
         verify(fetchStore).record(captor.capture());
         assertEquals(FetchRecord.Result.BLOCKED, captor.getValue().getResult());
@@ -382,7 +382,7 @@ class UrlRuleFilterTest {
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
 
-        verify(resp.mock).sendError(403);
+        verify(resp.mock).sendError(eq(403), anyString());
         ArgumentCaptor<FetchRecord> captor = ArgumentCaptor.forClass(FetchRecord.class);
         verify(fetchStore).record(captor.capture());
         assertEquals(FetchRecord.Result.BLOCKED, captor.getValue().getResult());
@@ -398,7 +398,7 @@ class UrlRuleFilterTest {
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-receive-pack"), resp.mock);
 
-        verify(resp.mock).sendError(403);
+        verify(resp.mock).sendError(eq(403), anyString());
         verify(fetchStore, never()).record(any());
     }
 
@@ -437,6 +437,6 @@ class UrlRuleFilterTest {
 
         aggregate.doHttpFilter(mockInfoRefsRequest(details, "git-upload-pack"), resp.mock);
 
-        verify(resp.mock).sendError(404);
+        verify(resp.mock).sendError(eq(404), anyString());
     }
 }

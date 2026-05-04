@@ -53,6 +53,69 @@ jobs:
           path: "**/build/reports/jacoco/"
           retention-days: 14
 
+  docker-smoke-test:
+    name: CI / Docker Smoke Test (${{ matrix.db }})
+    runs-on: ubuntu-latest
+    if: >
+      github.ref == 'refs/heads/main' ||
+      github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        db: [default, postgres, mongo]
+        # auth: [ldap, oidc]  # Uncomment when auth smoke tests are added
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Build and start stack
+        env:
+          DB: ${{ matrix.db }}
+        run: |
+          if [[ "$DB" != "default" ]]; then
+            bash compose.sh --db "$DB" -- up -d --build
+          else
+            bash compose.sh -- up -d --build
+          fi
+        timeout-minutes: 10
+
+      - name: Wait for proxy health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/api/health > /dev/null; then
+              echo "Proxy healthy after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://localhost:8080/api/health
+
+      - name: Seed Gitea
+        run: bash docker/gitea-setup.sh
+
+      - name: Run proxy smoke tests
+        run: |
+          source test/gitea/tokens.env
+          export GIT_PASSWORD="${GITEA_TESTUSER_TOKEN}"
+          export GIT_USERNAME="me"
+          export GIT_REPO="gitea/test-owner/test-repo.git"
+          export GIT_AUTHOR_NAME="test-user"
+          export GIT_EMAIL="testuser@example.com"
+          # Proxy mode only — store-and-forward passes queue for approval and hang
+          bash test/proxy-pass.sh
+          bash test/proxy-fail-secrets.sh
+
+      - name: Dump proxy logs on failure
+        if: failure()
+        env:
+          DB: ${{ matrix.db }}
+        run: |
+          if [[ "$DB" != "default" ]]; then
+            bash compose.sh --db "$DB" -- logs git-proxy-java
+          else
+            bash compose.sh -- logs git-proxy-java
+          fi
+
   dependency-submission:
     name: CI / Dependency Submission
     runs-on: ubuntu-latest

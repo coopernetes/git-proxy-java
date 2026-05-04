@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import org.eclipse.jgit.lib.Repository;
 import org.finos.gitproxy.config.SecretScanConfig;
+import org.finos.gitproxy.db.model.StepStatus;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.GitleaksRunner;
 import org.finos.gitproxy.git.HttpOperation;
@@ -117,14 +118,17 @@ class SecretScanningFilterTest {
     // ---- scanner results ----
 
     @Test
-    void scannerUnavailable_failOpen() throws Exception {
+    void scannerUnavailable_failClosed() throws Exception {
         GitRequestDetails details = pushDetailsWithRepo();
         when(runner.scanGit(any(), any(), any(), any())).thenReturn(Optional.empty());
 
         filter.doHttpFilter(requestWith(details), mock(HttpServletResponse.class));
 
-        // fail-open: no steps added when scanner is unavailable
-        assertTrue(details.getSteps().isEmpty());
+        // fail-closed: scanner error with enabled=true must block the push
+        assertFalse(details.getSteps().isEmpty());
+        assertTrue(
+                details.getSteps().stream().anyMatch(s -> s.getStatus() == StepStatus.FAIL),
+                "Scanner error must produce a FAIL step when secret-scan is enabled");
     }
 
     @Test

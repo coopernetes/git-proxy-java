@@ -25,7 +25,8 @@ import org.finos.gitproxy.validation.Violation;
  * to limit scanning to commits not already reachable from any existing ref; branch updates use
  * {@code commitFrom..commitTo}.
  *
- * <p>If the scanner is unavailable the hook continues (fail-open), recording a SKIPPED step.
+ * <p>If the scanner is unavailable and secret scanning is enabled, the push is blocked (fail-closed). If scanning is
+ * disabled the hook records a SKIPPED step.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -61,7 +62,6 @@ public class SecretScanningHook implements GitProxyHook {
             Optional<List<GitleaksRunner.Finding>> result = runner.scanGit(repoDir, commitFrom, commitTo, config);
 
             if (result.isEmpty()) {
-                // Fail-open: scanner unavailable or errored - GitleaksRunner already logged the detail
                 scannerUnavailable = true;
                 continue;
             }
@@ -72,13 +72,19 @@ public class SecretScanningHook implements GitProxyHook {
             }
         }
 
-        if (scannerUnavailable && allViolations.isEmpty()) {
-            pushContext.addStep(PushStep.builder()
-                    .stepName(STEP_NAME)
-                    .stepOrder(ORDER)
-                    .status(StepStatus.SKIPPED)
-                    .build());
-            return;
+        if (scannerUnavailable) {
+            if (config.isEnabled()) {
+                String msg = "Secret scanning failed — scanner error or unavailable. "
+                        + "Push blocked because secret-scan is enabled. Check server logs for details.";
+                allViolations.add(new Violation(msg, msg, sym(CROSS_MARK) + "  " + msg));
+            } else {
+                pushContext.addStep(PushStep.builder()
+                        .stepName(STEP_NAME)
+                        .stepOrder(ORDER)
+                        .status(StepStatus.SKIPPED)
+                        .build());
+                return;
+            }
         }
 
         if (allViolations.isEmpty()) {
