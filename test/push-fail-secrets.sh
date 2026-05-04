@@ -32,17 +32,18 @@ EOF
     git commit -m "chore: add CI environment config"
 }
 
-test_private_key_pem() {
-    # gitleaks rule: private-key — detects PEM-encoded private keys
-    cat > deploy-key.pem << 'PEMEOF'
------BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA2a2rwplBQLzHPtPDSEHbFljEg2kX6BASm1rOBh2cEDAYsNbh
-QRFGmGeTKBPs2gJMtaFe0sIliRWAKMq6YIrJTiJNPIqUl/lBOANhwMUwl8n3tMaZ
-eDIPDKTpFeJdpMcbh6MqT5QJSjMBb2F3mHB0VBqNpG0JOhRfhm3BQXQM6GQMKACH
------END RSA PRIVATE KEY-----
-PEMEOF
+test_private_key_rsa() {
+    # gitleaks rule: private-key — PKCS#1 RSA private key (BEGIN RSA PRIVATE KEY)
+    generate_rsa_key deploy-key.pem || { echo "SKIP: no key generation tool available"; return 0; }
     git add deploy-key.pem
     git commit -m "chore: add deployment key"
+}
+
+test_private_key_pkcs8() {
+    # gitleaks rule: private-key — PKCS#8 private key (BEGIN PRIVATE KEY)
+    generate_pkcs8_key deploy-key-pkcs8.pem || { echo "SKIP: no key generation tool available"; return 0; }
+    git add deploy-key-pkcs8.pem
+    git commit -m "chore: add pkcs8 key"
 }
 
 test_generic_api_key() {
@@ -82,7 +83,8 @@ run_test() {
 
 run_test "FAIL: AWS access key in diff"         test_aws_access_key
 run_test "FAIL: GitHub PAT in diff"             test_github_pat
-run_test "FAIL: RSA private key in diff"        test_private_key_pem
+run_test "FAIL: RSA private key (PKCS#1)"       test_private_key_rsa
+run_test "FAIL: RSA private key (PKCS#8)"       test_private_key_pkcs8
 run_test "FAIL: Generic API key in diff"        test_generic_api_key
 run_test "FAIL: Slack webhook URL in diff"      test_slack_webhook
 

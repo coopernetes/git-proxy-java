@@ -118,6 +118,39 @@ run_test_expect_success() {
     CURRENT_REPO=""
 }
 
+# resolve_keygen() — print the available key generation tool: "openssl", "ssh-keygen", or ""
+resolve_keygen() {
+    if command -v openssl &>/dev/null; then
+        echo "openssl"
+    elif command -v ssh-keygen &>/dev/null; then
+        echo "ssh-keygen"
+    else
+        echo ""
+    fi
+}
+
+# generate_rsa_key() — write a PKCS#1 RSA-2048 private key (BEGIN RSA PRIVATE KEY) to $1
+generate_rsa_key() {
+    local outfile="$1"
+    case "$(resolve_keygen)" in
+        openssl)    openssl genrsa 2048 2>/dev/null > "${outfile}" ;;
+        ssh-keygen) ssh-keygen -t rsa -b 2048 -N "" -f "${outfile}" -m PEM -q 2>/dev/null
+                    rm -f "${outfile}.pub" ;;
+        *)          return 1 ;;
+    esac
+}
+
+# generate_pkcs8_key() — write a PKCS#8 private key (BEGIN PRIVATE KEY) to $1
+generate_pkcs8_key() {
+    local outfile="$1"
+    case "$(resolve_keygen)" in
+        openssl)    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null > "${outfile}" ;;
+        ssh-keygen) ssh-keygen -t rsa -b 2048 -N "" -f "${outfile}" -m PKCS8 -q 2>/dev/null
+                    rm -f "${outfile}.pub" ;;
+        *)          return 1 ;;
+    esac
+}
+
 # run_orchestrated() — run a test script and aggregate results
 # Used by *-all.sh scripts to orchestrate multiple subscripts
 # Args: $1 = test name, $2 = script path

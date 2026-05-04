@@ -25,6 +25,9 @@ import org.finos.gitproxy.git.HttpOperation;
  * correctly because gitleaks has full file-path context when operating in git mode.
  *
  * <p>Runs at order 340, after {@link ScanDiffFilter} (order 300), within the content filters range (200-399).
+ *
+ * <p>If the scanner errors or is unavailable when scanning is enabled, the push is blocked (fail-closed) with a clear
+ * error message. Check server logs for the underlying cause.
  */
 @Slf4j
 public class SecretScanningFilter extends AbstractGitProxyFilter {
@@ -95,7 +98,10 @@ public class SecretScanningFilter extends AbstractGitProxyFilter {
                 runner.scanGit(repo.getDirectory().toPath(), commitFrom, commitTo, config);
 
         if (result.isEmpty()) {
-            // Fail-open: scanner unavailable - GitleaksRunner already logged the detail
+            String msg = "Secret scanning failed — scanner error or unavailable. "
+                    + "Push blocked because secret-scan is enabled. Check server logs for details.";
+            log.error("Secret scanner returned no result — blocking push (fail-closed)");
+            recordIssue(request, msg, sym(CROSS_MARK) + "  " + msg);
             return;
         }
 

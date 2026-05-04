@@ -40,8 +40,8 @@ import tools.jackson.databind.ObjectMapper;
  *   <li>System PATH - falls back to a {@code gitleaks} binary already installed on the host/container
  * </ol>
  *
- * <p>If no binary is found, scanning is skipped and an empty {@link Optional} is returned (fail-open). Pushes are never
- * blocked due to scanner unavailability.
+ * <p>If no binary is found or the scan errors, an empty {@link Optional} is returned. Whether the push is blocked is
+ * determined by the caller — callers with {@code secret-scan: enabled: true} block the push (fail-closed).
  *
  * <p>The bundled binary extracted from the JAR is deleted on JVM shutdown. Binaries downloaded to {@code installDir}
  * persist across restarts.
@@ -57,6 +57,9 @@ public class GitleaksRunner {
 
     /** Classpath resource name for the pre-bundled gitleaks binary (opt-in, not shipped by default). */
     private static final String BUNDLED_BINARY_RESOURCE = "gitleaks";
+
+    /** Exit code gitleaks returns when findings are present (distinct from error exit codes). */
+    private static final int FINDINGS_EXIT_CODE = 2;
 
     private static final String DEFAULT_INSTALL_DIR =
             System.getProperty("user.home") + "/.cache/git-proxy-java/gitleaks";
@@ -132,13 +135,13 @@ public class GitleaksRunner {
             if (exitCode == 0) {
                 log.debug("gitleaks: no findings");
                 return Optional.of(Collections.emptyList());
-            } else if (exitCode == 1) {
+            } else if (exitCode == FINDINGS_EXIT_CODE) {
                 List<Finding> findings = readFindings(reportFile);
                 enrichFindings(findings, diff);
                 log.debug("gitleaks: {} finding(s)", findings.size());
                 return Optional.of(findings);
             } else {
-                log.warn("gitleaks exited with code {} - secret scanning skipped (fail-open)", exitCode);
+                log.warn("gitleaks exited with code {} - treat as scanner error", exitCode);
                 return Optional.empty();
             }
 
@@ -214,12 +217,12 @@ public class GitleaksRunner {
             if (exitCode == 0) {
                 log.debug("gitleaks git: no findings");
                 return Optional.of(Collections.emptyList());
-            } else if (exitCode == 1) {
+            } else if (exitCode == FINDINGS_EXIT_CODE) {
                 List<Finding> findings = readFindings(reportFile);
                 log.debug("gitleaks git: {} finding(s)", findings.size());
                 return Optional.of(findings);
             } else {
-                log.warn("gitleaks git exited with code {} - secret scanning skipped (fail-open)", exitCode);
+                log.warn("gitleaks git exited with code {} - treat as scanner error", exitCode);
                 return Optional.empty();
             }
 
@@ -429,6 +432,8 @@ public class GitleaksRunner {
         cmd.add("json");
         cmd.add("--report-path");
         cmd.add(reportFile.toString());
+        cmd.add("--exit-code");
+        cmd.add(String.valueOf(FINDINGS_EXIT_CODE));
 
         if (configFilePath != null) {
             cmd.add("--config");
@@ -449,6 +454,8 @@ public class GitleaksRunner {
         cmd.add(reportFile.toString());
         cmd.add("--no-banner");
         cmd.add("--redact");
+        cmd.add("--exit-code");
+        cmd.add(String.valueOf(FINDINGS_EXIT_CODE));
 
         if (configFilePath != null) {
             cmd.add("--config");
