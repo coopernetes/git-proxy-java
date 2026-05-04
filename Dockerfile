@@ -35,10 +35,17 @@ COPY . .
 # Build the distribution (all deps bundled in lib/).
 # Node.js is installed above; the node-gradle plugin uses it from PATH (download=false).
 # BuildKit cache mounts persist Gradle/npm downloads across builds.
+# gitleaksTargets is derived from TARGETARCH so only the matching binary is bundled,
+# keeping each arch-specific image lean (amd64 image carries only linux_x64, etc.).
 RUN --mount=type=cache,target=/root/.gradle/caches \
     --mount=type=cache,target=/root/.gradle/wrapper \
     --mount=type=cache,target=/root/.npm \
-    ./gradlew clean :git-proxy-java-dashboard:installDist --no-daemon -q
+    case "${TARGETARCH}" in \
+      arm64) GITLEAKS_TARGET=linux_arm64 ;; \
+      *)     GITLEAKS_TARGET=linux_x64   ;; \
+    esac \
+    && ./gradlew clean :git-proxy-java-dashboard:installDist \
+       -PgitleaksTargets=${GITLEAKS_TARGET} --no-daemon -q
 
 # Prepend a conf/ directory to the classpath so that a mounted git-proxy-local.yml
 # is picked up by JettyConfigurationLoader at runtime.
