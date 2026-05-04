@@ -9,7 +9,7 @@ buildscript {
 
 plugins {
     id 'com.diffplug.spotless' version '8.4.0' apply false
-    id 'org.owasp.dependencycheck' version '12.2.1'
+    id 'org.owasp.dependencycheck' version '12.2.2'
     id 'org.cyclonedx.bom' version '3.2.4'
     id 'com.github.node-gradle.node' version '7.1.0' apply false
 }
@@ -35,16 +35,16 @@ ext {
     // Database
     hikariVersion = '7.0.2'
     h2Version = '2.4.240'
-    postgresVersion = '42.7.10'
-    mongoVersion = '5.6.5'
+    postgresVersion = '42.7.11'
+    mongoVersion = '5.7.0'
 
     // Jackson
-    jacksonBomVersion = '3.1.2'
+    jacksonBomVersion = '3.1.3'
 
     // Spring
-    springVersion = '7.0.6'
+    springVersion = '7.0.7'
     springSecurityVersion = '7.0.5'
-    springSessionVersion = '4.0.2'
+    springSessionVersion = '4.0.3'
 
     // YAML
     snakeyamlVersion = '2.6'
@@ -59,20 +59,20 @@ ext {
     commonsValidatorVersion = '1.10.1'
 
     // Lombok
-    lombokVersion = '1.18.44'
+    lombokVersion = '1.18.46'
 
     // Testing
-    junitVersion = '5.14.3'
-    junitPlatformVersion = '1.14.3'
-    mockitoVersion = '5.17.0'
-    testContainersVersion = '2.0.4'
+    junitVersion = '5.14.4'
+    junitPlatformVersion = '1.14.4'
+    mockitoVersion = '5.23.0'
+    testContainersVersion = '2.0.5'
 
     // Gitleaks (bundled binary)
     gitleaksVersion = '8.30.1'
 
     // OpenAPI spec generation
-    swaggerCoreVersion = '2.2.48'
-    swaggerUiVersion = '5.21.0'
+    swaggerCoreVersion = '2.2.49'
+    swaggerUiVersion = '5.32.5'
 
 }
 
