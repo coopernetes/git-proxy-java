@@ -53,10 +53,10 @@ public class GitleaksRunner {
      * Default gitleaks version used for auto-install. Keep in sync with {@code gitleaksVersion} in
      * {@code git-proxy-java-core/build.gradle}.
      */
-    public static final String DEFAULT_VERSION = "8.21.2";
+    public static final String DEFAULT_VERSION = "8.30.1";
 
-    /** Classpath resource name for the pre-bundled gitleaks binary (opt-in, not shipped by default). */
-    private static final String BUNDLED_BINARY_RESOURCE = "gitleaks";
+    /** Classpath resource prefix for bundled gitleaks binaries; full path is {@code gitleaks/<os>_<arch>}. */
+    private static final String BUNDLED_BINARY_RESOURCE_PREFIX = "gitleaks/";
 
     /** Exit code gitleaks returns when findings are present (distinct from error exit codes). */
     private static final int FINDINGS_EXIT_CODE = 2;
@@ -395,8 +395,20 @@ public class GitleaksRunner {
         synchronized (EXTRACT_LOCK) {
             if (extractedBinaryPath != null) return extractedBinaryPath;
 
-            InputStream resource = GitleaksRunner.class.getClassLoader().getResourceAsStream(BUNDLED_BINARY_RESOURCE);
-            if (resource == null) return null;
+            String suffix = detectTarSuffix();
+            if (suffix == null) {
+                log.debug(
+                        "gitleaks: no bundled binary for platform ({} / {})",
+                        System.getProperty("os.name"),
+                        System.getProperty("os.arch"));
+                return null;
+            }
+            String resourceName = BUNDLED_BINARY_RESOURCE_PREFIX + suffix;
+            InputStream resource = GitleaksRunner.class.getClassLoader().getResourceAsStream(resourceName);
+            if (resource == null) {
+                log.debug("gitleaks bundled resource not found: {}", resourceName);
+                return null;
+            }
 
             Path tempDir = Files.createTempDirectory("git-proxy-java-gitleaks-");
             Path binaryPath = tempDir.resolve("gitleaks");
@@ -414,7 +426,7 @@ public class GitleaksRunner {
             }));
 
             extractedBinaryPath = binaryPath;
-            log.info("Extracted bundled gitleaks binary to {}", binaryPath);
+            log.info("Extracted bundled gitleaks binary ({}) to {}", suffix, binaryPath);
             return extractedBinaryPath;
         }
     }
