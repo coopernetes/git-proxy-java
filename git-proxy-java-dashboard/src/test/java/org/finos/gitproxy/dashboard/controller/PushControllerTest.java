@@ -52,7 +52,11 @@ class PushControllerTest {
 
     /** Empty approve body — no attestations, mirrors previous Map.of() usage. */
     private static PushController.ApproveBody approveBody() {
-        return new PushController.ApproveBody(null, null, null, null);
+        return new PushController.ApproveBody(null, null, null, null, false);
+    }
+
+    private static PushController.ApproveBody approveBodyWithAdminOverride() {
+        return new PushController.ApproveBody(null, null, null, null, true);
     }
 
     @AfterEach
@@ -288,23 +292,45 @@ class PushControllerTest {
         }
 
         @Test
-        void admin_bypassesIdentityChecks_returns200() {
+        void admin_selfApproval_withoutOverride_returns403() {
             when(pushStore.findById("p1")).thenReturn(Optional.of(blockedPush("p1", "alice")));
-            when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));
-            loginAs("alice", true); // same user as pusher — admin bypass
+            loginAs("alice", true); // same user as pusher, no adminOverride flag
 
-            assertEquals(HttpStatus.OK, controller.approve("p1", approveBody()).getStatusCode());
+            assertEquals(
+                    HttpStatus.FORBIDDEN,
+                    controller.approve("p1", approveBody()).getStatusCode());
         }
 
         @Test
-        void admin_selfApproval_flaggedInAttestation() {
+        void admin_selfApproval_withOverride_returns200() {
             when(pushStore.findById("p1")).thenReturn(Optional.of(blockedPush("p1", "alice")));
             when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));
             loginAs("alice", true);
 
-            controller.approve("p1", approveBody());
+            assertEquals(
+                    HttpStatus.OK,
+                    controller.approve("p1", approveBodyWithAdminOverride()).getStatusCode());
+        }
+
+        @Test
+        void admin_selfApproval_withOverride_flaggedInAttestation() {
+            when(pushStore.findById("p1")).thenReturn(Optional.of(blockedPush("p1", "alice")));
+            when(pushStore.approve(eq("p1"), any())).thenReturn(approvedPush("p1"));
+            loginAs("alice", true);
+
+            controller.approve("p1", approveBodyWithAdminOverride());
 
             verify(pushStore).approve(eq("p1"), argThat(a -> a.isSelfApproval()));
+        }
+
+        @Test
+        void admin_selfApproval_withoutOverride_notFlaggedAsAdminOverride() {
+            when(pushStore.findById("p1")).thenReturn(Optional.of(blockedPush("p1", "alice")));
+            loginAs("alice", true);
+
+            // Returns 403 — no interaction with pushStore at all
+            controller.approve("p1", approveBody());
+            verify(pushStore, org.mockito.Mockito.never()).approve(any(), any());
         }
 
         @Test

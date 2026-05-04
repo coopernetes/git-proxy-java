@@ -116,6 +116,7 @@ tasks.named('run') {
     // Default keeps the dev experience simple; override in shell for a stricter key.
     environment 'GITPROXY_API_KEY', System.getenv('GITPROXY_API_KEY') ?: 'change-me-in-production'
     jvmArgs "-Dlog4j2.configurationFile=${rootDir}/git-proxy-java-server/src/main/resources/log4j2-local.xml"
+    jvmArgs "-Dgitproxyjava.pidfile=${buildDir}/git-proxy-java.pid"
 }
 
 tasks.register('stop') {

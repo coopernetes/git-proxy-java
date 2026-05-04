@@ -449,6 +449,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
   const [canceling, setCanceling] = useState(false)
   const [attestationQuestions, setAttestationQuestions] = useState<AttestationQuestion[]>([])
   const [attestationAnswers, setAttestationAnswers] = useState<Record<string, string>>({})
+  const [adminOverrideEnabled, setAdminOverrideEnabled] = useState(false)
 
   // Diff state — loaded separately so it never blocks the main page render
   const [diffContent, setDiffContent] = useState<string | null>(null)
@@ -470,6 +471,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
     setActionError('')
     setOpenSteps({})
     setAttestationAnswers({})
+    setAdminOverrideEnabled(false)
     setDiffContent(null)
     setDiffLines(0)
     try {
@@ -550,6 +552,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
         reviewerEmail: currentUser?.emails[0]?.email ?? '',
         reason: reviewReason,
         attestations: attestationQuestions.length > 0 ? attestationAnswers : undefined,
+        adminOverride: adminOverrideEnabled || undefined,
       })
       await load(record.id)
     } catch (e) {
@@ -887,15 +890,15 @@ export function PushDetail({ currentUser }: PushDetailProps) {
               const isAdmin = currentUser?.authorities?.includes('ROLE_ADMIN') ?? false
               // canCurrentUserSelfCertify is computed server-side and requires BOTH the
               // ROLE_SELF_CERTIFY authority AND a SELF_CERTIFY repo permission row for this push's
-              // path. A user with the role but no per-repo permission gets `false` here, so the
-              // self-certify banner stays hidden and the approve button is gated behind the
-              // standard self-review block.
+              // path. A user with the role but no per-repo permission gets `false` here.
               const canSelfCertify = record.canCurrentUserSelfCertify ?? false
               const isPusher =
                 !!currentUser?.username &&
                 !!record.resolvedUser &&
                 currentUser.username === record.resolvedUser
-              const isSelfReview = isPusher && !isAdmin && !canSelfCertify
+              // Admins are treated the same as regular users for their own pushes: they need
+              // self-certify permissions or must explicitly activate the admin override.
+              const isSelfReview = isPusher && !canSelfCertify
               const canCancel = isAdmin || isPusher
               const attestationsComplete = attestationQuestions
                 .filter((q) => q.required)
@@ -924,7 +927,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                       </span>
                     )}
                   </div>
-                  {isSelfReview && (
+                  {isSelfReview && !adminOverrideEnabled && (
                     <div className="flex gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
                       <span>⚠</span>
                       <span>
@@ -933,16 +936,24 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                       </span>
                     </div>
                   )}
-                  {canSelfCertify && isPusher && !isAdmin && (
+                  {canSelfCertify && isPusher && (
                     <div className="flex gap-2 text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded px-3 py-2 mb-3">
-                      <span>ℹ</span>
+                      <span>{'\u2139\uFE0F'}</span>
                       <span>
                         You are self-certifying your own push. This approval will be permanently
                         recorded in the audit log.
                       </span>
                     </div>
                   )}
-                  {isAdmin && isPusher && (
+                  {isAdmin && isPusher && !canSelfCertify && !adminOverrideEnabled && (
+                    <button
+                      onClick={() => setAdminOverrideEnabled(true)}
+                      className="w-full text-left text-xs text-gray-500 hover:text-gray-700 underline mb-3"
+                    >
+                      Enable admin override
+                    </button>
+                  )}
+                  {isAdmin && isPusher && adminOverrideEnabled && (
                     <div className="flex gap-2 text-sm text-red-800 bg-red-50 border border-red-200 rounded px-3 py-2 mb-3">
                       <span>⚠</span>
                       <span>
@@ -962,7 +973,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                           key={q.id}
                           question={q}
                           value={attestationAnswers[q.id] ?? ''}
-                          disabled={isSelfReview}
+                          disabled={isSelfReview && !adminOverrideEnabled}
                           onChange={(val) =>
                             setAttestationAnswers((prev) => ({ ...prev, [q.id]: val }))
                           }
@@ -977,7 +988,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                     placeholder={
                       'Reason (required for both approve and reject)\nDescribe the basis for your decision...'
                     }
-                    disabled={isSelfReview}
+                    disabled={isSelfReview && !adminOverrideEnabled}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:bg-gray-50 disabled:text-gray-400"
                   />
                   {actionError && <div className="text-red-600 text-sm mb-3">{actionError}</div>}
@@ -985,7 +996,7 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                     <button
                       onClick={handleApprove}
                       disabled={
-                        isSelfReview ||
+                        (isSelfReview && !adminOverrideEnabled) ||
                         saving ||
                         canceling ||
                         !reviewReason.trim() ||
@@ -997,7 +1008,12 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                     </button>
                     <button
                       onClick={handleReject}
-                      disabled={isSelfReview || saving || canceling || !reviewReason.trim()}
+                      disabled={
+                        (isSelfReview && !adminOverrideEnabled) ||
+                        saving ||
+                        canceling ||
+                        !reviewReason.trim()
+                      }
                       className="px-4 py-2 text-sm font-medium rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
                       ✗ Reject

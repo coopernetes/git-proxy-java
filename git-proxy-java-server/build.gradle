@@ -26,6 +26,7 @@ tasks.named('run') {
     // Override by setting GITPROXY_CONFIG_PROFILES in your shell before running.
     environment 'GITPROXY_CONFIG_PROFILES', System.getenv('GITPROXY_CONFIG_PROFILES') ?: 'local'
     jvmArgs "-Dlog4j2.configurationFile=${projectDir}/src/main/resources/log4j2-local.xml"
+    jvmArgs "-Dgitproxyjava.pidfile=${buildDir}/git-proxy-java.pid"
 }
 
 tasks.register('stop') {

@@ -29,6 +29,7 @@ users:
 
   - username: thomas-cooper
     password-hash: "{noop}password"
+    roles: [ADMIN, SELF_CERTIFY]
     scm-identities:
       - provider: github
         username: coopernetes

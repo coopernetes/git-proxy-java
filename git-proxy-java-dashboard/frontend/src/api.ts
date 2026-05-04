@@ -98,6 +98,7 @@ export async function approvePush(
     reviewerEmail: string
     reason: string
     attestations?: Record<string, string>
+    adminOverride?: boolean
   },
 ) {
   const res = await apiFetch(`/api/push/${id}/authorise`, {
