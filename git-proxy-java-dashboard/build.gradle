@@ -226,6 +226,7 @@ tasks.register('e2eTest', Test) {
 
 tasks.named('check') {
     dependsOn tasks.named('testCodeCoverageReport', JacocoReport)
+    dependsOn tasks.named('npmLint')
 }
 
 // testCodeCoverageReport aggregates git-proxy-java-core's source sets, which include the

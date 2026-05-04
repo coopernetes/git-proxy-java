@@ -485,20 +485,22 @@ export function PushDetail({ currentUser }: PushDetailProps) {
   }
 
   useEffect(() => {
-    if (id) load(id)
+    if (id) void Promise.resolve().then(() => load(id))
   }, [id])
 
   // Fetch diff separately after record loads — avoids blocking page render on large diffs
   useEffect(() => {
     if (!id || !record) return
-    setDiffLoading(true)
-    fetchDiff(id)
-      .then((d) => {
-        setDiffContent(d.content ?? null)
-        setDiffLines(d.content ? d.content.split('\n').length : 0)
-      })
-      .catch(() => setDiffContent(null))
-      .finally(() => setDiffLoading(false))
+    void Promise.resolve().then(() => {
+      setDiffLoading(true)
+      fetchDiff(id)
+        .then((d) => {
+          setDiffContent(d.content ?? null)
+          setDiffLines(d.content ? d.content.split('\n').length : 0)
+        })
+        .catch(() => setDiffContent(null))
+        .finally(() => setDiffLoading(false))
+    })
   }, [id, record])
 
   // Render diff2html inline only when diff is small enough
