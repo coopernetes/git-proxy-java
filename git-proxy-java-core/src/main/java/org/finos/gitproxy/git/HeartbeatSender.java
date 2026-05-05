@@ -15,10 +15,13 @@ import org.eclipse.jgit.transport.ReceivePack;
  * The dot is harmless whitespace and does not affect validation output. If the interval is zero or negative the sender
  * is a no-op.
  *
+ * <p>An optional {@code onDisconnect} callback is invoked once when a write fails, indicating the client has gone away.
+ * The callback runs on the heartbeat thread and must be short and non-blocking.
+ *
  * <p>Usage:
  *
  * <pre>{@code
- * try (HeartbeatSender hb = new HeartbeatSender(rp, Duration.ofSeconds(10))) {
+ * try (HeartbeatSender hb = new HeartbeatSender(rp, Duration.ofSeconds(10), this::handleDisconnect)) {
  *     hb.start();
  *     // ... long-running hook chain ...
  * }
@@ -34,11 +37,17 @@ public class HeartbeatSender implements AutoCloseable {
 
     private final ReceivePack rp;
     private final Duration interval;
+    private final Runnable onDisconnect;
     private ScheduledExecutorService executor;
 
     public HeartbeatSender(ReceivePack rp, Duration interval) {
+        this(rp, interval, null);
+    }
+
+    public HeartbeatSender(ReceivePack rp, Duration interval, Runnable onDisconnect) {
         this.rp = rp;
         this.interval = interval;
+        this.onDisconnect = onDisconnect;
     }
 
     /** Starts the heartbeat background thread. No-op if interval is zero or negative. */
@@ -61,9 +70,15 @@ public class HeartbeatSender implements AutoCloseable {
             rp.sendMessage(".");
             rp.getMessageOutputStream().flush();
         } catch (Exception e) {
-            // Session may have ended; stop firing
             if (executor != null) {
                 executor.shutdownNow();
+            }
+            if (onDisconnect != null) {
+                try {
+                    onDisconnect.run();
+                } catch (Exception ex) {
+                    log.warn("Disconnect callback threw", ex);
+                }
             }
         }
     }

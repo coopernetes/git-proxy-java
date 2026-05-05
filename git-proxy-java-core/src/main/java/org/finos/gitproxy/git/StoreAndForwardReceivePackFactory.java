@@ -256,7 +256,25 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             preHooks = validationHooks.toArray(PreReceiveHook[]::new);
         }
 
-        rp.setPreReceiveHook(chainPreReceiveHooks(heartbeatInterval, validationContext, failFast, preHooks));
+        Runnable disconnectCallback = null;
+        if (persistenceHook != null) {
+            final PushContext capturedContext = pushContext;
+            disconnectCallback = () -> {
+                String recordId = capturedContext.getValidationRecordId();
+                if (recordId == null) recordId = capturedContext.getPushId();
+                if (recordId != null) {
+                    try {
+                        pushStore.cancel(recordId, null);
+                        log.info("Push {} marked CANCELED: client disconnected mid-push", recordId);
+                    } catch (Exception e) {
+                        log.warn("Failed to mark push {} as CANCELED after client disconnect", recordId, e);
+                    }
+                }
+            };
+        }
+
+        rp.setPreReceiveHook(
+                chainPreReceiveHooks(heartbeatInterval, validationContext, failFast, disconnectCallback, preHooks));
 
         // Post-receive: forward to upstream, then record final status
         var forwardingHook = new ForwardingPostReceiveHook(provider, creds, pushContext, connectTimeoutSeconds);
@@ -275,9 +293,10 @@ public class StoreAndForwardReceivePackFactory implements ReceivePackFactory<Htt
             Duration heartbeatInterval,
             ValidationContext validationContext,
             boolean failFast,
+            Runnable disconnectCallback,
             PreReceiveHook... hooks) {
         return (ReceivePack rp, Collection<ReceiveCommand> commands) -> {
-            try (HeartbeatSender heartbeat = new HeartbeatSender(rp, heartbeatInterval)) {
+            try (HeartbeatSender heartbeat = new HeartbeatSender(rp, heartbeatInterval, disconnectCallback)) {
                 heartbeat.start();
                 boolean skipValidationHooks = false;
                 for (PreReceiveHook hook : hooks) {
