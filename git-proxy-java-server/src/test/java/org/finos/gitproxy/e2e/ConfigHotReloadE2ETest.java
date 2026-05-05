@@ -75,8 +75,10 @@ class ConfigHotReloadE2ETest {
         Files.writeString(allowAll, """
                 rules:
                   allow:
-                    - operations: [PUSH, FETCH]
-                      slugs: ["/**"]
+                    - operations: BOTH
+                      match:
+                        target: SLUG
+                        value: '/**'
                   deny: []
                 secret-scan:
                   enabled: false
@@ -255,10 +257,10 @@ class ConfigHotReloadE2ETest {
                 rules:
                   allow: []
                   deny:
-                    - operations:
-                        - PUSH
-                      slugs:
-                        - "%s"
+                    - operations: PUSH
+                      match:
+                        target: SLUG
+                        value: '%s'
                 secret-scan:
                   enabled: false
                 """.formatted(repoSlug));
@@ -270,8 +272,10 @@ class ConfigHotReloadE2ETest {
         Path permissive = writeOverride("""
                 rules:
                   allow:
-                    - operations: [PUSH, FETCH]
-                      slugs: ["/**"]
+                    - operations: BOTH
+                      match:
+                        target: SLUG
+                        value: '/**'
                   deny: []
                 secret-scan:
                   enabled: false
