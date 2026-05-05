@@ -111,7 +111,7 @@ interface AddRuleForm {
 const DEFAULT_FORM: AddRuleForm = {
   access: 'ALLOW',
   targetType: 'slug',
-  patternType: 'LITERAL',
+  patternType: 'GLOB',
   pattern: '',
   provider: '',
   operations: 'BOTH',
