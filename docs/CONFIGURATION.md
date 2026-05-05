@@ -811,98 +811,140 @@ URL rules control which repositories are accessible through the proxy. git-proxy
 rules are configured for a provider, all pushes and fetches to that provider are rejected. At least one allow rule
 must match for a request to proceed.
 
-Slugs, owners, and names support glob patterns (e.g. `finos/*`, `*-public`) and Java regex via a `regex:` prefix.
+Rules use a unified `match` block that specifies what to match against (`target`), the pattern string (`value`), and how
+to interpret it (`type`). Evaluation is first-match-wins by `order` — identical to iptables/firewall rule semantics.
 
 ```yaml
 rules:
   allow:
-    # Specific repos by slug (owner/name) — both FETCH and PUSH
+    # Specific repo by exact slug — both operations, scoped to one provider
     - enabled: true
       order: 110
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - github
-      slugs:
-        - /finos/git-proxy
-        - /coopernetes/test-repo
+      operations: BOTH
+      provider: github
+      match:
+        target: SLUG
+        value: /finos/git-proxy
+        type: LITERAL
 
-    # All repos under an owner — FETCH only, any provider
+    # All repos under an owner — fetch only, any provider
     - enabled: true
       order: 120
-      operations:
-        - FETCH
-      owners:
-        - finos
+      operations: FETCH
+      match:
+        target: OWNER
+        value: finos
+        type: GLOB
 
   deny:
     # Block a specific repo across all operations
     - enabled: true
       order: 100
-      slugs:
-        - /myorg/forbidden-repo
+      match:
+        target: SLUG
+        value: /myorg/forbidden-repo
+        type: LITERAL
 ```
 
-To allow all repositories on a provider (open mode), use a wildcard slug:
+To allow all repositories on a provider (open mode):
 
 ```yaml
 rules:
   allow:
     - enabled: true
       order: 110
-      operations:
-        - FETCH
-        - PUSH
-      slugs:
-        - "*/*"
+      operations: BOTH
+      provider: internal-github
+      match:
+        target: OWNER
+        value: "*"
+        type: GLOB
 ```
 
 ### URL rule properties
 
-| Property     | Type    | Default | Description                                                                |
-| ------------ | ------- | ------- | -------------------------------------------------------------------------- |
-| `enabled`    | boolean | `true`  | Whether this entry is active                                               |
-| `order`      | int     | —       | Evaluation order (lower = earlier; first match wins)                       |
-| `operations` | list    | _none_  | `FETCH`, `PUSH` — which operations this entry matches                      |
-| `providers`  | list    | _all_   | Provider names to scope this entry to                                      |
-| `slugs`      | list    | _none_  | `/owner/repo` slugs; supports glob patterns and `regex:` prefix            |
-| `owners`     | list    | _none_  | Owner/org names; supports glob patterns and `regex:` prefix                |
-| `names`      | list    | _none_  | Repository names; supports glob patterns and `regex:` prefix               |
+| Property      | Type    | Default  | Description                                                          |
+| ------------- | ------- | -------- | -------------------------------------------------------------------- |
+| `enabled`     | boolean | `true`   | Whether this entry is active                                         |
+| `order`       | int     | `1100`   | Evaluation order (lower = earlier; first match wins)                 |
+| `operations`  | string  | `BOTH`   | `FETCH`, `PUSH`, or `BOTH` — which operations this entry matches     |
+| `provider`    | string  | _(all)_  | Provider name to scope this entry to; omit or leave blank for all    |
+| `match`       | object  | —        | Repository match criteria — see below                                |
+| `match.target`| enum    | `SLUG`   | What to match: `SLUG` (`/owner/repo`), `OWNER`, or `NAME`           |
+| `match.value` | string  | —        | The pattern to match against the chosen target                       |
+| `match.type`  | enum    | `GLOB`   | How to interpret the pattern: `LITERAL`, `GLOB`, or `REGEX`          |
 
-### Pattern matching in rules
+### Pattern matching
 
-All three list fields (`slugs`, `owners`, `names`) support three matching modes:
+Each rule matches exactly one thing — the `match` block selects what URL part to test (`target`) and how to test it
+(`type`). To express an AND condition (e.g. specific owner AND specific name prefix), use `target: SLUG` and write a
+single glob or regex that covers both parts.
 
-- **Literal** (default): exact string match
-- **Glob**: patterns using `*` (any characters) and `?` (single character) — e.g. `finos/*`, `*-public`
-- **Regex**: prefix the pattern with `regex:` to use a full Java regular expression — e.g. `regex:(?i)(^|-)secret(-|$).*`
+#### LITERAL
+
+Exact string match after normalising a leading `/`. `/acme/repo` and `acme/repo` are equivalent.
+
+#### GLOB
+
+Wildcard matching using `*` (any characters) and `?` (single character).
+
+| Target  | `*` behaviour                                    |
+| ------- | ------------------------------------------------ |
+| `SLUG`  | Does **not** cross `/` — use `acme/*` not `acme/**` |
+| `OWNER` | Owner names cannot contain `/` — `*` matches any valid name |
+| `NAME`  | Repo names cannot contain `/` — `*` matches any valid name |
+
+| Pattern (GLOB, target=SLUG) | Matches | Does NOT match |
+| --------------------------- | ------- | -------------- |
+| `/acme/repo` _(LITERAL)_    | `/acme/repo` | `/acme/other` |
+| `/acme/*`                   | `/acme/repo`, `/acme/my-service` | `/other/repo` |
+| `/acme/service-*`           | `/acme/service-api`, `/acme/service-worker` | `/acme/repo` |
+| `/acme/repo-?`              | `/acme/repo-1`, `/acme/repo-a` | `/acme/repo-12` |
+
+#### REGEX
+
+Full Java regular expression. A few things to know before writing regex rules:
+
+- **Full-string match**: the pattern must match the entire candidate string — there are no implicit anchors, but
+  `matches()` semantics apply. A pattern of `acme` does **not** match `/acme/repo`; write `/acme/.*` or `.*acme.*`.
+- **`/` does not need escaping**: Java regex uses strings, not a `/pattern/` literal syntax. Write `/acme/.*` not
+  `\/acme\/.*`.
+- **Case-insensitive**: use the `(?i)` inline flag — e.g. `(?i)/acme/.*`.
+- **Anchoring**: explicit `^` and `$` are redundant with `matches()` but harmless if included.
+
+| Pattern (REGEX, target=SLUG)          | Matches                          | Does NOT match      |
+| ------------------------------------- | -------------------------------- | ------------------- |
+| `/acme/.*`                            | `/acme/repo`, `/acme/my-service` | `/other/repo`       |
+| `/(acme\|partner)/.*`                 | `/acme/repo`, `/partner/repo`    | `/other/repo`       |
+| `/acme/service-[0-9]+`                | `/acme/service-1`, `/acme/service-42` | `/acme/service-api` |
+| `(?i)/acme/.*`                        | `/acme/repo`, `/ACME/Repo`       | `/other/repo`       |
+
+| Pattern (REGEX, target=NAME)                | Matches                        | Does NOT match  |
+| ------------------------------------------- | ------------------------------ | --------------- |
+| `(?i)(^&#124;-)secret(-&#124;$).*`          | `secret-config`, `my-secret`   | `secretariat`   |
+| `migrate-.*`                                | `migrate-app`, `migrate-db`    | `old-migrate`   |
 
 ```yaml
 rules:
   deny:
-    # Block any repo whose name contains "secret" as a distinct word segment
+    # Block any repo whose name contains "secret" as a distinct word segment (case-insensitive)
     - enabled: true
       order: 50
-      operations:
-        - PUSH
-      names:
-        - "regex:(?i)(^|-)secret(-|$).*"
+      operations: PUSH
+      match:
+        target: NAME
+        value: "(?i)(^|-)secret(-|$).*"
+        type: REGEX
 
-    # Block GitHub Pages repos (glob on name)
+    # Block repos matching multiple owner orgs using alternation
     - enabled: true
       order: 51
-      operations:
-        - PUSH
-      providers:
-        - github
-      names:
-        - "*.github.io"
+      operations: BOTH
+      match:
+        target: OWNER
+        value: "(blocked-org|suspended-org)"
+        type: REGEX
 ```
-
-> **Glob on `owners` and `names`:** Owner and repository names cannot contain `/`, so `*` reliably matches any
-> valid name including hyphens, underscores, and dots. You do not need `**` in these fields — `*` is sufficient
-> and the two are equivalent in this context.
 
 ### Real-world URL rule examples
 
@@ -913,89 +955,85 @@ rules:
   allow:
     - enabled: true
       order: 110
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - internal-github
-      slugs:
-        - "*/*"
+      operations: BOTH
+      provider: internal-github
+      match:
+        target: OWNER
+        value: "*"
+        type: GLOB
 ```
 
 **Allow repos under a set of known owner orgs, identified by a name prefix:**
 
-This is useful when multiple teams or divisions share a SCM and are distinguished by an owner-name convention
-(e.g. `teamA-*`, `teamB-*`).
-
 ```yaml
 rules:
   allow:
     - enabled: true
       order: 110
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - internal-github
-      owners:
-        - "regex:team-(alpha|beta|gamma)"
+      operations: BOTH
+      provider: internal-github
+      match:
+        target: OWNER
+        value: "team-(alpha|beta|gamma)"
+        type: REGEX
 ```
 
 **Allow push only for repos whose name starts with a known prefix:**
 
-When application or project repos are identified by a prefix (e.g. a fixed-length code followed by a hyphen),
-match on `names` rather than the full slug so the rule applies regardless of which owner org the repo lives under.
+When repos are identified by a project code followed by a hyphen, match on `NAME` so the rule applies regardless of
+which org the repo lives under.
 
 ```yaml
 rules:
   allow:
     - enabled: true
       order: 110
-      operations:
-        - PUSH
-      providers:
-        - internal-github
-      names:
-        - "proj0-*"
-        - "proj1-*"
-        - "shared-*"
+      operations: PUSH
+      provider: internal-github
+      match:
+        target: NAME
+        value: "proj0-*"
+        type: GLOB
+
+  # Multiple project prefixes — one rule per prefix, or combine with REGEX alternation:
+  allow:
+    - enabled: true
+      order: 111
+      operations: PUSH
+      provider: internal-github
+      match:
+        target: NAME
+        value: "(proj0|proj1|shared)-.*"
+        type: REGEX
 ```
 
-**Combine owner and name matching (SCM-to-SCM migration scenario):**
+**Combine owner and name matching (AND condition):**
 
-When acting as a gateway between two SCMs (e.g. during an M&A integration), you may want to allow only repos
-that belong to a specific org AND follow a naming pattern. Use `slugs` with a glob or regex for this — each
-entry in `owners` and `names` is evaluated independently (OR logic), so combining both in one rule block does
-not produce an AND condition.
+Use `target: SLUG` with a glob or regex — the slug is `/owner/repo` so a single pattern can constrain both parts.
 
 ```yaml
 rules:
   allow:
-    # Allow fetch from the source SCM for a specific org + name prefix — use slug for AND logic
+    # Allow fetch from the source SCM for a specific org + name prefix (glob AND)
     - enabled: true
       order: 110
-      operations:
-        - FETCH
-      providers:
-        - source-github
-      slugs:
-        - "acquired-org/migrate-*"
+      operations: FETCH
+      provider: source-github
+      match:
+        target: SLUG
+        value: "acquired-org/migrate-*"
+        type: GLOB
 
-    # Allow push to the destination SCM for the same set, using regex for stricter control
+    # Allow push to the destination SCM — stricter control with regex
     - enabled: true
       order: 120
-      operations:
-        - PUSH
-      providers:
-        - dest-gitlab
-      slugs:
-        - "regex:/migrated-org/migrate-.*"
+      operations: PUSH
+      provider: dest-gitlab
+      match:
+        target: SLUG
+        value: "/migrated-org/migrate-.*"
+        type: REGEX
 ```
-
-> **`owners` and `names` are OR conditions.** An entry under `owners: [acme]` allows any repo whose owner is
-> `acme`, regardless of repo name. An entry under `names: [migrate-*]` allows any repo whose name matches,
-> regardless of owner. To restrict both owner AND name together, use `slugs` with a glob (e.g.
-> `acme/migrate-*`) or a `regex:`-prefixed pattern.
 
 ## Permissions
 
@@ -1009,104 +1047,115 @@ permissions:
   # LITERAL (default): exact /owner/repo match
   - username: alice
     provider: github
-    path: /myorg/myrepo
+    match:
+      target: SLUG
+      value: /myorg/myrepo
+      type: LITERAL
     operations: PUSH
 
-  # GLOB: wildcard owner or repo
+  # GLOB: wildcard repo name under a specific owner
   - username: bob
     provider: gitlab
-    path: /myorg/*
-    path-type: GLOB
+    match:
+      target: SLUG
+      value: /myorg/*
+      type: GLOB
     operations: PUSH_AND_REVIEW
 
-  # REGEX: full Java regex matched against the /owner/repo path
+  # OWNER target: grant access to all repos under an org
   - username: carol
     provider: github
-    path: \/myorg\/service-.*
-    path-type: REGEX
+    match:
+      target: OWNER
+      value: myorg
+      type: GLOB
     operations: REVIEW
+
+  # REGEX on SLUG: match repos under multiple orgs
+  - username: dave
+    provider: github
+    match:
+      target: SLUG
+      value: "/team-(alpha|beta)/.*"
+      type: REGEX
+    operations: PUSH_AND_REVIEW
 
   # SELF_CERTIFY: trusted contributor who can approve their own clean pushes.
   # Requires both this permission entry AND the SELF_CERTIFY role on the user.
   - username: trusted
     provider: github
-    path: /myorg/myrepo
+    match:
+      target: SLUG
+      value: /myorg/myrepo
+      type: LITERAL
     operations: SELF_CERTIFY
 ```
 
 ### Permission properties
 
-| Property    | Type   | Default   | Description                                                                                 |
-| ----------- | ------ | --------- | ------------------------------------------------------------------------------------------- |
-| `username`  | string | —         | Proxy username (must match a `users:` entry or a DB user)                                   |
-| `provider`  | string | —         | Provider name as defined in `providers:` config                                             |
-| `path`      | string | —         | Repository path pattern (`/owner/repo`); interpretation depends on `path-type`              |
-| `path-type` | enum   | `LITERAL` | `LITERAL` (exact), `GLOB` (`*`/`?` wildcards), `REGEX` (Java regex against the full path)  |
-| `operations`| enum   | `PUSH`    | What the user may do: `PUSH`, `REVIEW`, `PUSH_AND_REVIEW`, `SELF_CERTIFY`                  |
+| Property        | Type   | Default          | Description                                                                     |
+| --------------- | ------ | ---------------- | ------------------------------------------------------------------------------- |
+| `username`      | string | —                | Proxy username (must match a `users:` entry or a DB user)                       |
+| `provider`      | string | —                | Provider name as defined in `providers:` config                                 |
+| `match`         | object | —                | Repository match criteria — see below                                           |
+| `match.target`  | enum   | `SLUG`           | What to match: `SLUG` (`/owner/repo`), `OWNER`, or `NAME`                       |
+| `match.value`   | string | —                | The pattern to match against the chosen target                                  |
+| `match.type`    | enum   | `GLOB`           | How to interpret the pattern: `LITERAL`, `GLOB`, or `REGEX`                     |
+| `operations`    | enum   | `PUSH_AND_REVIEW`| What the user may do: `PUSH`, `REVIEW`, `PUSH_AND_REVIEW`, `SELF_CERTIFY`       |
 
-### GLOB path semantics
+### Pattern matching
 
-GLOB matching uses Java NIO `PathMatcher` (`glob:` prefix). Paths follow the `/owner/repo` convention.
+Permissions support the same three match types as URL rules (LITERAL, GLOB, REGEX) applied to the same three targets
+(SLUG, OWNER, NAME). See [Pattern matching](#pattern-matching) above for full semantics including regex behaviour.
 
-| Wildcard | Matches | Does NOT match |
-| -------- | ------- | -------------- |
-| `*` | Any sequence of characters within **one** path segment (no `/` crossing) | Another path segment or the `/` separator itself |
-| `**` | Any sequence of characters **including** path separators (zero or more segments) | — |
-| `?` | Exactly **one** character within a path segment | `/` or a multi-character sequence |
+GLOB on `target: SLUG` follows slug path conventions:
 
-Hyphens, digits, and dots in names are treated as regular characters — no special escaping needed.
-
-**Pattern examples:**
-
-| Pattern | Matches | Does NOT match |
-| ------- | ------- | -------------- |
-| `/acme/repo` _(LITERAL)_ | `/acme/repo` | `/acme/other` |
-| `/acme/*` | `/acme/repo`, `/acme/my-service`, `/acme/repo-v2` | `/acme/sub/repo`, `/other/repo` |
-| `/acme/**` | `/acme/repo`, `/acme/sub/repo`, `/acme/a/b/c` | `/other/repo` |
-| `/**` | Every path | — |
-| `/*/repo` | `/acme/repo`, `/other/repo` | `/acme/other-repo` |
-| `/acme/service-*` | `/acme/service-api`, `/acme/service-worker` | `/acme/repo`, `/acme/my-service-api` |
-| `/acme/repo-?` | `/acme/repo-1`, `/acme/repo-a` | `/acme/repo-12`, `/acme/repo-` |
-
-> **Glob on the repo-name segment:** Repository names cannot contain `/`, so `*` will never cross a path separator
-> when used in the name position (e.g. `/owner/prefix-*`). In this position `*` and `**` are equivalent — use `*`.
+| Pattern (GLOB, target=SLUG)   | Matches                                | Does NOT match      |
+| ----------------------------- | -------------------------------------- | ------------------- |
+| `/acme/repo`                  | `/acme/repo`                           | `/acme/other`       |
+| `/acme/*`                     | `/acme/repo`, `/acme/my-service`       | `/other/repo`       |
+| `/acme/service-*`             | `/acme/service-api`, `/acme/service-worker` | `/acme/repo`   |
+| `/*/proj0-*`                  | `/acme/proj0-api`, `/other/proj0-db`   | `/acme/other`       |
 
 > **Conflict detection:** At config load time and when saving via the dashboard API, git-proxy-java rejects any
-> new permission entry whose path overlaps with an existing entry for the same user and provider. Two paths overlap
-> when they are equal, or when one is a GLOB/REGEX pattern that would match the other path string. This prevents
+> new permission entry whose pattern overlaps with an existing entry for the same user and provider. Two entries overlap
+> when they are equal, or when one is a GLOB/REGEX pattern that would match the other's value. This prevents
 > silent misconfiguration where the effective permission depends on evaluation order.
 
 ### Real-world permission examples
 
-**Gateway use case — allow a user to push any repo on a specific provider:**
+**Allow a user to push any repo on a specific provider:**
 
 ```yaml
 permissions:
   - username: alice
     provider: internal-github
-    path: "/**"
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: "*"
+      type: GLOB
     operations: PUSH_AND_REVIEW
 ```
 
-**Allow push to all repos whose name starts with a known prefix (e.g. a project code):**
-
-Useful when repos are identified by a fixed prefix such as a project or application code. Since repo names cannot
-contain `/`, the `*` in the name segment matches any suffix including hyphens and digits.
+**Allow push to repos whose name starts with a project code:**
 
 ```yaml
 permissions:
   - username: alice
     provider: internal-github
-    path: "/myorg/proj0-*"
-    path-type: GLOB
+    match:
+      target: NAME
+      value: "proj0-*"
+      type: GLOB
     operations: PUSH
 
-  # Or match the same prefix across any owner using a wildcard in the owner position:
+  # Or match the same prefix across any owner using SLUG:
   - username: alice
     provider: internal-github
-    path: "/*/proj0-*"
-    path-type: GLOB
+    match:
+      target: SLUG
+      value: "/*/proj0-*"
+      type: GLOB
     operations: PUSH
 ```
 
@@ -1116,8 +1165,10 @@ permissions:
 permissions:
   - username: alice
     provider: internal-github
-    path: "/team-(alpha|beta)/.*"
-    path-type: REGEX
+    match:
+      target: SLUG
+      value: "/team-(alpha|beta)/.*"
+      type: REGEX
     operations: PUSH_AND_REVIEW
 ```
 
@@ -1131,15 +1182,19 @@ permissions:
   # Push and review access
   - username: trusted-dev
     provider: internal-github
-    path: "/myorg/proj0-*"
-    path-type: GLOB
+    match:
+      target: NAME
+      value: "proj0-*"
+      type: GLOB
     operations: PUSH_AND_REVIEW
 
   # Self-certify on the same scope (requires SELF_CERTIFY role on the user too)
   - username: trusted-dev
     provider: internal-github
-    path: "/myorg/proj0-*"
-    path-type: GLOB
+    match:
+      target: NAME
+      value: "proj0-*"
+      type: GLOB
     operations: SELF_CERTIFY
 ```
 

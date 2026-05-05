@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.junit.jupiter.api.*;
 
 /**
@@ -318,31 +320,41 @@ class UrlRuleE2ETest {
                         .ruleOrder(100)
                         .access(AccessRule.Access.DENY)
                         .operations(AccessRule.Operations.BOTH)
-                        .slug("/otherorg/other-secret")
+                        .target(MatchTarget.SLUG)
+                        .value("/otherorg/other-secret")
+                        .matchType(MatchType.LITERAL)
                         .build(),
                 AccessRule.builder()
                         .ruleOrder(101)
                         .access(AccessRule.Access.DENY)
                         .operations(AccessRule.Operations.PUSH)
-                        .name("*-readonly")
+                        .target(MatchTarget.NAME)
+                        .value("*-readonly")
+                        .matchType(MatchType.GLOB)
                         .build(),
                 AccessRule.builder()
                         .ruleOrder(102)
                         .access(AccessRule.Access.DENY)
                         .operations(AccessRule.Operations.PUSH)
-                        .name("regex:(?i)(^|-)secret(-|$).*")
+                        .target(MatchTarget.NAME)
+                        .value("(?i)(^|-)secret(-|$).*")
+                        .matchType(MatchType.REGEX)
                         .build(),
                 AccessRule.builder()
                         .ruleOrder(110)
                         .access(AccessRule.Access.ALLOW)
                         .operations(AccessRule.Operations.BOTH)
-                        .slug("/test-owner/test-repo")
+                        .target(MatchTarget.SLUG)
+                        .value("/test-owner/test-repo")
+                        .matchType(MatchType.LITERAL)
                         .build(),
                 AccessRule.builder()
                         .ruleOrder(111)
                         .access(AccessRule.Access.ALLOW)
                         .operations(AccessRule.Operations.BOTH)
-                        .owner("otherorg")
+                        .target(MatchTarget.OWNER)
+                        .value("otherorg")
+                        .matchType(MatchType.GLOB)
                         .build());
     }
 }

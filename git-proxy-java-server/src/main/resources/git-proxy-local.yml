@@ -100,29 +100,39 @@ attestations:
 #                independently of the pusher identity; no SCM identity needed.
 # (admin can also approve via the dashboard by virtue of its ADMIN role.)
 #
-# Path types intentionally exercise all three matching modes:
-#   GitHub   → LITERAL (exact repo path)
-#   GitLab   → GLOB   (/coopernetes/* matches any repo under that owner)
+# Match types intentionally exercise all three modes:
+#   GitHub   → LITERAL (exact slug)
+#   GitLab   → GLOB   (all repos under the coopernetes owner)
 #   Codeberg → REGEX  (anchored Java regex — permission exists but identity will
 #                      block before it's evaluated in push-identity-codeberg.sh)
 permissions:
   - username: thomas-cooper
     provider: github
-    path: /finos/git-proxy
+    match:
+      target: SLUG
+      value: /finos/git-proxy
+      type: LITERAL
     operations: PUSH
   - username: thomas-cooper
     provider: github
-    path: /coopernetes/test-repo
+    match:
+      target: SLUG
+      value: /coopernetes/test-repo
+      type: LITERAL
     operations: PUSH
   - username: thomas-cooper
     provider: gitlab
-    path: /coopernetes/*
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: coopernetes
+      type: GLOB
     operations: PUSH
   - username: thomas-cooper
     provider: codeberg
-    path: \/coopernetes\/test\-repo\-([\w]+) # matches /coopernetes/test-repo-codeberg & any test-repo-<something>
-    path-type: REGEX
+    match:
+      target: SLUG
+      value: '/coopernetes/test-repo-([\w]+)' # matches /coopernetes/test-repo-codeberg & any test-repo-<something>
+      type: REGEX
     operations: PUSH
 
 rules:
@@ -139,57 +149,57 @@ rules:
     # /finos/git-proxy is allowed above (for dev testing), but git-proxy-java itself is not.
     - enabled: true
       order: 10
-      operations:
-        - PUSH
-      providers:
-        - github
-      slugs:
-        - /coopernetes/git-proxy-java
+      operations: PUSH
+      provider: github
+      match:
+        target: SLUG
+        value: /coopernetes/git-proxy-java
+        type: LITERAL
 
     # GitHub Pages repositories are presentation sites — block pushes even if the
     # owner is covered by an allow rule (e.g. a future finos/* allow entry).
     - enabled: true
       order: 20
-      operations:
-        - PUSH
-      providers:
-        - github
-      names:
-        - "*.github.io"
+      operations: PUSH
+      provider: github
+      match:
+        target: NAME
+        value: "*.github.io"
+        type: GLOB
+
   allow:
     - enabled: true
       order: 30
-      operations:
-        - FETCH
-      providers:
-        - github
-      slugs:
-        - /finos/git-proxy
-        - /coopernetes/git-proxy-java
-        - /coopernetes/test-repo
+      operations: FETCH
+      provider: github
+      match:
+        target: SLUG
+        value: '/(finos|coopernetes)/(git-proxy|git-proxy-java|test-repo)'
+        type: REGEX
+
     - enabled: true
       order: 40
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - gitlab
-      slugs:
-        - /coopernetes/test-repo-gitlab
+      operations: BOTH
+      provider: gitlab
+      match:
+        target: SLUG
+        value: /coopernetes/test-repo-gitlab
+        type: LITERAL
+
     - enabled: true
       order: 50
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - codeberg
-      slugs:
-        - /coopernetes/test-repo-codeberg
+      operations: BOTH
+      provider: codeberg
+      match:
+        target: SLUG
+        value: /coopernetes/test-repo-codeberg
+        type: LITERAL
+
     - enabled: true
       order: 60
-      operations:
-        - FETCH
-      owners:
-        - finos
-      providers:
-        - github
+      operations: FETCH
+      provider: github
+      match:
+        target: OWNER
+        value: finos
+        type: GLOB

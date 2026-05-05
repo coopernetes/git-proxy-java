@@ -24,9 +24,9 @@ class DbModelTest {
         assertEquals(100, rule.getRuleOrder());
         assertEquals(AccessRule.Source.DB, rule.getSource());
         assertNull(rule.getProvider());
-        assertNull(rule.getSlug());
-        assertNull(rule.getOwner());
-        assertNull(rule.getName());
+        assertEquals(MatchTarget.SLUG, rule.getTarget());
+        assertNull(rule.getValue());
+        assertEquals(MatchType.GLOB, rule.getMatchType());
         assertNull(rule.getDescription());
     }
 
@@ -35,9 +35,9 @@ class DbModelTest {
         AccessRule rule = AccessRule.builder()
                 .id("fixed-id")
                 .provider("github")
-                .slug("/org/*")
-                .owner("org")
-                .name("repo")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.LITERAL)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.FETCH)
                 .description("test rule")
@@ -48,9 +48,9 @@ class DbModelTest {
 
         assertEquals("fixed-id", rule.getId());
         assertEquals("github", rule.getProvider());
-        assertEquals("/org/*", rule.getSlug());
-        assertEquals("org", rule.getOwner());
-        assertEquals("repo", rule.getName());
+        assertEquals(MatchTarget.OWNER, rule.getTarget());
+        assertEquals("myorg", rule.getValue());
+        assertEquals(MatchType.LITERAL, rule.getMatchType());
         assertEquals(AccessRule.Access.DENY, rule.getAccess());
         assertEquals(AccessRule.Operations.FETCH, rule.getOperations());
         assertEquals("test rule", rule.getDescription());
@@ -79,10 +79,23 @@ class DbModelTest {
     }
 
     @Test
+    void matchTarget_allValues() {
+        assertNotNull(MatchTarget.valueOf("SLUG"));
+        assertNotNull(MatchTarget.valueOf("OWNER"));
+        assertNotNull(MatchTarget.valueOf("NAME"));
+    }
+
+    @Test
+    void matchType_allValues() {
+        assertNotNull(MatchType.valueOf("LITERAL"));
+        assertNotNull(MatchType.valueOf("GLOB"));
+        assertNotNull(MatchType.valueOf("REGEX"));
+    }
+
+    @Test
     void accessRule_equalsAndHashCode() {
         AccessRule a = AccessRule.builder().id("id-1").build();
         AccessRule b = AccessRule.builder().id("id-1").build();
-        // Lombok @Data generates equals/hashCode on all fields; same id + same defaults are equal
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
     }

@@ -12,6 +12,8 @@ import java.util.Optional;
 import org.bson.Document;
 import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,9 +87,9 @@ public class MongoUrlRuleRegistry implements UrlRuleRegistry {
     private static Document toDocument(AccessRule r) {
         return new Document("_id", r.getId())
                 .append("provider", r.getProvider())
-                .append("slug", r.getSlug())
-                .append("owner", r.getOwner())
-                .append("name", r.getName())
+                .append("target", r.getTarget().name())
+                .append("value", r.getValue())
+                .append("matchType", r.getMatchType().name())
                 .append("access", r.getAccess().name())
                 .append("operations", r.getOperations().name())
                 .append("description", r.getDescription())
@@ -100,9 +102,9 @@ public class MongoUrlRuleRegistry implements UrlRuleRegistry {
         return AccessRule.builder()
                 .id(doc.getString("_id"))
                 .provider(doc.getString("provider"))
-                .slug(doc.getString("slug"))
-                .owner(doc.getString("owner"))
-                .name(doc.getString("name"))
+                .target(MatchTarget.valueOf(doc.getString("target")))
+                .value(doc.getString("value"))
+                .matchType(MatchType.valueOf(doc.getString("matchType")))
                 .access(AccessRule.Access.valueOf(doc.getString("access")))
                 .operations(AccessRule.Operations.valueOf(doc.getString("operations")))
                 .description(doc.getString("description"))

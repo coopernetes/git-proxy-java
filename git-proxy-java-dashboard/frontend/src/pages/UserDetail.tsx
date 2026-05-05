@@ -576,7 +576,7 @@ function AddPermissionModal({
   const [providers, setProviders] = useState<Provider[]>([])
   const [provider, setProvider] = useState('')
   const [path, setPath] = useState('')
-  const [pathType, setPathType] = useState<'LITERAL' | 'GLOB' | 'REGEX'>('LITERAL')
+  const [pathType, setPathType] = useState<'LITERAL' | 'GLOB' | 'REGEX'>('GLOB')
   const [operations, setOperations] = useState<RepoPermission['operations']>('PUSH_AND_REVIEW')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)

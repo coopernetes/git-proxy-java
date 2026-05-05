@@ -9,6 +9,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.db.model.FetchRecord;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.junit.jupiter.api.Test;
 
 class RowMapperTest {
@@ -20,9 +22,9 @@ class RowMapperTest {
         ResultSet rs = mock(ResultSet.class);
         when(rs.getString("id")).thenReturn("rule-1");
         when(rs.getString("provider")).thenReturn("github");
-        when(rs.getString("slug")).thenReturn("/org/*");
-        when(rs.getString("owner")).thenReturn("org");
-        when(rs.getString("name")).thenReturn("*");
+        when(rs.getString("target")).thenReturn("OWNER");
+        when(rs.getString("match_value")).thenReturn("org");
+        when(rs.getString("match_type")).thenReturn("GLOB");
         when(rs.getString("access")).thenReturn("DENY");
         when(rs.getString("operations")).thenReturn("PUSH");
         when(rs.getString("description")).thenReturn("Block all pushes");
@@ -34,9 +36,9 @@ class RowMapperTest {
 
         assertEquals("rule-1", rule.getId());
         assertEquals("github", rule.getProvider());
-        assertEquals("/org/*", rule.getSlug());
-        assertEquals("org", rule.getOwner());
-        assertEquals("*", rule.getName());
+        assertEquals(MatchTarget.OWNER, rule.getTarget());
+        assertEquals("org", rule.getValue());
+        assertEquals(MatchType.GLOB, rule.getMatchType());
         assertEquals(AccessRule.Access.DENY, rule.getAccess());
         assertEquals(AccessRule.Operations.PUSH, rule.getOperations());
         assertEquals("Block all pushes", rule.getDescription());
@@ -50,9 +52,9 @@ class RowMapperTest {
         ResultSet rs = mock(ResultSet.class);
         when(rs.getString("id")).thenReturn("rule-2");
         when(rs.getString("provider")).thenReturn(null);
-        when(rs.getString("slug")).thenReturn(null);
-        when(rs.getString("owner")).thenReturn(null);
-        when(rs.getString("name")).thenReturn(null);
+        when(rs.getString("target")).thenReturn("SLUG");
+        when(rs.getString("match_value")).thenReturn("/org/**");
+        when(rs.getString("match_type")).thenReturn("GLOB");
         when(rs.getString("access")).thenReturn("ALLOW");
         when(rs.getString("operations")).thenReturn("BOTH");
         when(rs.getString("description")).thenReturn(null);
@@ -63,9 +65,9 @@ class RowMapperTest {
         AccessRule rule = AccessRuleRowMapper.INSTANCE.mapRow(rs, 1);
 
         assertNull(rule.getProvider());
-        assertNull(rule.getSlug());
-        assertNull(rule.getOwner());
-        assertNull(rule.getName());
+        assertEquals(MatchTarget.SLUG, rule.getTarget());
+        assertEquals("/org/**", rule.getValue());
+        assertEquals(MatchType.GLOB, rule.getMatchType());
         assertNull(rule.getDescription());
         assertEquals(AccessRule.Access.ALLOW, rule.getAccess());
         assertEquals(AccessRule.Operations.BOTH, rule.getOperations());

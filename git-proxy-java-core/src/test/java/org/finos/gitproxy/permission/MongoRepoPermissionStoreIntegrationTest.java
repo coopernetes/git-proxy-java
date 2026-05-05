@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.mongodb.client.MongoClients;
 import java.util.List;
 import java.util.UUID;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.junit.jupiter.api.*;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -28,11 +30,13 @@ class MongoRepoPermissionStoreIntegrationTest {
         store.initialize();
     }
 
-    private RepoPermission perm(String username, String provider, String path) {
+    private RepoPermission perm(String username, String provider, String value) {
         return RepoPermission.builder()
                 .username(username)
                 .provider(provider)
-                .path(path)
+                .target(MatchTarget.SLUG)
+                .value(value)
+                .matchType(MatchType.LITERAL)
                 .build();
     }
 
@@ -41,8 +45,9 @@ class MongoRepoPermissionStoreIntegrationTest {
         RepoPermission p = RepoPermission.builder()
                 .username("alice")
                 .provider("github")
-                .path("/org/repo")
-                .pathType(RepoPermission.PathType.GLOB)
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .operations(RepoPermission.Operations.PUSH)
                 .source(RepoPermission.Source.CONFIG)
                 .build();
@@ -52,8 +57,9 @@ class MongoRepoPermissionStoreIntegrationTest {
         assertEquals(p.getId(), found.getId());
         assertEquals("alice", found.getUsername());
         assertEquals("github", found.getProvider());
-        assertEquals("/org/repo", found.getPath());
-        assertEquals(RepoPermission.PathType.GLOB, found.getPathType());
+        assertEquals(MatchTarget.OWNER, found.getTarget());
+        assertEquals("myorg", found.getValue());
+        assertEquals(MatchType.GLOB, found.getMatchType());
         assertEquals(RepoPermission.Operations.PUSH, found.getOperations());
         assertEquals(RepoPermission.Source.CONFIG, found.getSource());
     }
@@ -64,14 +70,13 @@ class MongoRepoPermissionStoreIntegrationTest {
     }
 
     @Test
-    void findAll_returnsSortedByProviderPathUsername() {
+    void findAll_returnsSortedByProviderValueUsername() {
         store.save(perm("bob", "github", "/org/z-repo"));
         store.save(perm("alice", "github", "/org/a-repo"));
         store.save(perm("carol", "gitlab", "/org/repo"));
 
         List<RepoPermission> all = store.findAll();
         assertEquals(3, all.size());
-        // sorted by provider then path then username
         assertEquals("alice", all.get(0).getUsername());
         assertEquals("bob", all.get(1).getUsername());
         assertEquals("carol", all.get(2).getUsername());

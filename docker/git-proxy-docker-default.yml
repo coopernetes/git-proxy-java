@@ -48,32 +48,44 @@ permissions:
   # test-user: LITERAL — only /test-owner/test-repo
   - username: test-user
     provider: gitea
-    path: /test-owner/test-repo
+    match:
+      target: SLUG
+      value: /test-owner/test-repo
+      type: LITERAL
     operations: PUSH
 
   # user2: GLOB — any repo under otherorg
   - username: user2
     provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: otherorg
+      type: GLOB
     operations: PUSH
 
   # user3: REGEX — test-owner repos matching test-repo.*
   - username: user3
     provider: gitea
-    path: /test-owner/test-repo.*
-    path-type: REGEX
+    match:
+      target: SLUG
+      value: '/test-owner/test-repo.*'
+      type: REGEX
     operations: PUSH
 
   # reviewer: APPROVE on all the same paths
   - username: reviewer
     provider: gitea
-    path: /test-owner/test-repo
+    match:
+      target: SLUG
+      value: /test-owner/test-repo
+      type: LITERAL
     operations: REVIEW
   - username: reviewer
     provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: otherorg
+      type: GLOB
     operations: REVIEW
 
   # LDAP testuser (maps to gitea/test-user): same literal grant as test-user above.
@@ -82,18 +94,26 @@ permissions:
   # so that push-permission-literal.sh still passes the deny-on-other-repo case.
   - username: testuser
     provider: gitea
-    path: /test-owner/test-repo
+    match:
+      target: SLUG
+      value: /test-owner/test-repo
+      type: LITERAL
     operations: PUSH
 
   # admin APPROVE grants for LDAP setup (admin approves via dashboard).
   - username: admin
     provider: gitea
-    path: /test-owner/test-repo
+    match:
+      target: SLUG
+      value: /test-owner/test-repo
+      type: LITERAL
     operations: REVIEW
   - username: admin
     provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: otherorg
+      type: GLOB
     operations: REVIEW
 
 providers:
@@ -149,65 +169,70 @@ rules:
   allow:
     - enabled: true
       order: 110
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - gitea
-      slugs:
-        - /test-owner/test-repo
-        - /test-owner/test-repo-2
+      operations: BOTH
+      provider: gitea
+      match:
+        target: SLUG
+        value: '/test-owner/test-repo(-2)?'
+        type: REGEX
+
     - enabled: true
       order: 111
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - gitea
-      owners:
-        - otherorg
+      operations: BOTH
+      provider: gitea
+      match:
+        target: OWNER
+        value: otherorg
+        type: GLOB
+
     - enabled: true
       order: 120
-      operations:
-        - FETCH
-      providers:
-        - github
-      owners:
-        - finos
+      operations: FETCH
+      provider: github
+      match:
+        target: OWNER
+        value: finos
+        type: GLOB
 
   deny:
-    # Deny a specific repo inside the otherwise-allowed otherorg/* owner glob.
-    # Demonstrates that deny wins: user2 has GLOB permission on /otherorg/* and
+    # Deny a specific repo inside the otherwise-allowed otherorg owner.
+    # Demonstrates that deny wins: user2 has permission on otherorg and
     # the allow rule covers all of otherorg, but this repo is explicitly off-limits.
     - enabled: true
       order: 100
-      operations:
-        - FETCH
-        - PUSH
-      providers:
-        - gitea
-      slugs:
-        - /otherorg/other-secret
+      operations: BOTH
+      provider: gitea
+      match:
+        target: SLUG
+        value: /otherorg/other-secret
+        type: LITERAL
 
-    # Deny repos whose name ends in -readonly or -archived — these are archival
-    # copies that should not receive new commits through the proxy.
+    # Deny repos whose name ends in -readonly or -archived — archival copies
+    # that should not receive new commits through the proxy.
     - enabled: true
       order: 101
-      operations:
-        - PUSH
-      providers:
-        - gitea
-      names:
-        - "*-readonly"
-        - "*-archived"
+      operations: PUSH
+      provider: gitea
+      match:
+        target: NAME
+        value: "*-readonly"
+        type: GLOB
 
-    # Regex deny: block any repo whose name contains the word "secret" as a
-    # distinct segment (e.g. secret-store, my-secret-keys, not "secretariat").
+    - enabled: true
+      order: 101
+      operations: PUSH
+      provider: gitea
+      match:
+        target: NAME
+        value: "*-archived"
+        type: GLOB
+
+    # Regex deny: block any repo whose name contains "secret" as a distinct segment.
     - enabled: true
       order: 102
-      operations:
-        - PUSH
-      providers:
-        - gitea
-      names:
-        - "regex:(?i)(^|-)secret(-|$).*"
+      operations: PUSH
+      provider: gitea
+      match:
+        target: NAME
+        value: "(?i)(^|-)secret(-|$).*"
+        type: REGEX

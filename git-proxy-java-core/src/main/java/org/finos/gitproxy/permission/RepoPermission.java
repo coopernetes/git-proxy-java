@@ -5,14 +5,16 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 
 /**
  * A single authorization grant: {@link #username} is permitted to perform {@link #operations} on repos matching
- * {@link #path} at {@link #provider}.
+ * {@link #value} at {@link #provider}.
  *
- * <p>{@link #path} is a pattern of the form {@code /owner/repo}. {@link #pathType} controls how it is matched:
- * {@code LITERAL} for exact equality, {@code GLOB} for {@code *}/{@code ?} wildcards, {@code REGEX} for full Java regex
- * matched against the path string.
+ * <p>{@link #target} selects which part of the repo URL is compared (default {@link MatchTarget#SLUG});
+ * {@link #matchType} controls how {@link #value} is interpreted: {@code LITERAL} for exact equality, {@code GLOB} for
+ * {@code *}/{@code ?} wildcards, {@code REGEX} for full Java regex.
  */
 @Data
 @Builder
@@ -25,22 +27,23 @@ public class RepoPermission {
 
     private String username;
     private String provider;
-    private String path;
 
+    /** Which part of the repository URL is matched. Defaults to {@link MatchTarget#SLUG}. */
     @Builder.Default
-    private PathType pathType = PathType.LITERAL;
+    private MatchTarget target = MatchTarget.SLUG;
+
+    /** Pattern to match against the {@link #target} portion of the URL. */
+    private String value;
+
+    /** How {@link #value} is interpreted when matching. Defaults to {@link MatchType#LITERAL}. */
+    @Builder.Default
+    private MatchType matchType = MatchType.LITERAL;
 
     @Builder.Default
     private Operations operations = Operations.PUSH;
 
     @Builder.Default
     private Source source = Source.DB;
-
-    public enum PathType {
-        LITERAL,
-        GLOB,
-        REGEX
-    }
 
     public enum Operations {
         /** Can submit pushes for review. */

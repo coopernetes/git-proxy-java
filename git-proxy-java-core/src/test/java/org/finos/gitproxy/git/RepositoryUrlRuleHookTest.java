@@ -11,6 +11,8 @@ import org.eclipse.jgit.transport.ReceiveCommand;
 import org.eclipse.jgit.transport.ReceivePack;
 import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.db.model.StepStatus;
 import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
@@ -39,10 +41,15 @@ class RepositoryUrlRuleHookTest {
         return new ReceiveCommand(ObjectId.zeroId(), ObjectId.zeroId(), "refs/heads/main");
     }
 
-    private RepositoryUrlRuleHook hookWith(AccessRule... rules) throws Exception {
-        var registry = new InMemoryUrlRuleRegistry();
-        for (AccessRule r : rules) registry.save(r);
-        return new RepositoryUrlRuleHook(registry, GITHUB, null, new PushContext());
+    private static AccessRule ownerRule(AccessRule.Access access, AccessRule.Operations ops, String owner, int order) {
+        return AccessRule.builder()
+                .ruleOrder(order)
+                .access(access)
+                .operations(ops)
+                .target(MatchTarget.OWNER)
+                .value(owner)
+                .matchType(MatchType.GLOB)
+                .build();
     }
 
     @Test
@@ -61,12 +68,7 @@ class RepositoryUrlRuleHookTest {
     @Test
     void withRepoSlug_allowRuleMatches_recordsPass() throws Exception {
 
-        var allowRule = AccessRule.builder()
-                .ruleOrder(100)
-                .access(AccessRule.Access.ALLOW)
-                .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
-                .build();
+        var allowRule = ownerRule(AccessRule.Access.ALLOW, AccessRule.Operations.BOTH, "myorg", 100);
         var pushContext = new PushContext();
         pushContext.setRepoSlug("/myorg/myrepo");
         var registry = new InMemoryUrlRuleRegistry();
@@ -83,12 +85,7 @@ class RepositoryUrlRuleHookTest {
     @Test
     void withRepoSlug_noMatchingAllowRule_rejectsCommand() throws Exception {
 
-        var allowRule = AccessRule.builder()
-                .ruleOrder(100)
-                .access(AccessRule.Access.ALLOW)
-                .operations(AccessRule.Operations.BOTH)
-                .owner("other-org")
-                .build();
+        var allowRule = ownerRule(AccessRule.Access.ALLOW, AccessRule.Operations.BOTH, "other-org", 100);
         var pushContext = new PushContext();
         pushContext.setRepoSlug("/myorg/myrepo");
         var registry = new InMemoryUrlRuleRegistry();
@@ -105,18 +102,8 @@ class RepositoryUrlRuleHookTest {
     @Test
     void withRepoSlug_denyRuleAtLowerOrder_rejectsEvenWithAllowRule() throws Exception {
 
-        var denyRule = AccessRule.builder()
-                .ruleOrder(100)
-                .access(AccessRule.Access.DENY)
-                .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
-                .build();
-        var allowRule = AccessRule.builder()
-                .ruleOrder(200)
-                .access(AccessRule.Access.ALLOW)
-                .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
-                .build();
+        var denyRule = ownerRule(AccessRule.Access.DENY, AccessRule.Operations.BOTH, "myorg", 100);
+        var allowRule = ownerRule(AccessRule.Access.ALLOW, AccessRule.Operations.BOTH, "myorg", 200);
         var pushContext = new PushContext();
         pushContext.setRepoSlug("/myorg/myrepo");
         var registry = new InMemoryUrlRuleRegistry();
@@ -134,12 +121,7 @@ class RepositoryUrlRuleHookTest {
     @Test
     void fetchOnlyAllowRule_doesNotEngageForPush() throws Exception {
 
-        var fetchOnlyAllow = AccessRule.builder()
-                .ruleOrder(100)
-                .access(AccessRule.Access.ALLOW)
-                .operations(AccessRule.Operations.FETCH)
-                .owner("myorg")
-                .build();
+        var fetchOnlyAllow = ownerRule(AccessRule.Access.ALLOW, AccessRule.Operations.FETCH, "myorg", 100);
         var pushContext = new PushContext();
         pushContext.setRepoSlug("/myorg/myrepo");
         var registry = new InMemoryUrlRuleRegistry();
@@ -156,18 +138,8 @@ class RepositoryUrlRuleHookTest {
     @Test
     void fetchOnlyDenyRule_doesNotBlockPush() throws Exception {
 
-        var fetchDeny = AccessRule.builder()
-                .ruleOrder(100)
-                .access(AccessRule.Access.DENY)
-                .operations(AccessRule.Operations.FETCH)
-                .owner("myorg")
-                .build();
-        var pushAllow = AccessRule.builder()
-                .ruleOrder(200)
-                .access(AccessRule.Access.ALLOW)
-                .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
-                .build();
+        var fetchDeny = ownerRule(AccessRule.Access.DENY, AccessRule.Operations.FETCH, "myorg", 100);
+        var pushAllow = ownerRule(AccessRule.Access.ALLOW, AccessRule.Operations.BOTH, "myorg", 200);
         var pushContext = new PushContext();
         pushContext.setRepoSlug("/myorg/myrepo");
         var registry = new InMemoryUrlRuleRegistry();

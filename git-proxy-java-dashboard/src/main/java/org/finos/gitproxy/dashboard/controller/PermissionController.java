@@ -3,6 +3,8 @@ package org.finos.gitproxy.dashboard.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.permission.RepoPermission;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.finos.gitproxy.user.ReadOnlyUserStore;
@@ -40,17 +42,23 @@ public class PermissionController {
         if (req.provider() == null || req.provider().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "provider is required"));
         }
-        if (req.path() == null || req.path().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "path is required"));
+        if (req.value() == null || req.value().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "value is required"));
         }
 
-        RepoPermission.PathType pathType;
+        MatchTarget target;
         try {
-            pathType = req.pathType() != null
-                    ? RepoPermission.PathType.valueOf(req.pathType().toUpperCase())
-                    : RepoPermission.PathType.LITERAL;
+            target = req.target() != null ? MatchTarget.valueOf(req.target().toUpperCase()) : MatchTarget.SLUG;
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "invalid pathType: " + req.pathType()));
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid target: " + req.target()));
+        }
+
+        MatchType matchType;
+        try {
+            matchType =
+                    req.matchType() != null ? MatchType.valueOf(req.matchType().toUpperCase()) : MatchType.LITERAL;
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid matchType: " + req.matchType()));
         }
 
         RepoPermission.Operations operations;
@@ -65,8 +73,9 @@ public class PermissionController {
         var permission = RepoPermission.builder()
                 .username(username)
                 .provider(req.provider().trim())
-                .path(req.path().trim())
-                .pathType(pathType)
+                .target(target)
+                .value(req.value().trim())
+                .matchType(matchType)
                 .operations(operations)
                 .source(RepoPermission.Source.DB)
                 .build();
@@ -77,8 +86,8 @@ public class PermissionController {
                     .body(Map.of(
                             "error",
                             String.format(
-                                    "Conflicts with existing permission: path '%s' (%s)",
-                                    c.getPath(), c.getPathType())));
+                                    "Conflicts with existing permission: value '%s' (%s/%s)",
+                                    c.getValue(), c.getTarget(), c.getMatchType())));
         }
         permissionService.save(permission);
         return ResponseEntity.status(HttpStatus.CREATED).body(permission);
@@ -106,5 +115,6 @@ public class PermissionController {
         return ResponseEntity.noContent().build();
     }
 
-    public record AddPermissionRequest(String provider, String path, String pathType, String operations) {}
+    public record AddPermissionRequest(
+            String provider, String target, String value, String matchType, String operations) {}
 }

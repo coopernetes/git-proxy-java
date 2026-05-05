@@ -7,6 +7,8 @@ import java.util.List;
 import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
@@ -26,21 +28,25 @@ class UrlRuleEvaluatorTest {
         return new UrlRuleEvaluator(registry, GITHUB);
     }
 
-    private static AccessRule allow(String owner) {
+    private static AccessRule allow(MatchTarget target, String value) {
         return AccessRule.builder()
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner(owner)
+                .target(target)
+                .value(value)
+                .matchType(MatchType.GLOB)
                 .build();
     }
 
-    private static AccessRule deny(String owner) {
+    private static AccessRule deny(MatchTarget target, String value) {
         return AccessRule.builder()
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .owner(owner)
+                .target(target)
+                .value(value)
+                .matchType(MatchType.GLOB)
                 .build();
     }
 
@@ -66,7 +72,7 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void allowRule_ownerMatch_allowed() {
-        var evaluator = evaluatorWith(allow("myorg"));
+        var evaluator = evaluatorWith(allow(MatchTarget.OWNER, "myorg"));
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("myorg/repo", "myorg", "repo", HttpOperation.PUSH));
@@ -78,7 +84,9 @@ class UrlRuleEvaluatorTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .slug("/myorg/repo")
+                .target(MatchTarget.SLUG)
+                .value("/myorg/repo")
+                .matchType(MatchType.LITERAL)
                 .build();
         var evaluator = evaluatorWith(rule);
         assertInstanceOf(
@@ -92,7 +100,9 @@ class UrlRuleEvaluatorTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .name("feature-*")
+                .target(MatchTarget.NAME)
+                .value("feature-*")
+                .matchType(MatchType.GLOB)
                 .build();
         var evaluator = evaluatorWith(rule);
         assertInstanceOf(
@@ -105,7 +115,7 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void allowRule_noMatch_notAllowed() {
-        var evaluator = evaluatorWith(allow("myorg"));
+        var evaluator = evaluatorWith(allow(MatchTarget.OWNER, "myorg"));
         assertInstanceOf(
                 UrlRuleEvaluator.Result.NotAllowed.class,
                 evaluator.evaluate("otherorg/repo", "otherorg", "repo", HttpOperation.PUSH));
@@ -115,18 +125,21 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void denyRule_lowerOrderBeatsAllowRule_denied() {
-        // deny at order 100, allow at order 200 — deny wins
         var denyRule = AccessRule.builder()
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("blocked")
+                .target(MatchTarget.OWNER)
+                .value("blocked")
+                .matchType(MatchType.GLOB)
                 .build();
         var allowRule = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("blocked")
+                .target(MatchTarget.OWNER)
+                .value("blocked")
+                .matchType(MatchType.GLOB)
                 .build();
         var evaluator = evaluatorWith(denyRule, allowRule);
         assertInstanceOf(
@@ -136,18 +149,21 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void allowRule_lowerOrderBeatsDenyRule_allowed() {
-        // allow at order 100, deny at order 200 — allow wins
         var allowRule = AccessRule.builder()
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var denyRule = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var evaluator = evaluatorWith(allowRule, denyRule);
         assertInstanceOf(
@@ -157,7 +173,7 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void denyRule_noMatch_allowRuleChecked() {
-        var evaluator = evaluatorWith(deny("blocked"), allow("allowed"));
+        var evaluator = evaluatorWith(deny(MatchTarget.OWNER, "blocked"), allow(MatchTarget.OWNER, "allowed"));
         assertInstanceOf(
                 UrlRuleEvaluator.Result.Allowed.class,
                 evaluator.evaluate("allowed/repo", "allowed", "repo", HttpOperation.PUSH));
@@ -171,7 +187,9 @@ class UrlRuleEvaluatorTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.FETCH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var evaluator = evaluatorWith(rule);
         assertInstanceOf(
@@ -186,7 +204,9 @@ class UrlRuleEvaluatorTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.PUSH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var evaluator = evaluatorWith(rule);
         assertInstanceOf(
@@ -201,13 +221,17 @@ class UrlRuleEvaluatorTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.FETCH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var pushAllow = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var evaluator = evaluatorWith(fetchDeny, pushAllow);
         assertInstanceOf(
@@ -222,13 +246,17 @@ class UrlRuleEvaluatorTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.PUSH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var fetchAllow = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("myorg")
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .build();
         var evaluator = evaluatorWith(pushDeny, fetchAllow);
         assertInstanceOf(
@@ -254,33 +282,33 @@ class UrlRuleEvaluatorTest {
 
     @Test
     void matchPattern_literal_exactMatch() {
-        assertTrue(UrlRuleEvaluator.matchPattern("myorg", "myorg"));
-        assertFalse(UrlRuleEvaluator.matchPattern("myorg", "otherorg"));
+        assertTrue(UrlRuleEvaluator.matchPattern("myorg", MatchType.LITERAL, "myorg"));
+        assertFalse(UrlRuleEvaluator.matchPattern("myorg", MatchType.LITERAL, "otherorg"));
     }
 
     @Test
     void matchPattern_literal_leadingSlashNormalised() {
-        assertTrue(UrlRuleEvaluator.matchPattern("/owner/repo", "owner/repo"));
-        assertTrue(UrlRuleEvaluator.matchPattern("owner/repo", "/owner/repo"));
+        assertTrue(UrlRuleEvaluator.matchPattern("/owner/repo", MatchType.LITERAL, "owner/repo"));
+        assertTrue(UrlRuleEvaluator.matchPattern("owner/repo", MatchType.LITERAL, "/owner/repo"));
     }
 
     @Test
     void matchPattern_glob_wildcard() {
-        assertTrue(UrlRuleEvaluator.matchPattern("myorg-*", "myorg-internal"));
-        assertFalse(UrlRuleEvaluator.matchPattern("myorg-*", "otherorg-internal"));
+        assertTrue(UrlRuleEvaluator.matchPattern("myorg-*", MatchType.GLOB, "myorg-internal"));
+        assertFalse(UrlRuleEvaluator.matchPattern("myorg-*", MatchType.GLOB, "otherorg-internal"));
     }
 
     @Test
     void matchPattern_regex_matchesRawValue() {
-        assertTrue(UrlRuleEvaluator.matchPattern("regex:^(myorg|partnerorg)$", "myorg"));
-        assertTrue(UrlRuleEvaluator.matchPattern("regex:/myorg/.*", "/myorg/any-repo"));
-        assertFalse(UrlRuleEvaluator.matchPattern("regex:^(myorg|partnerorg)$", "otherog"));
+        assertTrue(UrlRuleEvaluator.matchPattern("^(myorg|partnerorg)$", MatchType.REGEX, "myorg"));
+        assertTrue(UrlRuleEvaluator.matchPattern("/myorg/.*", MatchType.REGEX, "/myorg/any-repo"));
+        assertFalse(UrlRuleEvaluator.matchPattern("^(myorg|partnerorg)$", MatchType.REGEX, "otherog"));
     }
 
     @Test
     void matchPattern_nullInputs_returnsFalse() {
-        assertFalse(UrlRuleEvaluator.matchPattern(null, "value"));
-        assertFalse(UrlRuleEvaluator.matchPattern("pattern", null));
+        assertFalse(UrlRuleEvaluator.matchPattern(null, MatchType.LITERAL, "value"));
+        assertFalse(UrlRuleEvaluator.matchPattern("pattern", MatchType.LITERAL, null));
     }
 
     // ── operationMatches helper ───────────────────────────────────────────────
@@ -288,7 +316,8 @@ class UrlRuleEvaluatorTest {
     @Test
     void operationMatches_both_alwaysTrue() {
         var rule = AccessRule.builder()
-                .slug("x")
+                .target(MatchTarget.SLUG)
+                .value("x")
                 .operations(AccessRule.Operations.BOTH)
                 .build();
         assertTrue(UrlRuleEvaluator.operationMatches(rule, HttpOperation.PUSH));
@@ -298,7 +327,8 @@ class UrlRuleEvaluatorTest {
     @Test
     void operationMatches_pushOnly() {
         var rule = AccessRule.builder()
-                .slug("x")
+                .target(MatchTarget.SLUG)
+                .value("x")
                 .operations(AccessRule.Operations.PUSH)
                 .build();
         assertTrue(UrlRuleEvaluator.operationMatches(rule, HttpOperation.PUSH));
@@ -308,7 +338,8 @@ class UrlRuleEvaluatorTest {
     @Test
     void operationMatches_fetchOnly() {
         var rule = AccessRule.builder()
-                .slug("x")
+                .target(MatchTarget.SLUG)
+                .value("x")
                 .operations(AccessRule.Operations.FETCH)
                 .build();
         assertFalse(UrlRuleEvaluator.operationMatches(rule, HttpOperation.PUSH));

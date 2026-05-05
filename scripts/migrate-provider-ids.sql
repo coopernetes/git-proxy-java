@@ -16,15 +16,15 @@
 
 -- user_scm_identities has a composite PK that includes provider, so rows must be
 -- inserted with the new key and old rows deleted (UPDATE would violate the PK constraint).
-INSERT INTO user_scm_identities (username, provider, scm_username, verified, source)
-    SELECT username, 'new_value', scm_username, verified, source
+INSERT INTO user_scm_identities (username, provider, scm_username, verified)
+    SELECT username, 'new_value', scm_username, verified
     FROM user_scm_identities
     WHERE provider = 'old_value';
 DELETE FROM user_scm_identities WHERE provider = 'old_value';
 
 -- scm_token_cache also has a composite PK including provider
-INSERT INTO scm_token_cache (token_hash, provider, username, cached_at, expires_at)
-    SELECT token_hash, 'new_value', username, cached_at, expires_at
+INSERT INTO scm_token_cache (token_hash, provider, proxy_username, cached_at)
+    SELECT token_hash, 'new_value', proxy_username, cached_at
     FROM scm_token_cache
     WHERE provider = 'old_value';
 DELETE FROM scm_token_cache WHERE provider = 'old_value';

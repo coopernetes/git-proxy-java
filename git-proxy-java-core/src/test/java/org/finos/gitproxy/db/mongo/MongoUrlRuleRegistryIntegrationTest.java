@@ -6,6 +6,8 @@ import com.mongodb.client.MongoClients;
 import java.util.List;
 import java.util.UUID;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.junit.jupiter.api.*;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -29,11 +31,12 @@ class MongoUrlRuleRegistryIntegrationTest {
         registry.initialize();
     }
 
-    private AccessRule rule(String provider, String owner, String name) {
+    private AccessRule rule(String provider, String value) {
         return AccessRule.builder()
                 .provider(provider)
-                .owner(owner)
-                .name(name)
+                .target(MatchTarget.OWNER)
+                .value(value)
+                .matchType(MatchType.GLOB)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
                 .enabled(true)
@@ -44,9 +47,9 @@ class MongoUrlRuleRegistryIntegrationTest {
     void save_andFindById_roundTripsAllFields() {
         AccessRule r = AccessRule.builder()
                 .provider("github")
-                .slug("org/repo")
-                .owner("org")
-                .name("repo")
+                .target(MatchTarget.SLUG)
+                .value("org/repo")
+                .matchType(MatchType.LITERAL)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.PUSH)
                 .description("block pushes")
@@ -59,9 +62,9 @@ class MongoUrlRuleRegistryIntegrationTest {
         AccessRule found = registry.findById(r.getId()).orElseThrow();
         assertEquals(r.getId(), found.getId());
         assertEquals("github", found.getProvider());
-        assertEquals("org/repo", found.getSlug());
-        assertEquals("org", found.getOwner());
-        assertEquals("repo", found.getName());
+        assertEquals(MatchTarget.SLUG, found.getTarget());
+        assertEquals("org/repo", found.getValue());
+        assertEquals(MatchType.LITERAL, found.getMatchType());
         assertEquals(AccessRule.Access.DENY, found.getAccess());
         assertEquals(AccessRule.Operations.PUSH, found.getOperations());
         assertEquals("block pushes", found.getDescription());
@@ -79,16 +82,18 @@ class MongoUrlRuleRegistryIntegrationTest {
     void findAll_returnsSortedByRuleOrderThenId() {
         AccessRule high = AccessRule.builder()
                 .id("aaa")
-                .owner("org")
-                .name("repo")
+                .target(MatchTarget.OWNER)
+                .value("org")
+                .matchType(MatchType.GLOB)
                 .ruleOrder(10)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
                 .build();
         AccessRule low = AccessRule.builder()
                 .id("zzz")
-                .owner("org")
-                .name("repo2")
+                .target(MatchTarget.OWNER)
+                .value("org")
+                .matchType(MatchType.GLOB)
                 .ruleOrder(200)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
@@ -104,14 +109,15 @@ class MongoUrlRuleRegistryIntegrationTest {
 
     @Test
     void update_replacesExistingDocument() {
-        AccessRule r = rule("github", "org", "repo");
+        AccessRule r = rule("github", "org");
         registry.save(r);
 
         AccessRule updated = AccessRule.builder()
                 .id(r.getId())
                 .provider("gitlab")
-                .owner("org")
-                .name("repo")
+                .target(MatchTarget.OWNER)
+                .value("org")
+                .matchType(MatchType.GLOB)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.FETCH)
                 .enabled(false)
@@ -126,7 +132,7 @@ class MongoUrlRuleRegistryIntegrationTest {
 
     @Test
     void delete_removesDocument() {
-        AccessRule r = rule("github", "org", "repo");
+        AccessRule r = rule("github", "org");
         registry.save(r);
         registry.delete(r.getId());
         assertTrue(registry.findById(r.getId()).isEmpty());
@@ -134,19 +140,21 @@ class MongoUrlRuleRegistryIntegrationTest {
 
     @Test
     void findEnabledForProvider_returnsMatchingAndNullProviderRules() {
-        AccessRule githubRule = rule("github", "org", "gh-repo");
-        AccessRule gitlabRule = rule("gitlab", "org", "gl-repo");
+        AccessRule githubRule = rule("github", "gh-org");
+        AccessRule gitlabRule = rule("gitlab", "gl-org");
         AccessRule globalRule = AccessRule.builder()
-                .owner("org")
-                .name("global-repo")
+                .target(MatchTarget.OWNER)
+                .value("global-org")
+                .matchType(MatchType.GLOB)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
                 .enabled(true)
                 .build();
         AccessRule disabledRule = AccessRule.builder()
                 .provider("github")
-                .owner("org")
-                .name("disabled-repo")
+                .target(MatchTarget.OWNER)
+                .value("disabled-org")
+                .matchType(MatchType.GLOB)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
                 .enabled(false)
@@ -157,11 +165,10 @@ class MongoUrlRuleRegistryIntegrationTest {
         registry.save(disabledRule);
 
         List<AccessRule> results = registry.findEnabledForProvider("github");
-        // Should include github-specific and global (null provider), but not gitlab or disabled
-        assertTrue(results.stream().anyMatch(r -> "gh-repo".equals(r.getName())));
-        assertTrue(results.stream().anyMatch(r -> "global-repo".equals(r.getName())));
-        assertTrue(results.stream().noneMatch(r -> "gl-repo".equals(r.getName())));
-        assertTrue(results.stream().noneMatch(r -> "disabled-repo".equals(r.getName())));
+        assertTrue(results.stream().anyMatch(r -> "gh-org".equals(r.getValue())));
+        assertTrue(results.stream().anyMatch(r -> "global-org".equals(r.getValue())));
+        assertTrue(results.stream().noneMatch(r -> "gl-org".equals(r.getValue())));
+        assertTrue(results.stream().noneMatch(r -> "disabled-org".equals(r.getValue())));
     }
 
     @Test

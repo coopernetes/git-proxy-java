@@ -8,6 +8,7 @@ import org.finos.gitproxy.approval.AutoApprovalGateway;
 import org.finos.gitproxy.approval.UiApprovalGateway;
 import org.finos.gitproxy.db.PushStoreFactory;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.permission.RepoPermission;
 import org.finos.gitproxy.provider.GitHubProvider;
 import org.finos.gitproxy.provider.GitProxyProvider;
@@ -43,11 +44,7 @@ class JettyConfigurationBuilderTest {
     @Test
     void validateProviderReferences_validConfig_doesNotThrow() {
         var config = configWithGithub();
-        var permission = new PermissionConfig();
-        permission.setUsername("alice");
-        permission.setProvider("github");
-        permission.setPath("/org/repo");
-        config.setPermissions(List.of(permission));
+        config.setPermissions(List.of(slugPerm("alice", "github", "/org/repo")));
 
         assertDoesNotThrow(() -> new JettyConfigurationBuilder(config).validateProviderReferences());
     }
@@ -55,26 +52,18 @@ class JettyConfigurationBuilderTest {
     @Test
     void validateProviderReferences_unknownPermissionProvider_throws() {
         var config = configWithGithub();
-        var permission = new PermissionConfig();
-        permission.setUsername("alice");
-        permission.setProvider("not-a-provider");
-        permission.setPath("/org/repo");
-        config.setPermissions(List.of(permission));
+        config.setPermissions(List.of(slugPerm("alice", "not-a-provider", "/org/repo")));
 
         var builder = new JettyConfigurationBuilder(config);
         var ex = assertThrows(IllegalStateException.class, builder::validateProviderReferences);
         assertTrue(ex.getMessage().contains("not-a-provider"));
-        // Should list the configured providers in the error
         assertTrue(ex.getMessage().contains("github"));
     }
 
     @Test
     void validateProviderReferences_unknownRuleProvider_throws() {
         var config = configWithGithub();
-        var ruleConfig = new RuleConfig();
-        ruleConfig.setProviders(List.of("typo-provider"));
-        ruleConfig.setSlugs(List.of("/org/repo"));
-        config.getRules().setAllow(List.of(ruleConfig));
+        config.getRules().setAllow(List.of(slugRule("typo-provider", "/org/repo", 1100)));
 
         var builder = new JettyConfigurationBuilder(config);
         assertThrows(IllegalStateException.class, builder::validateProviderReferences);
@@ -82,7 +71,6 @@ class JettyConfigurationBuilderTest {
 
     @Test
     void validateProviderReferences_emptyConfig_doesNotThrow() {
-        // No providers, no cross-references → nothing to validate
         assertDoesNotThrow(() -> new JettyConfigurationBuilder(new GitProxyConfig()).validateProviderReferences());
     }
 
@@ -93,15 +81,12 @@ class JettyConfigurationBuilderTest {
         var builder = new JettyConfigurationBuilder(configWithGithub());
         var registry = builder.buildProviderRegistry();
 
-        // Lookup by name
         assertTrue(registry.getProvider("github").isPresent());
         assertInstanceOf(GitHubProvider.class, registry.getProvider("github").orElseThrow());
-        // Lookup by name via resolveProvider
         assertTrue(registry.resolveProvider("github").isPresent());
         assertSame(
                 registry.getProvider("github").orElseThrow(),
                 registry.resolveProvider("github").orElseThrow());
-        // Name resolves to a stable provider ID
         assertEquals(
                 registry.resolveProvider("github").orElseThrow().getProviderId(),
                 registry.resolveProvider("github").orElseThrow().getProviderId());
@@ -112,16 +97,11 @@ class JettyConfigurationBuilderTest {
     @Test
     void buildConfigPermissions_name_stored_on_permission() {
         var config = configWithGithub();
-        var permission = new PermissionConfig();
-        permission.setUsername("alice");
-        permission.setProvider("github");
-        permission.setPath("/org/repo");
-        config.setPermissions(List.of(permission));
+        config.setPermissions(List.of(slugPerm("alice", "github", "/org/repo")));
 
         List<RepoPermission> perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
 
         assertEquals(1, perms.size());
-
         assertEquals("github", perms.get(0).getProvider());
         assertEquals("alice", perms.get(0).getUsername());
     }
@@ -129,11 +109,7 @@ class JettyConfigurationBuilderTest {
     @Test
     void buildConfigPermissions_unknownProvider_throwsWithHelpfulMessage() {
         var config = configWithGithub();
-        var permission = new PermissionConfig();
-        permission.setUsername("carol");
-        permission.setProvider("nonexistent");
-        permission.setPath("/org/repo");
-        config.setPermissions(List.of(permission));
+        config.setPermissions(List.of(slugPerm("carol", "nonexistent", "/org/repo")));
 
         var builder = new JettyConfigurationBuilder(config);
         var ex = assertThrows(IllegalStateException.class, () -> builder.buildConfigPermissions(config));
@@ -146,30 +122,23 @@ class JettyConfigurationBuilderTest {
     @Test
     void buildConfigRules_name_stored_on_rule() {
         var config = configWithGithub();
-        var ruleConfig = new RuleConfig();
-        ruleConfig.setProviders(List.of("github"));
-        ruleConfig.setSlugs(List.of("/org/repo"));
-        config.getRules().setAllow(List.of(ruleConfig));
+        config.getRules().setAllow(List.of(slugRule("github", "/org/repo", 1100)));
 
         List<AccessRule> rules = new JettyConfigurationBuilder(config).buildConfigRules(config);
 
         assertFalse(rules.isEmpty());
-
         assertEquals("github", rules.get(0).getProvider());
     }
 
     @Test
     void buildConfigRules_noProviderFilter_storesNullProvider() {
         var config = configWithGithub();
-        var ruleConfig = new RuleConfig();
-        // no providers → applies to all
-        ruleConfig.setSlugs(List.of("/org/repo"));
-        config.getRules().setAllow(List.of(ruleConfig));
+        config.getRules().setAllow(List.of(slugRule("", "/org/repo", 1100)));
 
         List<AccessRule> rules = new JettyConfigurationBuilder(config).buildConfigRules(config);
 
         assertFalse(rules.isEmpty());
-        assertNull(rules.get(0).getProvider()); // null = all providers
+        assertNull(rules.get(0).getProvider());
     }
 
     // ---- buildConfigRules — provider name scoping ----
@@ -177,11 +146,7 @@ class JettyConfigurationBuilderTest {
     @Test
     void buildConfigRules_name_scopes_rule_to_provider() {
         var config = configWithGithub();
-        var ruleConfig = new RuleConfig();
-        ruleConfig.setOrder(110);
-        ruleConfig.setProviders(List.of("github"));
-        ruleConfig.setSlugs(List.of("/org/repo"));
-        config.getRules().setAllow(List.of(ruleConfig));
+        config.getRules().setAllow(List.of(slugRule("github", "/org/repo", 110)));
 
         var builder = new JettyConfigurationBuilder(config);
         var githubProviderId = builder.buildProviderRegistry()
@@ -199,11 +164,7 @@ class JettyConfigurationBuilderTest {
     @Test
     void buildConfigRules_name_excludes_other_provider() {
         var config = configWithGithubAndGitlab();
-        var ruleConfig = new RuleConfig();
-        ruleConfig.setOrder(110);
-        ruleConfig.setProviders(List.of("github")); // only github
-        ruleConfig.setSlugs(List.of("/org/repo"));
-        config.getRules().setAllow(List.of(ruleConfig));
+        config.getRules().setAllow(List.of(slugRule("github", "/org/repo", 110)));
 
         var builder = new JettyConfigurationBuilder(config);
         var gitlabProviderId = builder.buildProviderRegistry()
@@ -238,15 +199,9 @@ class JettyConfigurationBuilderTest {
     @Test
     void twoProvidersOfSameType_permissionsAreKeptSeparate() {
         var config = configWithTwoGitHubProviders();
-        var publicPerm = new PermissionConfig();
-        publicPerm.setUsername("alice");
-        publicPerm.setProvider("github");
-        publicPerm.setPath("/org/public-repo");
-        var internalPerm = new PermissionConfig();
-        internalPerm.setUsername("bob");
-        internalPerm.setProvider("internal-github");
-        internalPerm.setPath("/corp/internal-repo");
-        config.setPermissions(List.of(publicPerm, internalPerm));
+        config.setPermissions(List.of(
+                slugPerm("alice", "github", "/org/public-repo"),
+                slugPerm("bob", "internal-github", "/corp/internal-repo")));
 
         var perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
 
@@ -263,7 +218,57 @@ class JettyConfigurationBuilderTest {
         assertEquals("internal-github", bobPerm.getProvider());
     }
 
+    // ---- MatchConfig.type defaults ----
+
+    @Test
+    void buildConfigPermissions_nullType_defaultsToGlob() {
+        var config = configWithGithub();
+        var perm = slugPerm("alice", "github", "/org/repo");
+        perm.getMatch().setType(null);
+        config.setPermissions(List.of(perm));
+
+        List<RepoPermission> perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
+
+        assertEquals(MatchType.GLOB, perms.get(0).getMatchType());
+    }
+
+    @Test
+    void buildConfigRules_nullType_defaultsToGlob() {
+        var config = configWithGithub();
+        var rule = slugRule("github", "/org/repo", 1100);
+        rule.getMatch().setType(null);
+        config.getRules().setAllow(List.of(rule));
+
+        List<AccessRule> rules = new JettyConfigurationBuilder(config).buildConfigRules(config);
+
+        assertEquals(MatchType.GLOB, rules.get(0).getMatchType());
+    }
+
     // ---- helpers ----
+
+    private static PermissionConfig slugPerm(String username, String provider, String value) {
+        var perm = new PermissionConfig();
+        perm.setUsername(username);
+        perm.setProvider(provider);
+        var m = new MatchConfig();
+        m.setTarget("SLUG");
+        m.setValue(value);
+        m.setType("LITERAL");
+        perm.setMatch(m);
+        return perm;
+    }
+
+    private static RuleConfig slugRule(String provider, String value, int order) {
+        var rule = new RuleConfig();
+        rule.setProvider(provider);
+        rule.setOrder(order);
+        var m = new MatchConfig();
+        m.setTarget("SLUG");
+        m.setValue(value);
+        m.setType("LITERAL");
+        rule.setMatch(m);
+        return rule;
+    }
 
     private static GitProxyConfig configWithApprovalMode(String mode) {
         var config = new GitProxyConfig();
