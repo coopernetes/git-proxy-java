@@ -46,7 +46,7 @@ APPROVE_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "http://localhost:8080/api/push/${PUSH_ID}/authorise" \
     -H "Content-Type: application/json" \
     -H "X-Api-Key: ${GITPROXY_API_KEY}" \
-    -d '{"user":"test-script","comment":"auto-approved by proxy-pass.sh","attestations":{"reviewed-content":"true","policy-compliance":"true"}}')
+    -d '{"reviewerUsername":"test-script","reason":"auto-approved by proxy-pass.sh"}')
 if [ "${APPROVE_RESPONSE}" != "200" ]; then
     echo "ERROR: Approval API returned HTTP ${APPROVE_RESPONSE}"
     exit 1

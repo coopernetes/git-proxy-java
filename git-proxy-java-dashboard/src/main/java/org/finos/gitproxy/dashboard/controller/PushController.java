@@ -195,7 +195,7 @@ public class PushController {
             String reviewerEmail,
             String reason,
             Map<String, String> attestations,
-            boolean adminOverride) {}
+            Boolean adminOverride) {}
 
     /**
      * Approve a push. Body: { "reviewerUsername": "...", "reviewerEmail": "...", "reason": "...", "attestations": {
@@ -211,7 +211,8 @@ public class PushController {
                         return ResponseEntity.badRequest()
                                 .body(Map.of("error", "Push is not in PENDING status: " + record.getStatus()));
                     }
-                    ResponseEntity<?> identityError = checkReviewerIdentity(record, body.adminOverride());
+                    boolean adminOverride = Boolean.TRUE.equals(body.adminOverride());
+                    ResponseEntity<?> identityError = checkReviewerIdentity(record, adminOverride);
                     if (identityError != null) return identityError;
 
                     // Validate required attestation questions are answered
@@ -225,7 +226,7 @@ public class PushController {
                             .reviewerUsername(resolveReviewerFromApproveBody(body, auth))
                             .reviewerEmail(body.reviewerEmail())
                             .reason(body.reason())
-                            .selfApproval(isSelfApproval(record, auth, body.adminOverride()))
+                            .selfApproval(isSelfApproval(record, auth, adminOverride))
                             .answers(body.attestations())
                             .build();
                     var updated = pushStore.approve(id, attestation);
