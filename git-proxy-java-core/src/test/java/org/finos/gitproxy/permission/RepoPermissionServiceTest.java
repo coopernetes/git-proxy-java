@@ -154,6 +154,90 @@ class RepoPermissionServiceTest {
         assertTrue(svc.isAllowedToPush("alice", "github", "/other/thing"));
     }
 
+    // ---- glob matching semantics ----
+    //
+    // Paths use the /owner/repo convention. Glob matching uses java.nio.file.FileSystem#getPathMatcher
+    // ("glob:" prefix). Key rules:
+    //   * = any sequence of characters within ONE path segment (no "/" crossing)
+    //   ** = any sequence including path separators (matches across segments)
+    //   ? = exactly one character (no "/" crossing)
+    //   Hyphens, dots, and digits in names are regular characters — no special treatment.
+
+    @Test
+    void glob_singleStar_matchesRepoName() {
+        svc.save(grant("alice", "github", "/acme/*", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/repo"));
+    }
+
+    @Test
+    void glob_singleStar_matchesHyphenatedName() {
+        svc.save(grant("alice", "github", "/acme/*", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/my-service"));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/repo-v2"));
+    }
+
+    @Test
+    void glob_singleStar_doesNotCrossPathSeparator() {
+        svc.save(grant("alice", "github", "/acme/*", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        // /acme/sub/repo has two segments after /acme — single * does not match
+        assertFalse(svc.isAllowedToPush("alice", "github", "/acme/sub/repo"));
+    }
+
+    @Test
+    void glob_singleStar_doesNotMatchOtherOwner() {
+        svc.save(grant("alice", "github", "/acme/*", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertFalse(svc.isAllowedToPush("alice", "github", "/other/repo"));
+    }
+
+    @Test
+    void glob_doubleStar_matchesAcrossSegments() {
+        svc.save(grant("alice", "github", "/acme/**", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/repo"));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/sub/repo"));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/a/b/c"));
+    }
+
+    @Test
+    void glob_doubleStar_doesNotMatchOtherOwner() {
+        svc.save(grant("alice", "github", "/acme/**", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertFalse(svc.isAllowedToPush("alice", "github", "/other/repo"));
+    }
+
+    @Test
+    void glob_leadingDoubleStar_matchesAllPaths() {
+        svc.save(grant("alice", "github", "/**", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/repo"));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/other/thing"));
+    }
+
+    @Test
+    void glob_wildcardOwner_matchesSpecificRepo() {
+        svc.save(grant("alice", "github", "/*/repo", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/repo"));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/other/repo"));
+        assertFalse(svc.isAllowedToPush("alice", "github", "/acme/other-repo"));
+    }
+
+    @Test
+    void glob_prefixSuffix_matchesNames() {
+        svc.save(grant(
+                "alice", "github", "/acme/service-*", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/service-api"));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/service-worker"));
+        assertFalse(svc.isAllowedToPush("alice", "github", "/acme/repo"));
+        assertFalse(svc.isAllowedToPush("alice", "github", "/acme/my-service-api"));
+    }
+
+    @Test
+    void glob_questionMark_matchesSingleChar() {
+        svc.save(
+                grant("alice", "github", "/acme/repo-?", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/repo-1"));
+        assertTrue(svc.isAllowedToPush("alice", "github", "/acme/repo-a"));
+        assertFalse(svc.isAllowedToPush("alice", "github", "/acme/repo-12"));
+        assertFalse(svc.isAllowedToPush("alice", "github", "/acme/repo-"));
+    }
+
     // ---- regex matching ----
 
     @Test
@@ -229,6 +313,190 @@ class RepoPermissionServiceTest {
         svc.seedFromConfig(List.of());
         assertTrue(svc.isAllowedToPush("bob", "github", "/owner/repo"));
         assertFalse(svc.isAllowedToPush("alice", "github", "/owner/repo"));
+    }
+
+    // ---- conflict detection ----
+
+    @Test
+    void findConflict_exactDuplicatePath_sameOps_detected() {
+        svc.save(grant("alice", "github", "/acme/repo"));
+        RepoPermission incoming =
+                grant("alice", "github", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH);
+        assertTrue(svc.findConflict(incoming).isPresent());
+    }
+
+    @Test
+    void findConflict_pushVsPushAndReview_detected() {
+        svc.save(grant(
+                "alice", "github", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH));
+        RepoPermission incoming = grant(
+                "alice",
+                "github",
+                "/acme/repo",
+                RepoPermission.PathType.LITERAL,
+                RepoPermission.Operations.PUSH_AND_REVIEW);
+        assertTrue(svc.findConflict(incoming).isPresent());
+    }
+
+    @Test
+    void findConflict_pushAndReviewVsSelfCertify_noConflict() {
+        // Trusted committer pattern: PUSH_AND_REVIEW + SELF_CERTIFY on the same path must coexist.
+        // They are evaluated by separate code paths (isAllowedToPush vs isBypassReviewAllowed).
+        svc.save(grant(
+                "alice",
+                "github",
+                "/acme/repo",
+                RepoPermission.PathType.LITERAL,
+                RepoPermission.Operations.PUSH_AND_REVIEW));
+        RepoPermission incoming = grant(
+                "alice",
+                "github",
+                "/acme/repo",
+                RepoPermission.PathType.LITERAL,
+                RepoPermission.Operations.SELF_CERTIFY);
+        assertTrue(svc.findConflict(incoming).isEmpty());
+    }
+
+    @Test
+    void findConflict_selfCertifyVsSelfCertify_detected() {
+        svc.save(grant(
+                "alice",
+                "github",
+                "/acme/repo",
+                RepoPermission.PathType.LITERAL,
+                RepoPermission.Operations.SELF_CERTIFY));
+        RepoPermission incoming = grant(
+                "alice",
+                "github",
+                "/acme/repo",
+                RepoPermission.PathType.LITERAL,
+                RepoPermission.Operations.SELF_CERTIFY);
+        assertTrue(svc.findConflict(incoming).isPresent());
+    }
+
+    @Test
+    void findConflict_pushVsReview_noConflict() {
+        // PUSH and REVIEW affect different permission checks and can coexist.
+        svc.save(grant(
+                "alice", "github", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH));
+        RepoPermission incoming = grant(
+                "alice", "github", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.REVIEW);
+        assertTrue(svc.findConflict(incoming).isEmpty());
+    }
+
+    @Test
+    void findConflict_differentUser_noConflict() {
+        svc.save(grant("alice", "github", "/acme/repo"));
+        RepoPermission incoming =
+                grant("bob", "github", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH);
+        assertTrue(svc.findConflict(incoming).isEmpty());
+    }
+
+    @Test
+    void findConflict_differentProvider_noConflict() {
+        svc.save(grant("alice", "github", "/acme/repo"));
+        RepoPermission incoming =
+                grant("alice", "gitlab", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH);
+        assertTrue(svc.findConflict(incoming).isEmpty());
+    }
+
+    @Test
+    void findConflict_literalMatchedByExistingGlob_detected() {
+        svc.save(grant("alice", "github", "/acme/**", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH));
+        RepoPermission incoming =
+                grant("alice", "github", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH);
+        assertTrue(svc.findConflict(incoming).isPresent());
+    }
+
+    @Test
+    void findConflict_incomingGlobMatchesExistingLiteral_detected() {
+        svc.save(grant("alice", "github", "/acme/repo"));
+        RepoPermission incoming = grant(
+                "alice", "github", "/acme/**", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH_AND_REVIEW);
+        assertTrue(svc.findConflict(incoming).isPresent());
+    }
+
+    @Test
+    void findConflict_globOverlap_subsetDetected() {
+        svc.save(grant(
+                "alice",
+                "github",
+                "/acme/**",
+                RepoPermission.PathType.GLOB,
+                RepoPermission.Operations.PUSH_AND_REVIEW));
+        RepoPermission incoming = grant(
+                "alice", "github", "/acme/*", RepoPermission.PathType.GLOB, RepoPermission.Operations.PUSH_AND_REVIEW);
+        assertTrue(svc.findConflict(incoming).isPresent());
+    }
+
+    @Test
+    void findConflict_noOverlap_noConflict() {
+        svc.save(grant("alice", "github", "/acme/repo-a"));
+        RepoPermission incoming = grant(
+                "alice", "github", "/acme/repo-b", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH);
+        assertTrue(svc.findConflict(incoming).isEmpty());
+    }
+
+    @Test
+    void seedFromConfig_conflictingRows_throwsIllegalStateException() {
+        // Two CONFIG rows for the same user+provider+path with overlapping operations
+        List<RepoPermission> permissions = List.of(
+                RepoPermission.builder()
+                        .username("alice")
+                        .provider("github")
+                        .path("/acme/**")
+                        .pathType(RepoPermission.PathType.GLOB)
+                        .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
+                        .source(RepoPermission.Source.CONFIG)
+                        .build(),
+                RepoPermission.builder()
+                        .username("alice")
+                        .provider("github")
+                        .path("/acme/*")
+                        .pathType(RepoPermission.PathType.GLOB)
+                        .operations(RepoPermission.Operations.PUSH)
+                        .source(RepoPermission.Source.CONFIG)
+                        .build());
+        assertThrows(IllegalStateException.class, () -> svc.seedFromConfig(permissions));
+    }
+
+    @Test
+    void seedFromConfig_configConflictsWithExistingDb_throwsIllegalStateException() {
+        // Existing DB row for PUSH; CONFIG row tries to add PUSH_AND_REVIEW on an overlapping path
+        svc.save(grant(
+                "alice", "github", "/acme/repo", RepoPermission.PathType.LITERAL, RepoPermission.Operations.PUSH));
+        List<RepoPermission> permissions = List.of(RepoPermission.builder()
+                .username("alice")
+                .provider("github")
+                .path("/acme/**")
+                .pathType(RepoPermission.PathType.GLOB)
+                .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
+                .source(RepoPermission.Source.CONFIG)
+                .build());
+        assertThrows(IllegalStateException.class, () -> svc.seedFromConfig(permissions));
+    }
+
+    @Test
+    void seedFromConfig_selfCertifyAlongsidePushAndReview_noConflict() {
+        // Trusted committer pattern — both entries are needed and must coexist
+        List<RepoPermission> permissions = List.of(
+                RepoPermission.builder()
+                        .username("alice")
+                        .provider("github")
+                        .path("/acme/**")
+                        .pathType(RepoPermission.PathType.GLOB)
+                        .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
+                        .source(RepoPermission.Source.CONFIG)
+                        .build(),
+                RepoPermission.builder()
+                        .username("alice")
+                        .provider("github")
+                        .path("/acme/**")
+                        .pathType(RepoPermission.PathType.GLOB)
+                        .operations(RepoPermission.Operations.SELF_CERTIFY)
+                        .source(RepoPermission.Source.CONFIG)
+                        .build());
+        assertDoesNotThrow(() -> svc.seedFromConfig(permissions));
     }
 
     // ---- CRUD delegation ----

@@ -900,6 +900,103 @@ rules:
         - "*.github.io"
 ```
 
+> **Glob on `owners` and `names`:** Owner and repository names cannot contain `/`, so `*` reliably matches any
+> valid name including hyphens, underscores, and dots. You do not need `**` in these fields — `*` is sufficient
+> and the two are equivalent in this context.
+
+### Real-world URL rule examples
+
+**Gateway for a specific SCM — allow all push and fetch:**
+
+```yaml
+rules:
+  allow:
+    - enabled: true
+      order: 110
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - internal-github
+      slugs:
+        - "*/*"
+```
+
+**Allow repos under a set of known owner orgs, identified by a name prefix:**
+
+This is useful when multiple teams or divisions share a SCM and are distinguished by an owner-name convention
+(e.g. `teamA-*`, `teamB-*`).
+
+```yaml
+rules:
+  allow:
+    - enabled: true
+      order: 110
+      operations:
+        - FETCH
+        - PUSH
+      providers:
+        - internal-github
+      owners:
+        - "regex:team-(alpha|beta|gamma)"
+```
+
+**Allow push only for repos whose name starts with a known prefix:**
+
+When application or project repos are identified by a prefix (e.g. a fixed-length code followed by a hyphen),
+match on `names` rather than the full slug so the rule applies regardless of which owner org the repo lives under.
+
+```yaml
+rules:
+  allow:
+    - enabled: true
+      order: 110
+      operations:
+        - PUSH
+      providers:
+        - internal-github
+      names:
+        - "proj0-*"
+        - "proj1-*"
+        - "shared-*"
+```
+
+**Combine owner and name matching (SCM-to-SCM migration scenario):**
+
+When acting as a gateway between two SCMs (e.g. during an M&A integration), you may want to allow only repos
+that belong to a specific org AND follow a naming pattern. Use `slugs` with a glob or regex for this — each
+entry in `owners` and `names` is evaluated independently (OR logic), so combining both in one rule block does
+not produce an AND condition.
+
+```yaml
+rules:
+  allow:
+    # Allow fetch from the source SCM for a specific org + name prefix — use slug for AND logic
+    - enabled: true
+      order: 110
+      operations:
+        - FETCH
+      providers:
+        - source-github
+      slugs:
+        - "acquired-org/migrate-*"
+
+    # Allow push to the destination SCM for the same set, using regex for stricter control
+    - enabled: true
+      order: 120
+      operations:
+        - PUSH
+      providers:
+        - dest-gitlab
+      slugs:
+        - "regex:/migrated-org/migrate-.*"
+```
+
+> **`owners` and `names` are OR conditions.** An entry under `owners: [acme]` allows any repo whose owner is
+> `acme`, regardless of repo name. An entry under `names: [migrate-*]` allows any repo whose name matches,
+> regardless of owner. To restrict both owner AND name together, use `slugs` with a glob (e.g.
+> `acme/migrate-*`) or a `regex:`-prefixed pattern.
+
 ## Permissions
 
 Permissions control which proxy users can push to or review pushes from specific repositories. They are checked
@@ -946,6 +1043,105 @@ permissions:
 | `path`      | string | —         | Repository path pattern (`/owner/repo`); interpretation depends on `path-type`              |
 | `path-type` | enum   | `LITERAL` | `LITERAL` (exact), `GLOB` (`*`/`?` wildcards), `REGEX` (Java regex against the full path)  |
 | `operations`| enum   | `PUSH`    | What the user may do: `PUSH`, `REVIEW`, `PUSH_AND_REVIEW`, `SELF_CERTIFY`                  |
+
+### GLOB path semantics
+
+GLOB matching uses Java NIO `PathMatcher` (`glob:` prefix). Paths follow the `/owner/repo` convention.
+
+| Wildcard | Matches | Does NOT match |
+| -------- | ------- | -------------- |
+| `*` | Any sequence of characters within **one** path segment (no `/` crossing) | Another path segment or the `/` separator itself |
+| `**` | Any sequence of characters **including** path separators (zero or more segments) | — |
+| `?` | Exactly **one** character within a path segment | `/` or a multi-character sequence |
+
+Hyphens, digits, and dots in names are treated as regular characters — no special escaping needed.
+
+**Pattern examples:**
+
+| Pattern | Matches | Does NOT match |
+| ------- | ------- | -------------- |
+| `/acme/repo` _(LITERAL)_ | `/acme/repo` | `/acme/other` |
+| `/acme/*` | `/acme/repo`, `/acme/my-service`, `/acme/repo-v2` | `/acme/sub/repo`, `/other/repo` |
+| `/acme/**` | `/acme/repo`, `/acme/sub/repo`, `/acme/a/b/c` | `/other/repo` |
+| `/**` | Every path | — |
+| `/*/repo` | `/acme/repo`, `/other/repo` | `/acme/other-repo` |
+| `/acme/service-*` | `/acme/service-api`, `/acme/service-worker` | `/acme/repo`, `/acme/my-service-api` |
+| `/acme/repo-?` | `/acme/repo-1`, `/acme/repo-a` | `/acme/repo-12`, `/acme/repo-` |
+
+> **Glob on the repo-name segment:** Repository names cannot contain `/`, so `*` will never cross a path separator
+> when used in the name position (e.g. `/owner/prefix-*`). In this position `*` and `**` are equivalent — use `*`.
+
+> **Conflict detection:** At config load time and when saving via the dashboard API, git-proxy-java rejects any
+> new permission entry whose path overlaps with an existing entry for the same user and provider. Two paths overlap
+> when they are equal, or when one is a GLOB/REGEX pattern that would match the other path string. This prevents
+> silent misconfiguration where the effective permission depends on evaluation order.
+
+### Real-world permission examples
+
+**Gateway use case — allow a user to push any repo on a specific provider:**
+
+```yaml
+permissions:
+  - username: alice
+    provider: internal-github
+    path: "/**"
+    path-type: GLOB
+    operations: PUSH_AND_REVIEW
+```
+
+**Allow push to all repos whose name starts with a known prefix (e.g. a project code):**
+
+Useful when repos are identified by a fixed prefix such as a project or application code. Since repo names cannot
+contain `/`, the `*` in the name segment matches any suffix including hyphens and digits.
+
+```yaml
+permissions:
+  - username: alice
+    provider: internal-github
+    path: "/myorg/proj0-*"
+    path-type: GLOB
+    operations: PUSH
+
+  # Or match the same prefix across any owner using a wildcard in the owner position:
+  - username: alice
+    provider: internal-github
+    path: "/*/proj0-*"
+    path-type: GLOB
+    operations: PUSH
+```
+
+**Regex — match repos under multiple owner orgs:**
+
+```yaml
+permissions:
+  - username: alice
+    provider: internal-github
+    path: "/team-(alpha|beta)/.*"
+    path-type: REGEX
+    operations: PUSH_AND_REVIEW
+```
+
+**Self-certify for a trusted committer scoped to a prefix:**
+
+A trusted committer needs both entries: `PUSH_AND_REVIEW` to be able to push, and `SELF_CERTIFY` to bypass the
+peer review requirement. These cover separate code paths and are not treated as conflicting.
+
+```yaml
+permissions:
+  # Push and review access
+  - username: trusted-dev
+    provider: internal-github
+    path: "/myorg/proj0-*"
+    path-type: GLOB
+    operations: PUSH_AND_REVIEW
+
+  # Self-certify on the same scope (requires SELF_CERTIFY role on the user too)
+  - username: trusted-dev
+    provider: internal-github
+    path: "/myorg/proj0-*"
+    path-type: GLOB
+    operations: SELF_CERTIFY
+```
 
 ### Operations
 
