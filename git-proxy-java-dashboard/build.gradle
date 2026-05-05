@@ -170,7 +170,7 @@ dependencies {
     // MongoDB driver — compile-scoped because MongoSessionRepository uses the sync client directly.
     implementation "org.mongodb:mongodb-driver-sync:${mongoVersion}"
 
-    compileOnly "io.lettuce:lettuce-core:${lettuceVersion}"
+    implementation "io.lettuce:lettuce-core:${lettuceVersion}"
 
     // OpenAPI spec generation — core model + YAML/JSON serialisation only (no JAX-RS required).
     // The spec is built programmatically from Spring's RequestMappingHandlerMapping.
