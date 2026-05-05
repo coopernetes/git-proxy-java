@@ -5,10 +5,10 @@ plugins {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
         vendor = JvmVendorSpec.ADOPTIUM
     }
 }
@@ -169,6 +169,8 @@ dependencies {
     runtimeOnly "org.postgresql:postgresql:${postgresVersion}"
     // MongoDB driver — compile-scoped because MongoSessionRepository uses the sync client directly.
     implementation "org.mongodb:mongodb-driver-sync:${mongoVersion}"
+
+    compileOnly "io.lettuce:lettuce-core:${lettuceVersion}"
 
     // OpenAPI spec generation — core model + YAML/JSON serialisation only (no JAX-RS required).
     // The spec is built programmatically from Spring's RequestMappingHandlerMapping.
