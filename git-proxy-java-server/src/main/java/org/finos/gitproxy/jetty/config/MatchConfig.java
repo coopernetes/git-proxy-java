@@ -15,8 +15,7 @@ public class MatchConfig {
     /**
      * How {@link #value} is matched. One of: {@code LITERAL}, {@code GLOB}, {@code REGEX}.
      *
-     * <p>When omitted, the caller is responsible for applying a context-specific default: {@code GLOB} for URL rules,
-     * {@code LITERAL} for user permissions.
+     * <p>When omitted, defaults to {@code GLOB} for both URL rules and permissions.
      */
     private String type = null;
 }

@@ -1100,11 +1100,8 @@ permissions:
 | `match`         | object | —                | Repository match criteria — see below                                           |
 | `match.target`  | enum   | `SLUG`           | What to match: `SLUG` (`/owner/repo`), `OWNER`, or `NAME`                       |
 | `match.value`   | string | —                | The pattern to match against the chosen target                                  |
-| `match.type`    | enum   | `LITERAL`        | How to interpret the pattern: `LITERAL`, `GLOB`, or `REGEX`                     |
+| `match.type`    | enum   | `GLOB`           | How to interpret the pattern: `LITERAL`, `GLOB`, or `REGEX`                     |
 | `operations`    | enum   | `PUSH_AND_REVIEW`| What the user may do: `PUSH`, `REVIEW`, `PUSH_AND_REVIEW`, `SELF_CERTIFY`       |
-
-> **Default match type differs between rules and permissions.** URL rules default to `GLOB` (safer for broad allow/deny
-> policies). Permissions default to `LITERAL` (safer for access grants — explicit intent required to use wildcards).
 
 ### Pattern matching
 

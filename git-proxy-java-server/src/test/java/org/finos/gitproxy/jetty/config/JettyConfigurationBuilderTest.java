@@ -221,7 +221,7 @@ class JettyConfigurationBuilderTest {
     // ---- MatchConfig.type defaults ----
 
     @Test
-    void buildConfigPermissions_nullType_defaultsToLiteral() {
+    void buildConfigPermissions_nullType_defaultsToGlob() {
         var config = configWithGithub();
         var perm = slugPerm("alice", "github", "/org/repo");
         perm.getMatch().setType(null);
@@ -229,7 +229,7 @@ class JettyConfigurationBuilderTest {
 
         List<RepoPermission> perms = new JettyConfigurationBuilder(config).buildConfigPermissions(config);
 
-        assertEquals(MatchType.LITERAL, perms.get(0).getMatchType());
+        assertEquals(MatchType.GLOB, perms.get(0).getMatchType());
     }
 
     @Test

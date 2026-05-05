@@ -522,7 +522,7 @@ public class JettyConfigurationBuilder {
                             .provider(resolvedId)
                             .target(MatchTarget.valueOf(m.getTarget().toUpperCase()))
                             .value(m.getValue())
-                            .matchType(MatchType.valueOf((m.getType() != null ? m.getType() : "LITERAL").toUpperCase()))
+                            .matchType(MatchType.valueOf((m.getType() != null ? m.getType() : "GLOB").toUpperCase()))
                             .operations(RepoPermission.Operations.valueOf(
                                     p.getOperations().toUpperCase()))
                             .source(RepoPermission.Source.CONFIG)
