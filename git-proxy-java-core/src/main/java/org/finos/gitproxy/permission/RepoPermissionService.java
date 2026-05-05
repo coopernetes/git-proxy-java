@@ -84,6 +84,25 @@ public class RepoPermissionService {
         return allowed;
     }
 
+    /**
+     * Returns the first existing permission that would conflict with {@code incoming}, or empty if none.
+     *
+     * <p>Two permissions conflict when they share the same username and provider, their paths overlap (exact string
+     * equality, or one pattern matches the other path string), AND their operations affect the same permission check.
+     * {@link RepoPermission.Operations#SELF_CERTIFY} is evaluated by a separate code path from push/review operations,
+     * so a {@code SELF_CERTIFY} entry does not conflict with a {@code PUSH_AND_REVIEW} entry on the same path — both
+     * are needed for a trusted committer configuration.
+     */
+    public Optional<RepoPermission> findConflict(RepoPermission incoming) {
+        return store.findAll().stream()
+                .filter(e -> !e.getId().equals(incoming.getId()))
+                .filter(e -> e.getUsername().equals(incoming.getUsername()))
+                .filter(e -> e.getProvider().equals(incoming.getProvider()))
+                .filter(e -> pathsOverlap(e, incoming))
+                .filter(e -> operationsOverlap(e.getOperations(), incoming.getOperations()))
+                .findFirst();
+    }
+
     // ---- store delegation ----
 
     public void save(RepoPermission permission) {
@@ -120,12 +139,47 @@ public class RepoPermissionService {
                 .filter(p -> p.getSource() == RepoPermission.Source.CONFIG)
                 .forEach(p -> store.delete(p.getId()));
         for (RepoPermission p : permissions) {
+            Optional<RepoPermission> conflict = findConflict(p);
+            if (conflict.isPresent()) {
+                RepoPermission c = conflict.get();
+                throw new IllegalStateException(String.format(
+                        "Conflicting permission for user '%s' provider '%s': path '%s' (%s) overlaps with '%s' (%s) [%s] — fix config and restart",
+                        p.getUsername(),
+                        p.getProvider(),
+                        p.getPath(),
+                        p.getPathType(),
+                        c.getPath(),
+                        c.getPathType(),
+                        c.getSource()));
+            }
             store.save(p);
         }
         log.info("Seeded {} permission grant(s) from config", permissions.size());
     }
 
     // ---- internals ----
+
+    private boolean operationsOverlap(RepoPermission.Operations a, RepoPermission.Operations b) {
+        // SELF_CERTIFY is evaluated by isBypassReviewAllowed(), independent of push/review checks.
+        // A SELF_CERTIFY entry only conflicts with another SELF_CERTIFY entry.
+        if (a == RepoPermission.Operations.SELF_CERTIFY || b == RepoPermission.Operations.SELF_CERTIFY) {
+            return a == b;
+        }
+        // Among PUSH / REVIEW / PUSH_AND_REVIEW: conflict if both entries would affect the same check.
+        // PUSH_AND_REVIEW overlaps with both PUSH and REVIEW; PUSH and REVIEW don't overlap each other.
+        boolean aPush = a == RepoPermission.Operations.PUSH || a == RepoPermission.Operations.PUSH_AND_REVIEW;
+        boolean bPush = b == RepoPermission.Operations.PUSH || b == RepoPermission.Operations.PUSH_AND_REVIEW;
+        boolean aReview = a == RepoPermission.Operations.REVIEW || a == RepoPermission.Operations.PUSH_AND_REVIEW;
+        boolean bReview = b == RepoPermission.Operations.REVIEW || b == RepoPermission.Operations.PUSH_AND_REVIEW;
+        return (aPush && bPush) || (aReview && bReview);
+    }
+
+    private boolean pathsOverlap(RepoPermission a, RepoPermission b) {
+        if (a.getPath().equals(b.getPath())) return true;
+        if (matchesPath(a, b.getPath())) return true;
+        if (matchesPath(b, a.getPath())) return true;
+        return false;
+    }
 
     private boolean isAllowed(String username, String provider, String path, RepoPermission.Operations op) {
         List<RepoPermission> forProvider = store.findByProvider(provider);

@@ -150,6 +150,18 @@ class PermissionControllerTest {
     }
 
     @Test
+    void add_conflictingPermission_returns400() {
+        when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
+        when(permissionService.findConflict(any())).thenReturn(Optional.of(CONFIG_PERM));
+
+        var resp = controller.add(
+                "alice", new PermissionController.AddPermissionRequest("github", "/acme/repo", "LITERAL", "PUSH"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
+        verify(permissionService, never()).save(any());
+    }
+
+    @Test
     void add_explicitGlobAndPush_saved() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
         var captor = ArgumentCaptor.forClass(RepoPermission.class);

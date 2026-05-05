@@ -70,6 +70,16 @@ public class PermissionController {
                 .operations(operations)
                 .source(RepoPermission.Source.DB)
                 .build();
+        var conflict = permissionService.findConflict(permission);
+        if (conflict.isPresent()) {
+            var c = conflict.get();
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "error",
+                            String.format(
+                                    "Conflicts with existing permission: path '%s' (%s)",
+                                    c.getPath(), c.getPathType())));
+        }
         permissionService.save(permission);
         return ResponseEntity.status(HttpStatus.CREATED).body(permission);
     }
