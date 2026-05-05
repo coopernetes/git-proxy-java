@@ -56,7 +56,7 @@ RUN sed -i \
     git-proxy-java-dashboard/build/install/git-proxy-java-dashboard/bin/git-proxy-java-dashboard
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM docker.io/eclipse-temurin:25-jre@sha256:5742cdb98ef117621ad75f57475ab127db04f344d9c523307cc60b9955bdd676
+FROM docker.io/eclipse-temurin:25-jre@sha256:671061ae5a8f0d6827816e15bc39d21e224c43ff96998a97cd0d3989c4d17815
 
 WORKDIR /app
 
