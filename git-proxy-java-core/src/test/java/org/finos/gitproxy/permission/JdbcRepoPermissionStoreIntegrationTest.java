@@ -7,6 +7,8 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import org.finos.gitproxy.db.jdbc.DataSourceFactory;
 import org.finos.gitproxy.db.jdbc.DatabaseMigrator;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -26,12 +28,13 @@ class JdbcRepoPermissionStoreIntegrationTest {
         store = new JdbcRepoPermissionStore(ds);
     }
 
-    private RepoPermission perm(String username, String provider, String path) {
+    private RepoPermission perm(String username, String provider, String value) {
         return RepoPermission.builder()
                 .username(username)
                 .provider(provider)
-                .path(path)
-                .pathType(RepoPermission.PathType.LITERAL)
+                .target(MatchTarget.SLUG)
+                .value(value)
+                .matchType(MatchType.LITERAL)
                 .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
                 .source(RepoPermission.Source.DB)
                 .build();
@@ -48,8 +51,9 @@ class JdbcRepoPermissionStoreIntegrationTest {
         assertTrue(found.isPresent());
         assertEquals("alice", found.get().getUsername());
         assertEquals("github", found.get().getProvider());
-        assertEquals("/owner/repo", found.get().getPath());
-        assertEquals(RepoPermission.PathType.LITERAL, found.get().getPathType());
+        assertEquals(MatchTarget.SLUG, found.get().getTarget());
+        assertEquals("/owner/repo", found.get().getValue());
+        assertEquals(MatchType.LITERAL, found.get().getMatchType());
         assertEquals(RepoPermission.Operations.PUSH_AND_REVIEW, found.get().getOperations());
         assertEquals(RepoPermission.Source.DB, found.get().getSource());
     }
@@ -107,15 +111,16 @@ class JdbcRepoPermissionStoreIntegrationTest {
         assertEquals("bob", gitlabPerms.get(0).getUsername());
     }
 
-    // ---- operations and path_type round-trip ----
+    // ---- operations and matchType round-trip ----
 
     @Test
     void pushOnlyOperation_persistedAndRetrieved() {
         RepoPermission p = RepoPermission.builder()
                 .username("alice")
                 .provider("github")
-                .path("/owner/repo")
-                .pathType(RepoPermission.PathType.GLOB)
+                .target(MatchTarget.OWNER)
+                .value("myorg")
+                .matchType(MatchType.GLOB)
                 .operations(RepoPermission.Operations.PUSH)
                 .source(RepoPermission.Source.CONFIG)
                 .build();
@@ -123,7 +128,8 @@ class JdbcRepoPermissionStoreIntegrationTest {
 
         var found = store.findById(p.getId()).orElseThrow();
         assertEquals(RepoPermission.Operations.PUSH, found.getOperations());
-        assertEquals(RepoPermission.PathType.GLOB, found.getPathType());
+        assertEquals(MatchTarget.OWNER, found.getTarget());
+        assertEquals(MatchType.GLOB, found.getMatchType());
         assertEquals(RepoPermission.Source.CONFIG, found.getSource());
     }
 }

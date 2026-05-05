@@ -25,6 +25,8 @@ import org.finos.gitproxy.db.PushStore;
 import org.finos.gitproxy.db.PushStoreFactory;
 import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.git.*;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.finos.gitproxy.provider.GenericProxyProvider;
@@ -139,7 +141,9 @@ class JettyProxyFixture implements AutoCloseable {
                     .ruleOrder(1)
                     .access(AccessRule.Access.ALLOW)
                     .operations(AccessRule.Operations.BOTH)
-                    .owner("*")
+                    .target(MatchTarget.OWNER)
+                    .value("*")
+                    .matchType(MatchType.GLOB)
                     .build());
         } else {
             configRules.forEach(urlRuleRegistry::save);

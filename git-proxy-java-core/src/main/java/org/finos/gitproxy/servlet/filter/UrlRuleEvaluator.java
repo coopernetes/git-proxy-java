@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.finos.gitproxy.db.UrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GitProxyProvider;
 
@@ -96,42 +97,37 @@ public class UrlRuleEvaluator {
         };
     }
 
-    /**
-     * Returns {@code true} if the given {@link AccessRule} matches the repository reference.
-     *
-     * <p>For slug rules: literal and glob comparisons strip leading {@code /} from both pattern and value so that
-     * {@code /owner/repo} and {@code owner/repo} are treated identically. Regex patterns receive the raw slug (with
-     * leading {@code /} if present) so users can write them relative to the full path form (e.g.
-     * {@code regex:/myorg/.*}).
-     */
+    /** Returns {@code true} if the given {@link AccessRule} matches the repository reference. */
     static boolean matchesRepo(AccessRule rule, String slug, String owner, String name) {
-        if (rule.getSlug() != null) return matchPattern(rule.getSlug(), slug);
-        if (rule.getOwner() != null) return matchPattern(rule.getOwner(), owner);
-        if (rule.getName() != null) return matchPattern(rule.getName(), name);
-        return false;
+        String candidate =
+                switch (rule.getTarget()) {
+                    case SLUG -> slug;
+                    case OWNER -> owner;
+                    case NAME -> name;
+                };
+        return matchPattern(rule.getValue(), rule.getMatchType(), candidate);
     }
 
     /**
-     * Matches a pattern string against a value. Regex patterns (prefixed with {@code regex:}) are matched against the
-     * raw value as-is. Literal and glob patterns normalise leading {@code /} from both sides before comparison.
+     * Matches a pattern string against a value using the specified {@link MatchType}. LITERAL and GLOB normalise
+     * leading {@code /} before comparison; REGEX receives the raw value as-is.
      */
-    static boolean matchPattern(String pattern, String value) {
+    static boolean matchPattern(String pattern, MatchType matchType, String value) {
         if (pattern == null || value == null) return false;
-        if (pattern.startsWith("regex:")) {
-            return REGEX_CACHE
-                    .computeIfAbsent(pattern.substring(6), Pattern::compile)
-                    .matcher(value)
-                    .matches();
-        }
-        // Literal / glob: normalise leading slashes so /owner/repo and owner/repo are equivalent
-        String p = strip(pattern);
-        String v = strip(value);
-        if (p.equals(v)) return true;
-        if (p.contains("*") || p.contains("?") || p.contains("[")) {
-            PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + p);
-            return matcher.matches(Paths.get(v));
-        }
-        return false;
+        return switch (matchType) {
+            case REGEX ->
+                REGEX_CACHE
+                        .computeIfAbsent(pattern, Pattern::compile)
+                        .matcher(value)
+                        .matches();
+            case GLOB -> {
+                String p = strip(pattern);
+                String v = strip(value);
+                PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + p);
+                yield matcher.matches(Paths.get(v));
+            }
+            case LITERAL -> strip(pattern).equals(strip(value));
+        };
     }
 
     private static String strip(String s) {

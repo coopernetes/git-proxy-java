@@ -7,11 +7,10 @@ import lombok.extern.jackson.Jacksonized;
 
 /**
  * A single access control rule governing which repositories may be fetched from or pushed to through the proxy. Rules
- * are evaluated by {@code UrlAccessControlFilter} (see #60).
+ * are evaluated by {@code UrlRuleEvaluator} (see #60).
  *
- * <p>The {@code owner}, {@code name}, and {@code slug} fields use the standard {@code {owner}/{repo}} URL shape shared
- * by GitHub, GitLab, Gitea, Codeberg, and Forgejo. Generic providers with arbitrary URL paths should use {@code slug}
- * with a glob pattern and leave {@code owner}/{@code name} null.
+ * <p>{@link #target} selects which part of the repo URL is compared; {@link #value} is the pattern string;
+ * {@link #matchType} controls how the pattern is interpreted (literal equality, glob, or regex).
  */
 @Data
 @Builder
@@ -24,14 +23,16 @@ public class AccessRule {
     /** Provider name this rule applies to. Null = applies to all providers. */
     private String provider;
 
-    /** Glob pattern matching {@code /owner/repo} slug. Null = not used. */
-    private String slug;
+    /** Which part of the repository URL is matched. Defaults to {@link MatchTarget#SLUG}. */
+    @Builder.Default
+    private MatchTarget target = MatchTarget.SLUG;
 
-    /** Glob pattern matching the owner/org portion of the URL. Null = not used. */
-    private String owner;
+    /** Pattern to match against the {@link #target} portion of the URL. */
+    private String value;
 
-    /** Glob pattern matching the repository name portion of the URL. Null = not used. */
-    private String name;
+    /** How {@link #value} is interpreted when matching. Defaults to {@link MatchType#GLOB}. */
+    @Builder.Default
+    private MatchType matchType = MatchType.GLOB;
 
     /** Whether this rule allows or denies matched repositories. */
     @Builder.Default

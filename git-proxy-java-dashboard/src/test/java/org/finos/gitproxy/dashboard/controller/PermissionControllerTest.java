@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.permission.RepoPermission;
 import org.finos.gitproxy.permission.RepoPermissionService;
 import org.finos.gitproxy.user.ReadOnlyUserStore;
@@ -43,8 +45,9 @@ class PermissionControllerTest {
     private static final RepoPermission DB_PERM = RepoPermission.builder()
             .username("alice")
             .provider("github")
-            .path("/acme/repo")
-            .pathType(RepoPermission.PathType.LITERAL)
+            .target(MatchTarget.SLUG)
+            .value("/acme/repo")
+            .matchType(MatchType.LITERAL)
             .operations(RepoPermission.Operations.PUSH)
             .source(RepoPermission.Source.DB)
             .build();
@@ -52,8 +55,9 @@ class PermissionControllerTest {
     private static final RepoPermission CONFIG_PERM = RepoPermission.builder()
             .username("alice")
             .provider("github")
-            .path("/acme/*")
-            .pathType(RepoPermission.PathType.GLOB)
+            .target(MatchTarget.OWNER)
+            .value("acme")
+            .matchType(MatchType.GLOB)
             .operations(RepoPermission.Operations.PUSH_AND_REVIEW)
             .source(RepoPermission.Source.CONFIG)
             .build();
@@ -82,12 +86,16 @@ class PermissionControllerTest {
 
     // ── POST /api/users/{username}/permissions ───────────────────────────────────
 
+    private static PermissionController.AddPermissionRequest req(
+            String provider, String target, String value, String matchType, String operations) {
+        return new PermissionController.AddPermissionRequest(provider, target, value, matchType, operations);
+    }
+
     @Test
     void add_unknownUser_returns404() {
         when(userStore.findByUsername("nobody")).thenReturn(Optional.empty());
 
-        var resp =
-                controller.add("nobody", new PermissionController.AddPermissionRequest("github", "/a/b", null, null));
+        var resp = controller.add("nobody", req("github", null, "/a/b", null, null));
 
         assertEquals(HttpStatus.NOT_FOUND, resp.getStatusCode());
         verify(permissionService, never()).save(any());
@@ -97,26 +105,34 @@ class PermissionControllerTest {
     void add_missingProvider_returns400() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
 
-        var resp = controller.add("alice", new PermissionController.AddPermissionRequest("", "/a/b", null, null));
+        var resp = controller.add("alice", req("", null, "/a/b", null, null));
 
         assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
     }
 
     @Test
-    void add_missingPath_returns400() {
+    void add_missingValue_returns400() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
 
-        var resp = controller.add("alice", new PermissionController.AddPermissionRequest("github", "  ", null, null));
+        var resp = controller.add("alice", req("github", null, "  ", null, null));
 
         assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
     }
 
     @Test
-    void add_invalidPathType_returns400() {
+    void add_invalidMatchType_returns400() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
 
-        var resp = controller.add(
-                "alice", new PermissionController.AddPermissionRequest("github", "/a/b", "WILDCARD", null));
+        var resp = controller.add("alice", req("github", null, "/a/b", "WILDCARD", null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
+    }
+
+    @Test
+    void add_invalidTarget_returns400() {
+        when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
+
+        var resp = controller.add("alice", req("github", "BRANCH", "/a/b", null, null));
 
         assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
     }
@@ -125,26 +141,26 @@ class PermissionControllerTest {
     void add_invalidOperations_returns400() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
 
-        var resp =
-                controller.add("alice", new PermissionController.AddPermissionRequest("github", "/a/b", null, "READ"));
+        var resp = controller.add("alice", req("github", null, "/a/b", null, "READ"));
 
         assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
     }
 
     @Test
-    void add_defaults_literalAndPush() {
+    void add_defaults_slugLiteralAndPush() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
         var captor = ArgumentCaptor.forClass(RepoPermission.class);
 
-        var resp = controller.add("alice", new PermissionController.AddPermissionRequest("github", "/a/b", null, null));
+        var resp = controller.add("alice", req("github", null, "/a/b", null, null));
 
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
         verify(permissionService).save(captor.capture());
         var saved = captor.getValue();
         assertEquals("alice", saved.getUsername());
         assertEquals("github", saved.getProvider());
-        assertEquals("/a/b", saved.getPath());
-        assertEquals(RepoPermission.PathType.LITERAL, saved.getPathType());
+        assertEquals("/a/b", saved.getValue());
+        assertEquals(MatchTarget.SLUG, saved.getTarget());
+        assertEquals(MatchType.LITERAL, saved.getMatchType());
         assertEquals(RepoPermission.Operations.PUSH, saved.getOperations());
         assertEquals(RepoPermission.Source.DB, saved.getSource());
     }
@@ -154,25 +170,24 @@ class PermissionControllerTest {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
         when(permissionService.findConflict(any())).thenReturn(Optional.of(CONFIG_PERM));
 
-        var resp = controller.add(
-                "alice", new PermissionController.AddPermissionRequest("github", "/acme/repo", "LITERAL", "PUSH"));
+        var resp = controller.add("alice", req("github", "SLUG", "/acme/repo", "LITERAL", "PUSH"));
 
         assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
         verify(permissionService, never()).save(any());
     }
 
     @Test
-    void add_explicitGlobAndPush_saved() {
+    void add_explicitOwnerGlobAndPush_saved() {
         when(userStore.findByUsername("alice")).thenReturn(Optional.of(ALICE));
         var captor = ArgumentCaptor.forClass(RepoPermission.class);
 
-        var resp = controller.add(
-                "alice", new PermissionController.AddPermissionRequest("github", "/acme/*", "GLOB", "PUSH"));
+        var resp = controller.add("alice", req("github", "OWNER", "acme", "GLOB", "PUSH"));
 
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
         verify(permissionService).save(captor.capture());
         var saved = captor.getValue();
-        assertEquals(RepoPermission.PathType.GLOB, saved.getPathType());
+        assertEquals(MatchTarget.OWNER, saved.getTarget());
+        assertEquals(MatchType.GLOB, saved.getMatchType());
         assertEquals(RepoPermission.Operations.PUSH, saved.getOperations());
     }
 
@@ -204,7 +219,9 @@ class PermissionControllerTest {
         var bobPerm = RepoPermission.builder()
                 .username("bob")
                 .provider("github")
-                .path("/a/b")
+                .target(MatchTarget.SLUG)
+                .value("/a/b")
+                .matchType(MatchType.LITERAL)
                 .source(RepoPermission.Source.DB)
                 .build();
         when(permissionService.findById(bobPerm.getId())).thenReturn(Optional.of(bobPerm));

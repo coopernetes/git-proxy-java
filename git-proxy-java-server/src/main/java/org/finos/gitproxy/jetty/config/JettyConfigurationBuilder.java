@@ -32,6 +32,8 @@ import org.finos.gitproxy.db.jdbc.JdbcFetchStore;
 import org.finos.gitproxy.db.jdbc.JdbcUrlRuleRegistry;
 import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.git.LocalRepositoryCache;
 import org.finos.gitproxy.jetty.GitProxyContext;
 import org.finos.gitproxy.jetty.reload.ConfigHolder;
@@ -196,13 +198,11 @@ public class JettyConfigurationBuilder {
 
         config.getRules()
                 .getAllow()
-                .forEach(rule -> rule.getProviders()
-                        .forEach(pid -> resolveProviderName("ALLOW rule (order=" + rule.getOrder() + ")", pid)));
+                .forEach(rule -> resolveProviderName("ALLOW rule (order=" + rule.getOrder() + ")", rule.getProvider()));
 
         config.getRules()
                 .getDeny()
-                .forEach(rule -> rule.getProviders()
-                        .forEach(pid -> resolveProviderName("DENY rule (order=" + rule.getOrder() + ")", pid)));
+                .forEach(rule -> resolveProviderName("DENY rule (order=" + rule.getOrder() + ")", rule.getProvider()));
 
         log.debug(
                 "Provider reference validation passed ({} users, {} permissions, {} allow rules, {} deny rules)",
@@ -241,64 +241,9 @@ public class JettyConfigurationBuilder {
      */
     public List<AccessRule> buildConfigRules() {
         List<AccessRule> rules = new ArrayList<>();
-        buildConfigRulesForAccess(rules, config.getRules().getAllow(), AccessRule.Access.ALLOW);
-        buildConfigRulesForAccess(rules, config.getRules().getDeny(), AccessRule.Access.DENY);
+        appendAccessRules(rules, config.getRules().getAllow(), AccessRule.Access.ALLOW);
+        appendAccessRules(rules, config.getRules().getDeny(), AccessRule.Access.DENY);
         return rules;
-    }
-
-    private void buildConfigRulesForAccess(
-            List<AccessRule> rules, List<RuleConfig> ruleConfigs, AccessRule.Access access) {
-        for (RuleConfig rule : ruleConfigs) {
-            if (!rule.isEnabled()) continue;
-
-            // Validate provider names and resolve to stored IDs — validates at startup
-            List<String> resolvedProviderIds = rule.getProviders().stream()
-                    .map(n -> resolveProviderName(access.name() + " rule (order=" + rule.getOrder() + ")", n))
-                    .toList();
-            // null provider = applies to all providers; specific IDs = scoped
-            List<String> providerScopes =
-                    resolvedProviderIds.isEmpty() ? java.util.Collections.singletonList(null) : resolvedProviderIds;
-
-            int order = rule.getOrder();
-            AccessRule.Operations ops = toOperations(rule.getOperations());
-            String accessLabel = access.name().toLowerCase();
-
-            for (String providerId : providerScopes) {
-                for (String slug : rule.getSlugs()) {
-                    rules.add(AccessRule.builder()
-                            .ruleOrder(order)
-                            .access(access)
-                            .operations(ops)
-                            .provider(providerId)
-                            .slug(slug)
-                            .source(AccessRule.Source.CONFIG)
-                            .build());
-                    log.debug("Added slug {} rule for provider {}: {}", accessLabel, providerId, slug);
-                }
-                for (String owner : rule.getOwners()) {
-                    rules.add(AccessRule.builder()
-                            .ruleOrder(order)
-                            .access(access)
-                            .operations(ops)
-                            .provider(providerId)
-                            .owner(owner)
-                            .source(AccessRule.Source.CONFIG)
-                            .build());
-                    log.debug("Added owner {} rule for provider {}: {}", accessLabel, providerId, owner);
-                }
-                for (String name : rule.getNames()) {
-                    rules.add(AccessRule.builder()
-                            .ruleOrder(order)
-                            .access(access)
-                            .operations(ops)
-                            .provider(providerId)
-                            .name(name)
-                            .source(AccessRule.Source.CONFIG)
-                            .build());
-                    log.debug("Added name {} rule for provider {}: {}", accessLabel, providerId, name);
-                }
-            }
-        }
     }
 
     /**
@@ -571,12 +516,13 @@ public class JettyConfigurationBuilder {
                 .map(p -> {
                     String resolvedId =
                             resolveProviderName("Permission for user '" + p.getUsername() + "'", p.getProvider());
+                    MatchConfig m = p.getMatch();
                     return RepoPermission.builder()
                             .username(p.getUsername())
                             .provider(resolvedId)
-                            .path(p.getPath())
-                            .pathType(RepoPermission.PathType.valueOf(
-                                    p.getPathType().toUpperCase()))
+                            .target(MatchTarget.valueOf(m.getTarget().toUpperCase()))
+                            .value(m.getValue())
+                            .matchType(MatchType.valueOf((m.getType() != null ? m.getType() : "LITERAL").toUpperCase()))
                             .operations(RepoPermission.Operations.valueOf(
                                     p.getOperations().toUpperCase()))
                             .source(RepoPermission.Source.CONFIG)
@@ -627,50 +573,26 @@ public class JettyConfigurationBuilder {
         for (RuleConfig rule : rules) {
             if (!rule.isEnabled()) continue;
             AccessRule.Operations ops = toOperations(rule.getOperations());
-            List<String> rawProviders =
-                    rule.getProviders().isEmpty() ? java.util.Collections.singletonList(null) : rule.getProviders();
-            for (String rawProvider : rawProviders) {
-                // null → applies to all providers (no resolution needed)
-                String resolvedId =
-                        resolveProviderName(access.name() + " rule (order=" + rule.getOrder() + ")", rawProvider);
-                for (String rawSlug : rule.getSlugs()) {
-                    String slug = rawSlug.startsWith("/") ? rawSlug : "/" + rawSlug;
-                    result.add(AccessRule.builder()
-                            .provider(resolvedId)
-                            .slug(slug)
-                            .access(access)
-                            .operations(ops)
-                            .source(AccessRule.Source.CONFIG)
-                            .ruleOrder(rule.getOrder())
-                            .build());
-                }
-                for (String owner : rule.getOwners()) {
-                    result.add(AccessRule.builder()
-                            .provider(resolvedId)
-                            .owner(owner)
-                            .access(access)
-                            .operations(ops)
-                            .source(AccessRule.Source.CONFIG)
-                            .ruleOrder(rule.getOrder())
-                            .build());
-                }
-                for (String name : rule.getNames()) {
-                    result.add(AccessRule.builder()
-                            .provider(resolvedId)
-                            .name(name)
-                            .access(access)
-                            .operations(ops)
-                            .source(AccessRule.Source.CONFIG)
-                            .ruleOrder(rule.getOrder())
-                            .build());
-                }
-            }
+            String rawProvider = rule.getProvider().isBlank() ? null : rule.getProvider();
+            String resolvedId =
+                    resolveProviderName(access.name() + " rule (order=" + rule.getOrder() + ")", rawProvider);
+            MatchConfig m = rule.getMatch();
+            result.add(AccessRule.builder()
+                    .provider(resolvedId)
+                    .target(MatchTarget.valueOf(m.getTarget().toUpperCase()))
+                    .value(m.getValue())
+                    .matchType(MatchType.valueOf((m.getType() != null ? m.getType() : "GLOB").toUpperCase()))
+                    .access(access)
+                    .operations(ops)
+                    .source(AccessRule.Source.CONFIG)
+                    .ruleOrder(rule.getOrder())
+                    .build());
         }
     }
 
-    private static AccessRule.Operations toOperations(List<String> ops) {
-        if (ops == null || ops.isEmpty() || ops.size() > 1) return AccessRule.Operations.BOTH;
-        return switch (ops.get(0).toUpperCase()) {
+    private static AccessRule.Operations toOperations(String ops) {
+        if (ops == null || ops.isBlank()) return AccessRule.Operations.BOTH;
+        return switch (ops.toUpperCase()) {
             case "FETCH" -> AccessRule.Operations.FETCH;
             case "PUSH" -> AccessRule.Operations.PUSH;
             default -> AccessRule.Operations.BOTH;

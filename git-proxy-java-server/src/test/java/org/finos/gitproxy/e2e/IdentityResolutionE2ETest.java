@@ -12,6 +12,8 @@ import java.util.Optional;
 import org.finos.gitproxy.approval.UiApprovalGateway;
 import org.finos.gitproxy.config.CommitConfig;
 import org.finos.gitproxy.db.model.Attestation;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.permission.InMemoryRepoPermissionStore;
 import org.finos.gitproxy.permission.RepoPermission;
 import org.finos.gitproxy.permission.RepoPermissionService;
@@ -78,8 +80,9 @@ class IdentityResolutionE2ETest {
         permissionStore.save(RepoPermission.builder()
                 .username(GiteaContainer.TEST_USER)
                 .provider(proxy.getProviderId())
-                .path("/" + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO)
-                .pathType(RepoPermission.PathType.LITERAL)
+                .target(MatchTarget.SLUG)
+                .value("/" + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO)
+                .matchType(MatchType.LITERAL)
                 .operations(RepoPermission.Operations.PUSH)
                 .build());
 
@@ -197,8 +200,9 @@ class IdentityResolutionE2ETest {
             strictPermissionStore.save(RepoPermission.builder()
                     .username(GiteaContainer.TEST_USER)
                     .provider(strictProxy.getProviderId())
-                    .path("/" + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO)
-                    .pathType(RepoPermission.PathType.LITERAL)
+                    .target(MatchTarget.SLUG)
+                    .value("/" + GiteaContainer.TEST_ORG + "/" + GiteaContainer.TEST_REPO)
+                    .matchType(MatchType.LITERAL)
                     .operations(RepoPermission.Operations.PUSH)
                     .build());
 

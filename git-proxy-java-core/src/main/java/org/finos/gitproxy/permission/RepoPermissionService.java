@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import lombok.extern.slf4j.Slf4j;
+import org.finos.gitproxy.db.model.MatchType;
 
 /**
  * Service that evaluates whether a proxy user is authorised to push to or approve a push for a given repository.
@@ -22,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
  * <h3>Path matching</h3>
  *
  * <p>Paths use the {@code /owner/repo} convention (leading slash, no {@code .git} suffix). Matching is controlled by
- * {@link RepoPermission.PathType}:
+ * {@link MatchType}:
  *
  * <ul>
  *   <li>{@code LITERAL} — exact string equality
@@ -58,9 +59,10 @@ public class RepoPermissionService {
     }
 
     /**
-     * Returns {@code true} when {@code username} has an explicit {@link RepoPermission.Operations#BYPASS_REVIEW} grant
-     * for {@code path} at {@code provider}. Unlike push/approve checks, {@link RepoPermission.Operations#ALL} does
-     * <em>not</em> imply bypass — the grant must be explicit.
+     * Returns {@code true} when {@code username} has an explicit {@link RepoPermission.Operations#SELF_CERTIFY} grant
+     * for {@code path} at {@code provider}. Unlike push/approve checks,
+     * {@link RepoPermission.Operations#PUSH_AND_REVIEW} does <em>not</em> imply self-certify — the grant must be
+     * explicit.
      */
     public boolean isBypassReviewAllowed(String username, String provider, String path) {
         List<RepoPermission> forProvider = store.findByProvider(provider);
@@ -143,13 +145,15 @@ public class RepoPermissionService {
             if (conflict.isPresent()) {
                 RepoPermission c = conflict.get();
                 throw new IllegalStateException(String.format(
-                        "Conflicting permission for user '%s' provider '%s': path '%s' (%s) overlaps with '%s' (%s) [%s] — fix config and restart",
+                        "Conflicting permission for user '%s' provider '%s': value '%s' (%s/%s) overlaps with '%s' (%s/%s) [%s] — fix config and restart",
                         p.getUsername(),
                         p.getProvider(),
-                        p.getPath(),
-                        p.getPathType(),
-                        c.getPath(),
-                        c.getPathType(),
+                        p.getValue(),
+                        p.getTarget(),
+                        p.getMatchType(),
+                        c.getValue(),
+                        c.getTarget(),
+                        c.getMatchType(),
                         c.getSource()));
             }
             store.save(p);
@@ -175,9 +179,9 @@ public class RepoPermissionService {
     }
 
     private boolean pathsOverlap(RepoPermission a, RepoPermission b) {
-        if (a.getPath().equals(b.getPath())) return true;
-        if (matchesPath(a, b.getPath())) return true;
-        if (matchesPath(b, a.getPath())) return true;
+        if (a.getValue().equals(b.getValue())) return true;
+        if (matchesPath(a, b.getValue())) return true;
+        if (matchesPath(b, a.getValue())) return true;
         return false;
     }
 
@@ -207,10 +211,10 @@ public class RepoPermissionService {
     }
 
     private boolean matchesPath(RepoPermission perm, String path) {
-        return switch (perm.getPathType()) {
-            case LITERAL -> perm.getPath().equals(path);
-            case GLOB -> matchesGlob(perm.getPath(), path);
-            case REGEX -> matchesRegex(perm.getPath(), path);
+        return switch (perm.getMatchType()) {
+            case LITERAL -> perm.getValue().equals(path);
+            case GLOB -> matchesGlob(perm.getValue(), path);
+            case REGEX -> matchesRegex(perm.getValue(), path);
         };
     }
 

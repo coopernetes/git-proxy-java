@@ -11,9 +11,11 @@ import lombok.Data;
  * permissions:
  *   - username: alice
  *     provider: github
- *     path: /owner/repo
- *     operations: PUSH        # PUSH | APPROVE | ALL (default: ALL)
- *     path-type: LITERAL      # LITERAL | GLOB (default: LITERAL)
+ *     match:
+ *       target: SLUG
+ *       value: /owner/repo
+ *       type: LITERAL
+ *     operations: PUSH
  * </pre>
  */
 @Data
@@ -25,14 +27,8 @@ public class PermissionConfig {
     /** Provider name (e.g. {@code github}, {@code gitea}). */
     private String provider = "";
 
-    /**
-     * Repository path pattern. For {@code LITERAL}: exact match (e.g. {@code /owner/repo}). For {@code GLOB}: shell
-     * glob (e.g. {@code /owner/*}).
-     */
-    private String path = "";
-
-    /** How {@code path} is matched. {@code LITERAL} (default) or {@code GLOB}. */
-    private String pathType = "LITERAL";
+    /** Repository match criteria — target, value, and type. */
+    private MatchConfig match = new MatchConfig();
 
     /**
      * Which operations are granted. {@code PUSH}, {@code REVIEW}, {@code PUSH_AND_REVIEW}, or {@code SELF_CERTIFY}

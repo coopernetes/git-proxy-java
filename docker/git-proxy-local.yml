@@ -18,12 +18,17 @@ users:
 permissions:
   - username: admin
     provider: gitea
-    path: /test-owner/test-repo
+    match:
+      target: SLUG
+      value: /test-owner/test-repo
+      type: LITERAL
     operations: PUSH_AND_REVIEW
   - username: admin
     provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: otherorg
+      type: GLOB
     operations: PUSH_AND_REVIEW
 
 providers:

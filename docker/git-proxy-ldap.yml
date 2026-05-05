@@ -30,19 +30,29 @@ auth:
 permissions:
   - username: testuser
     provider: gitea
-    path: /test-owner/test-repo
+    match:
+      target: SLUG
+      value: /test-owner/test-repo
+      type: LITERAL
     operations: PUSH
   - username: testuser
     provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: otherorg
+      type: GLOB
     operations: PUSH
   - username: admin
     provider: gitea
-    path: /test-owner/test-repo
+    match:
+      target: SLUG
+      value: /test-owner/test-repo
+      type: LITERAL
     operations: REVIEW
   - username: admin
     provider: gitea
-    path: /otherorg/*
-    path-type: GLOB
+    match:
+      target: OWNER
+      value: otherorg
+      type: GLOB
     operations: REVIEW

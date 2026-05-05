@@ -34,10 +34,10 @@ public class JdbcUrlRuleRegistry implements UrlRuleRegistry {
     public void save(AccessRule rule) {
         jdbc.update("""
                 INSERT INTO access_rules
-                    (id, provider, slug, owner, name, access, operations,
+                    (id, provider, target, match_value, match_type, access, operations,
                      description, enabled, rule_order, source)
                 VALUES
-                    (:id, :provider, :slug, :owner, :name, :access, :operations,
+                    (:id, :provider, :target, :matchValue, :matchType, :access, :operations,
                      :description, :enabled, :ruleOrder, :source)
                 """, params(rule));
     }
@@ -46,7 +46,7 @@ public class JdbcUrlRuleRegistry implements UrlRuleRegistry {
     public void update(AccessRule rule) {
         jdbc.update("""
                 UPDATE access_rules SET
-                    provider = :provider, slug = :slug, owner = :owner, name = :name,
+                    provider = :provider, target = :target, match_value = :matchValue, match_type = :matchType,
                     access = :access, operations = :operations, description = :description,
                     enabled = :enabled, rule_order = :ruleOrder, source = :source
                 WHERE id = :id
@@ -84,9 +84,9 @@ public class JdbcUrlRuleRegistry implements UrlRuleRegistry {
         return new MapSqlParameterSource()
                 .addValue("id", rule.getId())
                 .addValue("provider", rule.getProvider())
-                .addValue("slug", rule.getSlug())
-                .addValue("owner", rule.getOwner())
-                .addValue("name", rule.getName())
+                .addValue("target", rule.getTarget().name())
+                .addValue("matchValue", rule.getValue())
+                .addValue("matchType", rule.getMatchType().name())
                 .addValue("access", rule.getAccess().name())
                 .addValue("operations", rule.getOperations().name())
                 .addValue("description", rule.getDescription())

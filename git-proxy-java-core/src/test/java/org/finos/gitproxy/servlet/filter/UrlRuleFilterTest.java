@@ -20,6 +20,8 @@ import org.finos.gitproxy.db.FetchStore;
 import org.finos.gitproxy.db.memory.InMemoryUrlRuleRegistry;
 import org.finos.gitproxy.db.model.AccessRule;
 import org.finos.gitproxy.db.model.FetchRecord;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.finos.gitproxy.git.GitRequestDetails;
 import org.finos.gitproxy.git.HttpOperation;
 import org.finos.gitproxy.provider.GenericProxyProvider;
@@ -171,7 +173,9 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("owner")
+                .target(MatchTarget.OWNER)
+                .value("owner")
+                .matchType(MatchType.GLOB)
                 .build());
         GitRequestDetails details = makeDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
@@ -187,7 +191,9 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("allowed")
+                .target(MatchTarget.OWNER)
+                .value("allowed")
+                .matchType(MatchType.GLOB)
                 .build());
         GitRequestDetails details = makeDetails("not-allowed", "repo", "/not-allowed/repo");
         FakeResponse resp = new FakeResponse();
@@ -214,13 +220,17 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("blocked-owner")
+                .target(MatchTarget.OWNER)
+                .value("blocked-owner")
+                .matchType(MatchType.GLOB)
                 .build();
         var allow = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("blocked-owner")
+                .target(MatchTarget.OWNER)
+                .value("blocked-owner")
+                .matchType(MatchType.GLOB)
                 .build();
         var aggregate = aggregateWith(deny, allow);
         GitRequestDetails details = makeDetails("blocked-owner", "repo", "/blocked-owner/repo");
@@ -237,13 +247,17 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("allowed-owner")
+                .target(MatchTarget.OWNER)
+                .value("allowed-owner")
+                .matchType(MatchType.GLOB)
                 .build();
         var deny = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("allowed-owner")
+                .target(MatchTarget.OWNER)
+                .value("allowed-owner")
+                .matchType(MatchType.GLOB)
                 .build();
         var aggregate = aggregateWith(allow, deny);
         GitRequestDetails details = makeDetails("allowed-owner", "repo", "/allowed-owner/repo");
@@ -260,7 +274,9 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .owner("blocked-owner")
+                .target(MatchTarget.OWNER)
+                .value("blocked-owner")
+                .matchType(MatchType.GLOB)
                 .build();
         var aggregate = aggregateWith(deny);
         GitRequestDetails details = makeDetails("other-owner", "repo", "/other-owner/repo");
@@ -291,7 +307,9 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .slug("/owner/repo")
+                .target(MatchTarget.SLUG)
+                .value("/owner/repo")
+                .matchType(MatchType.LITERAL)
                 .build());
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
         FakeResponse resp = new FakeResponse();
@@ -308,13 +326,17 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.PUSH)
-                .slug("/owner/repo")
+                .target(MatchTarget.SLUG)
+                .value("/owner/repo")
+                .matchType(MatchType.LITERAL)
                 .build();
         var fetchAllow = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .slug("/owner/repo")
+                .target(MatchTarget.SLUG)
+                .value("/owner/repo")
+                .matchType(MatchType.LITERAL)
                 .build();
         var aggregate = aggregateWith(pushDeny, fetchAllow);
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
@@ -331,13 +353,17 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .slug("/owner/repo")
+                .target(MatchTarget.SLUG)
+                .value("/owner/repo")
+                .matchType(MatchType.LITERAL)
                 .build();
         var allow = AccessRule.builder()
                 .ruleOrder(200)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .slug("/owner/repo")
+                .target(MatchTarget.SLUG)
+                .value("/owner/repo")
+                .matchType(MatchType.LITERAL)
                 .build();
         var aggregate = aggregateWith(deny, allow);
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
@@ -374,7 +400,9 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.DENY)
                 .operations(AccessRule.Operations.BOTH)
-                .slug("/owner/repo")
+                .target(MatchTarget.SLUG)
+                .value("/owner/repo")
+                .matchType(MatchType.LITERAL)
                 .build());
         var aggregate = new UrlRuleAggregateFilter(50, GITHUB, "/proxy", fetchStore, registry);
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");
@@ -410,7 +438,9 @@ class UrlRuleFilterTest {
                 .ruleOrder(100)
                 .access(AccessRule.Access.ALLOW)
                 .operations(AccessRule.Operations.BOTH)
-                .slug("/owner/repo")
+                .target(MatchTarget.SLUG)
+                .value("/owner/repo")
+                .matchType(MatchType.LITERAL)
                 .build());
         var aggregate = new UrlRuleAggregateFilter(50, GITHUB, "/proxy", fetchStore, registry);
         GitRequestDetails details = makeInfoDetails("owner", "repo", "/owner/repo");

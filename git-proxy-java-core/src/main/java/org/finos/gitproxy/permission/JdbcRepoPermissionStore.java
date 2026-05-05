@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -22,8 +24,8 @@ public class JdbcRepoPermissionStore implements RepoPermissionStore {
     @Override
     public void save(RepoPermission p) {
         jdbc.update("""
-                INSERT INTO repo_permissions (id, username, provider, path, path_type, operations, source)
-                VALUES (:id, :username, :provider, :path, :pathType, :operations, :source)
+                INSERT INTO repo_permissions (id, username, provider, target, match_value, match_type, operations, source)
+                VALUES (:id, :username, :provider, :target, :matchValue, :matchType, :operations, :source)
                 """, params(p));
     }
 
@@ -40,13 +42,13 @@ public class JdbcRepoPermissionStore implements RepoPermissionStore {
 
     @Override
     public List<RepoPermission> findAll() {
-        return jdbc.query("SELECT * FROM repo_permissions ORDER BY provider, path, username", ROW_MAPPER);
+        return jdbc.query("SELECT * FROM repo_permissions ORDER BY provider, match_value, username", ROW_MAPPER);
     }
 
     @Override
     public List<RepoPermission> findByUsername(String username) {
         return jdbc.query(
-                "SELECT * FROM repo_permissions WHERE username = :username ORDER BY provider, path",
+                "SELECT * FROM repo_permissions WHERE username = :username ORDER BY provider, match_value",
                 Map.of("username", username),
                 ROW_MAPPER);
     }
@@ -54,7 +56,7 @@ public class JdbcRepoPermissionStore implements RepoPermissionStore {
     @Override
     public List<RepoPermission> findByProvider(String provider) {
         return jdbc.query(
-                "SELECT * FROM repo_permissions WHERE provider = :provider ORDER BY path, username",
+                "SELECT * FROM repo_permissions WHERE provider = :provider ORDER BY match_value, username",
                 Map.of("provider", provider),
                 ROW_MAPPER);
     }
@@ -64,8 +66,9 @@ public class JdbcRepoPermissionStore implements RepoPermissionStore {
                 .addValue("id", p.getId())
                 .addValue("username", p.getUsername())
                 .addValue("provider", p.getProvider())
-                .addValue("path", p.getPath())
-                .addValue("pathType", p.getPathType().name())
+                .addValue("target", p.getTarget().name())
+                .addValue("matchValue", p.getValue())
+                .addValue("matchType", p.getMatchType().name())
                 .addValue("operations", p.getOperations().name())
                 .addValue("source", p.getSource().name());
     }
@@ -77,8 +80,9 @@ public class JdbcRepoPermissionStore implements RepoPermissionStore {
                 .id(rs.getString("id"))
                 .username(rs.getString("username"))
                 .provider(rs.getString("provider"))
-                .path(rs.getString("path"))
-                .pathType(RepoPermission.PathType.valueOf(rs.getString("path_type")))
+                .target(MatchTarget.valueOf(rs.getString("target")))
+                .value(rs.getString("match_value"))
+                .matchType(MatchType.valueOf(rs.getString("match_type")))
                 .operations(RepoPermission.Operations.valueOf(rs.getString("operations")))
                 .source(RepoPermission.Source.valueOf(rs.getString("source")))
                 .build();

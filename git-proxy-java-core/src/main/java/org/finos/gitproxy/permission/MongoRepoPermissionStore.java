@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.bson.Document;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +56,7 @@ public class MongoRepoPermissionStore implements RepoPermissionStore {
         List<RepoPermission> results = new ArrayList<>();
         getCollection()
                 .find()
-                .sort(Sorts.ascending("provider", "path", "username"))
+                .sort(Sorts.ascending("provider", "value", "username"))
                 .forEach(doc -> results.add(fromDocument(doc)));
         return results;
     }
@@ -64,7 +66,7 @@ public class MongoRepoPermissionStore implements RepoPermissionStore {
         List<RepoPermission> results = new ArrayList<>();
         getCollection()
                 .find(Filters.eq("username", username))
-                .sort(Sorts.ascending("provider", "path"))
+                .sort(Sorts.ascending("provider", "value"))
                 .forEach(doc -> results.add(fromDocument(doc)));
         return results;
     }
@@ -74,7 +76,7 @@ public class MongoRepoPermissionStore implements RepoPermissionStore {
         List<RepoPermission> results = new ArrayList<>();
         getCollection()
                 .find(Filters.eq("provider", provider))
-                .sort(Sorts.ascending("path", "username"))
+                .sort(Sorts.ascending("value", "username"))
                 .forEach(doc -> results.add(fromDocument(doc)));
         return results;
     }
@@ -87,8 +89,9 @@ public class MongoRepoPermissionStore implements RepoPermissionStore {
         return new Document("_id", p.getId())
                 .append("username", p.getUsername())
                 .append("provider", p.getProvider())
-                .append("path", p.getPath())
-                .append("pathType", p.getPathType().name())
+                .append("target", p.getTarget().name())
+                .append("value", p.getValue())
+                .append("matchType", p.getMatchType().name())
                 .append("operations", p.getOperations().name())
                 .append("source", p.getSource().name());
     }
@@ -98,8 +101,9 @@ public class MongoRepoPermissionStore implements RepoPermissionStore {
                 .id(doc.getString("_id"))
                 .username(doc.getString("username"))
                 .provider(doc.getString("provider"))
-                .path(doc.getString("path"))
-                .pathType(RepoPermission.PathType.valueOf(doc.getString("pathType")))
+                .target(MatchTarget.valueOf(doc.getString("target")))
+                .value(doc.getString("value"))
+                .matchType(MatchType.valueOf(doc.getString("matchType")))
                 .operations(RepoPermission.Operations.valueOf(doc.getString("operations")))
                 .source(RepoPermission.Source.valueOf(doc.getString("source")))
                 .build();

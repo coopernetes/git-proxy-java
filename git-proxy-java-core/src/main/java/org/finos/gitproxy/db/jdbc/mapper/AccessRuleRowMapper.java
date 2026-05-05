@@ -3,6 +3,8 @@ package org.finos.gitproxy.db.jdbc.mapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.finos.gitproxy.db.model.AccessRule;
+import org.finos.gitproxy.db.model.MatchTarget;
+import org.finos.gitproxy.db.model.MatchType;
 import org.springframework.jdbc.core.RowMapper;
 
 /** Maps an {@code access_rules} result-set row to an {@link AccessRule}. */
@@ -17,9 +19,9 @@ public final class AccessRuleRowMapper implements RowMapper<AccessRule> {
         return AccessRule.builder()
                 .id(rs.getString("id"))
                 .provider(rs.getString("provider"))
-                .slug(rs.getString("slug"))
-                .owner(rs.getString("owner"))
-                .name(rs.getString("name"))
+                .target(MatchTarget.valueOf(rs.getString("target")))
+                .value(rs.getString("match_value"))
+                .matchType(MatchType.valueOf(rs.getString("match_type")))
                 .access(AccessRule.Access.valueOf(rs.getString("access")))
                 .operations(AccessRule.Operations.valueOf(rs.getString("operations")))
                 .description(rs.getString("description"))
