@@ -22,7 +22,8 @@ concurrency:
 
 jobs:
   build-and-push:
-    # Tags are released by promoting the already-built edge image — no rebuild needed.
+    name: Build & Push
+    # Tags are released by promoting the already-built build image — no rebuild needed.
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     outputs:
@@ -55,6 +56,7 @@ jobs:
           tags: |
             type=ref,event=pr
             type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,prefix=build-,format=short,enable={{is_default_branch}}
             type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push
@@ -153,21 +155,25 @@ jobs:
           grep "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "grype_${GRYPE_VERSION}_checksums.txt" | sha256sum --check
           tar -xzf "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin grype
 
-      # Resolve the digest of the already-built, already-scanned edge image.
-      # The tag ruleset enforces Container Scan passed on this commit before the tag
-      # could be pushed, so edge is guaranteed clean at this point.
-      - name: Resolve edge digest
-        id: edge
+      # Resolve the digest of the build-{sha} image produced when this commit landed on main.
+      # The tag ruleset enforces Container Scan passed on this commit before the tag could be
+      # pushed, so the build image is guaranteed scanned. Using the commit-pinned build tag
+      # (not :edge) ensures we promote the exact image for this release regardless of how
+      # many commits have landed on main since.
+      - name: Resolve build image digest
+        id: build
         run: |
+          TAG="build-${GITHUB_SHA::7}"
           DIGEST=$(docker buildx imagetools inspect \
-            ghcr.io/${{ github.repository }}:edge \
+            "ghcr.io/${{ github.repository }}:${TAG}" \
             --format '{{.Manifest.Digest}}')
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "Promoting edge digest: ${DIGEST}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Promoting ${TAG} @ ${DIGEST}"
 
-      - name: Scan edge image
+      - name: Scan build image
         run: |
-          grype ghcr.io/${{ github.repository }}@${{ steps.edge.outputs.digest }} \
+          grype "ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}" \
             --config .grype.yaml \
             -o "template=grype-report.txt" \
             -o "json=grype-report.json"
@@ -182,12 +188,12 @@ jobs:
             grype-report.json
           retention-days: 90
 
-      - name: Promote edge to release tags
+      - name: Promote build image to release tags
         run: |
           VERSION=${GITHUB_REF_NAME}
           MAJOR=$(echo ${VERSION} | cut -d. -f1)
           MINOR=$(echo ${VERSION} | cut -d. -f1-2)
-          SOURCE="ghcr.io/${{ github.repository }}@${{ steps.edge.outputs.digest }}"
+          SOURCE="ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}"
           docker buildx imagetools create \
             --tag "ghcr.io/${{ github.repository }}:${VERSION}" \
             --tag "ghcr.io/${{ github.repository }}:${MINOR}" \
