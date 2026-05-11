@@ -140,6 +140,17 @@ tasks.register('stop') {
     }
 }
 
+// Force Netty to a patched version — transitively pulled in by lettuce-core via spring-session-data-redis.
+// Resolves GHSA-mj4r-2hfc-f8p6 (netty-codec) and GHSA-cm33-6792-r9fm (netty-codec-dns).
+configurations.configureEach {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.group == 'io.netty') {
+            details.useVersion '4.1.133.Final'
+            details.because 'CVE fix: GHSA-mj4r-2hfc-f8p6, GHSA-cm33-6792-r9fm'
+        }
+    }
+}
+
 dependencies {
     // Core library (direct dep — server uses `implementation` so core isn't transitively visible)
     implementation project(':git-proxy-java-core')
