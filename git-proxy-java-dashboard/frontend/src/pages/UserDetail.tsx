@@ -626,8 +626,8 @@ function AddPermissionModal({
     try {
       await addUserPermission(username, {
         provider: provider.trim(),
-        path: path.trim(),
-        pathType,
+        value: path.trim(),
+        matchType: pathType,
         operations,
       })
       onAdded()
@@ -790,9 +790,9 @@ function PermissionsTab({ username, isAdmin }: { username: string; isAdmin: bool
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <PathTypeBadge pathType={p.pathType} />
+                    <PathTypeBadge matchType={p.matchType} />
                   </td>
-                  <td className="px-4 py-3 font-mono text-gray-700 text-xs">{p.path}</td>
+                  <td className="px-4 py-3 font-mono text-gray-700 text-xs">{p.value}</td>
                   <td className="px-4 py-3">
                     <OperationsBadge operations={p.operations} />
                   </td>

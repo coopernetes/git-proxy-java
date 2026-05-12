@@ -100,10 +100,6 @@ function formatTime(ts: string | number | undefined) {
   }
 }
 
-function stripAnsi(str: string) {
-  // eslint-disable-next-line no-control-regex
-  return (str ?? '').replace(/\x1b\[[0-9;]*m/g, '')
-}
 
 /**
  * Build a direct link to the commit on the upstream SCM.
@@ -804,15 +800,18 @@ export function PushDetail({ currentUser }: PushDetailProps) {
                         <span className="text-gray-500 text-xs truncate flex-1">
                           {s.errorMessage ?? s.blockedMessage ?? (isSkipped ? 'skipped' : '')}
                         </span>
-                        {(isFailed || isSkipped) && s.content && (
-                          <span className="text-xs text-gray-400 shrink-0">
-                            {isOpen ? '▲ hide' : '▼ details'}
-                          </span>
-                        )}
+                        {(isFailed || isSkipped) &&
+                          (s.content || s.errorMessage || s.blockedMessage) && (
+                            <span className="text-xs text-gray-400 shrink-0">
+                              {isOpen ? '▲ hide' : '▼ details'}
+                            </span>
+                          )}
                       </div>
-                      {isOpen && s.content && (
+                      {isOpen && (s.content || s.errorMessage || s.blockedMessage) && (
                         <pre className="mt-2 ml-6 text-xs bg-gray-50 border border-gray-200 rounded p-3 whitespace-pre-wrap font-mono text-gray-800 overflow-x-auto">
-                          {stripAnsi(s.content)}
+                          {[s.errorMessage ?? s.blockedMessage, s.content]
+                            .filter(Boolean)
+                            .join('\n\n')}
                         </pre>
                       )}
                     </div>

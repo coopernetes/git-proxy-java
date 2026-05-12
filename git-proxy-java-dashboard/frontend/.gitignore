@@ -30,6 +30,11 @@ vite.config.ts.timestamp-*
 # Local env overrides
 *.local
 
+# Playwright
+/test-results/
+/playwright-report/
+/tests/.auth/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

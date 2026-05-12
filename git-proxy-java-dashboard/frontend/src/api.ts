@@ -237,7 +237,7 @@ export async function fetchUserPermissions(username: string) {
 
 export async function addUserPermission(
   username: string,
-  data: { provider: string; path: string; pathType: string; operations: string },
+  data: { provider: string; value: string; matchType: string; operations: string },
 ) {
   const res = await apiFetch(`/api/users/${encodeURIComponent(username)}/permissions`, {
     method: 'POST',
