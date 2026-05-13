@@ -330,8 +330,8 @@ export interface LogStep {
 export interface ProviderConnectivity {
   uri: string
   tcp: TcpResult
-  tls: TlsResult | null
-  http: HttpResult | null
+  tls?: TlsResult | null
+  http?: HttpResult | null
   /** Only present on targeted checks (provider + repoPath supplied) */
   gitProbe?: GitProbe | null
   /** Structured step log — only present on targeted checks */

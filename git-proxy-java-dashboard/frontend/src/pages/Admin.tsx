@@ -30,8 +30,8 @@ function TcpBadge({ tcp }: { tcp: TcpResult }) {
   )
 }
 
-function TlsBadge({ tls }: { tls: TlsResult | null }) {
-  if (tls === null) return null
+function TlsBadge({ tls }: { tls: TlsResult | null | undefined }) {
+  if (tls == null) return null
   const ok = tls.status === 'ok'
   return (
     <span
@@ -44,8 +44,8 @@ function TlsBadge({ tls }: { tls: TlsResult | null }) {
   )
 }
 
-function HttpBadge({ http }: { http: HttpResult | null }) {
-  if (http === null) return null
+function HttpBadge({ http }: { http: HttpResult | null | undefined }) {
+  if (http == null) return null
   const ok = typeof http.status === 'number' && http.status < 500
   const label =
     typeof http.status === 'number' ? `HTTP ${http.status} ${ms(http.durationMs)}` : 'HTTP ERROR'
@@ -117,7 +117,7 @@ function DiagnosticLog({ steps }: { steps: LogStep[] }) {
 
 function ConnectivityRow({ result }: { name: string; result: ProviderConnectivity }) {
   const tcpOk = result.tcp.status === 'ok'
-  const tlsOk = result.tls === null || result.tls.status === 'ok'
+  const tlsOk = result.tls == null || result.tls.status === 'ok'
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 space-y-2">
