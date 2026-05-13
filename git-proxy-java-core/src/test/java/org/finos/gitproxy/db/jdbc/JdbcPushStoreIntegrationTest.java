@@ -12,6 +12,7 @@ import org.finos.gitproxy.db.model.PushQuery;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.db.model.PushStatus;
 import org.finos.gitproxy.db.model.PushStep;
+import org.finos.gitproxy.db.model.PushSummary;
 import org.finos.gitproxy.db.model.StepStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -347,6 +348,50 @@ class JdbcPushStoreIntegrationTest {
                 store.find(PushQuery.builder().search("widget").build());
         assertEquals(1, byRepo.size());
         assertEquals("widget-service", byRepo.get(0).getRepoName());
+    }
+
+    // ---- findSummaries ----
+
+    @Test
+    void findSummaries_returnsProjectionWithoutChildCollections() {
+        PushRecord saved = PushRecord.builder()
+                .commitTo("abc123")
+                .branch("refs/heads/main")
+                .repoName("repo")
+                .project("acme")
+                .upstreamUrl("https://github.com/acme/repo.git")
+                .author("Alice")
+                .user("alice")
+                .resolvedUser("alice")
+                .status(PushStatus.FORWARDED)
+                .build();
+        store.save(saved);
+
+        List<PushSummary> summaries = store.findSummaries(PushQuery.builder().build());
+
+        assertEquals(1, summaries.size());
+        PushSummary s = summaries.get(0);
+        assertEquals(saved.getId(), s.getId());
+        assertEquals(PushStatus.FORWARDED, s.getStatus());
+        assertEquals("https://github.com/acme/repo.git", s.getUpstreamUrl());
+        assertEquals("refs/heads/main", s.getBranch());
+        assertEquals("abc123", s.getCommitTo());
+        assertEquals("Alice", s.getAuthor());
+        assertEquals("alice", s.getUser());
+        assertEquals("alice", s.getResolvedUser());
+        assertNotNull(s.getTimestamp());
+    }
+
+    @Test
+    void findSummaries_filtersApplied() {
+        store.save(record("a", "refs/heads/main", "repoA"));
+        store.save(record("b", "refs/heads/main", "repoB"));
+
+        List<PushSummary> results =
+                store.findSummaries(PushQuery.builder().repoName("repoA").build());
+
+        assertEquals(1, results.size());
+        assertEquals("repoA", results.get(0).getRepoName());
     }
 
     // ---- initialize idempotency ----

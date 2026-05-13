@@ -97,6 +97,39 @@ public class JdbcPushStore implements PushStore {
     }
 
     @Override
+    public List<PushSummary> findSummaries(PushQuery query) {
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        String where = buildWhere(query, params);
+        String sql =
+                "SELECT id, status, url, upstream_url, project, repo_name, branch, commit_to, author, push_user, resolved_user, timestamp"
+                        + " FROM push_records" + where
+                        + " ORDER BY timestamp " + (query.isNewestFirst() ? "DESC" : "ASC")
+                        + " LIMIT :limit OFFSET :offset";
+        params.addValue("limit", query.getLimit());
+        params.addValue("offset", query.getOffset());
+        return jdbc.query(
+                sql,
+                params,
+                (rs, rowNum) -> PushSummary.builder()
+                        .id(rs.getString("id"))
+                        .status(PushStatus.valueOf(rs.getString("status")))
+                        .url(rs.getString("url"))
+                        .upstreamUrl(rs.getString("upstream_url"))
+                        .project(rs.getString("project"))
+                        .repoName(rs.getString("repo_name"))
+                        .branch(rs.getString("branch"))
+                        .commitTo(rs.getString("commit_to"))
+                        .author(rs.getString("author"))
+                        .user(rs.getString("push_user"))
+                        .resolvedUser(rs.getString("resolved_user"))
+                        .timestamp(
+                                rs.getTimestamp("timestamp") != null
+                                        ? rs.getTimestamp("timestamp").toInstant()
+                                        : null)
+                        .build());
+    }
+
+    @Override
     public List<RepoPushSummary> summarizeByRepo() {
         return jdbc.query(
                 """

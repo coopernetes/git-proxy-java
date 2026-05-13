@@ -11,6 +11,7 @@ import org.finos.gitproxy.db.model.PushQuery;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.db.model.PushStatus;
 import org.finos.gitproxy.db.model.PushStep;
+import org.finos.gitproxy.db.model.PushSummary;
 import org.finos.gitproxy.jetty.config.AttestationQuestion;
 import org.finos.gitproxy.jetty.config.GitProxyConfig;
 import org.finos.gitproxy.jetty.reload.ConfigHolder;
@@ -55,7 +56,7 @@ public class PushController {
      */
     @Operation(operationId = "listPushes", summary = "List push records")
     @GetMapping
-    public List<PushRecord> list(
+    public List<PushSummary> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String project,
             @RequestParam(required = false) String repo,
@@ -82,7 +83,7 @@ public class PushController {
         if (user != null && !user.isBlank()) query.user(user);
         if (search != null && !search.isBlank()) query.search(search);
 
-        return pushStore.find(query.build());
+        return pushStore.findSummaries(query.build());
     }
 
     /**

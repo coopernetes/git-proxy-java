@@ -8,6 +8,7 @@ import org.finos.gitproxy.db.model.Attestation;
 import org.finos.gitproxy.db.model.PushQuery;
 import org.finos.gitproxy.db.model.PushRecord;
 import org.finos.gitproxy.db.model.PushStatus;
+import org.finos.gitproxy.db.model.PushSummary;
 
 /**
  * Storage abstraction for push records. Implementations exist for in-memory, JDBC (H2, SQLite, Postgres), and MongoDB.
@@ -27,6 +28,30 @@ public interface PushStore {
 
     /** Query pushes with optional filters. */
     List<PushRecord> find(PushQuery query);
+
+    /**
+     * Return lightweight summary projections for the list view. Omits all child collections (steps, commits,
+     * attestation). Default implementation delegates to {@link #find} and projects in memory; JDBC override uses a lean
+     * SELECT.
+     */
+    default List<PushSummary> findSummaries(PushQuery query) {
+        return find(query).stream()
+                .map(r -> PushSummary.builder()
+                        .id(r.getId())
+                        .status(r.getStatus())
+                        .url(r.getUrl())
+                        .upstreamUrl(r.getUpstreamUrl())
+                        .project(r.getProject())
+                        .repoName(r.getRepoName())
+                        .branch(r.getBranch())
+                        .commitTo(r.getCommitTo())
+                        .author(r.getAuthor())
+                        .user(r.getUser())
+                        .resolvedUser(r.getResolvedUser())
+                        .timestamp(r.getTimestamp())
+                        .build())
+                .toList();
+    }
 
     /** Delete a push record and all associated data. */
     void delete(String id);
