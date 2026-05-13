@@ -2,6 +2,11 @@ package org.finos.gitproxy.dashboard.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.HexFormat;
 import java.util.Map;
 import org.finos.gitproxy.user.EmailConflictException;
 import org.finos.gitproxy.user.LockedByConfigException;
@@ -13,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -120,8 +126,44 @@ public class ProfileController {
         return ResponseEntity.noContent().build();
     }
 
+    // ---- API key management ----
+
+    @Operation(operationId = "generateApiKey", summary = "Generate a proxy-native API key for the current user")
+    @PostMapping("/api-key")
+    public ResponseEntity<?> generateApiKey() {
+        if (!(userStore instanceof UserStore mutable)) return NOT_MUTABLE;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_SELF_CERTIFY"))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "API key generation requires the SELF_CERTIFY role"));
+        }
+        byte[] raw = new byte[32];
+        new SecureRandom().nextBytes(raw);
+        String key = "gp_" + HexFormat.of().formatHex(raw);
+        mutable.setApiKey(currentUsername(), sha256(key));
+        return ResponseEntity.ok(Map.of("key", key));
+    }
+
+    @Operation(operationId = "revokeApiKey", summary = "Revoke the current user's proxy API key")
+    @DeleteMapping("/api-key")
+    public ResponseEntity<?> revokeApiKey() {
+        if (!(userStore instanceof UserStore mutable)) return NOT_MUTABLE;
+        mutable.revokeApiKey(currentUsername());
+        return ResponseEntity.noContent().build();
+    }
+
     private String currentUsername() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null ? auth.getName() : null;
+    }
+
+    private static String sha256(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 }

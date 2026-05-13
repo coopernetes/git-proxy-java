@@ -355,4 +355,49 @@ class JdbcUserStoreIntegrationTest {
                 ScmIdentityConflictException.class, () -> store.addScmIdentity("bob", "github", "shared-handle"));
         assertEquals("alice", ex.getOwner());
     }
+
+    // ---- API key management ----
+
+    @Test
+    void setApiKey_storesHash_andFindByApiKeyReturnsUser() {
+        store.upsertUser("alice");
+        store.setApiKey("alice", "deadbeef");
+
+        var result = store.findByApiKey("deadbeef");
+        assertTrue(result.isPresent());
+        assertEquals("alice", result.get().getUsername());
+    }
+
+    @Test
+    void findByApiKey_unknownHash_returnsEmpty() {
+        assertFalse(store.findByApiKey("notahash").isPresent());
+    }
+
+    @Test
+    void hasApiKey_returnsTrueAfterSet_falseAfterRevoke() {
+        store.upsertUser("alice");
+        assertFalse(store.hasApiKey("alice"));
+
+        store.setApiKey("alice", "deadbeef");
+        assertTrue(store.hasApiKey("alice"));
+
+        store.revokeApiKey("alice");
+        assertFalse(store.hasApiKey("alice"));
+    }
+
+    @Test
+    void revokeApiKey_noKeySet_isNoOp() {
+        store.upsertUser("alice");
+        assertDoesNotThrow(() -> store.revokeApiKey("alice"));
+    }
+
+    @Test
+    void setApiKey_replacesExistingKey() {
+        store.upsertUser("alice");
+        store.setApiKey("alice", "oldhash");
+        store.setApiKey("alice", "newhash");
+
+        assertFalse(store.findByApiKey("oldhash").isPresent());
+        assertTrue(store.findByApiKey("newhash").isPresent());
+    }
 }
