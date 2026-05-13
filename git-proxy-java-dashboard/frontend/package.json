@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "diff2html": "^3.4.56",
@@ -32,6 +33,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",
     "vite": "^8.0.1",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "@playwright/test": "^1.49.0"
   }
 }

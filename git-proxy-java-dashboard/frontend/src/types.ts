@@ -128,8 +128,8 @@ export interface RepoPermission {
   id: string
   username: string
   provider: string
-  path: string
-  pathType: 'LITERAL' | 'GLOB' | 'REGEX'
+  value: string
+  matchType: 'LITERAL' | 'GLOB' | 'REGEX'
   operations: 'PUSH' | 'REVIEW' | 'PUSH_AND_REVIEW' | 'SELF_CERTIFY'
   source: 'CONFIG' | 'DB'
 }

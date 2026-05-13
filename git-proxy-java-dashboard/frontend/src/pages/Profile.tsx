@@ -275,9 +275,9 @@ export function Profile() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <PathTypeBadge pathType={p.pathType} />
+                        <PathTypeBadge matchType={p.matchType} />
                       </td>
-                      <td className="px-4 py-3 font-mono text-gray-700 text-xs">{p.path}</td>
+                      <td className="px-4 py-3 font-mono text-gray-700 text-xs">{p.value}</td>
                       <td className="px-4 py-3">
                         <OperationsBadge operations={p.operations} />
                       </td>

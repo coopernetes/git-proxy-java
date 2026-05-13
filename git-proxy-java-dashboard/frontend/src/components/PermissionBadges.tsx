@@ -1,6 +1,6 @@
 import type { RepoPermission } from '../types'
 
-export function PathTypeBadge({ pathType }: { pathType: RepoPermission['pathType'] }) {
+export function PathTypeBadge({ matchType }: { matchType: RepoPermission['matchType'] }) {
   const styles = {
     LITERAL: 'bg-gray-100 text-gray-600',
     GLOB: 'bg-purple-50 text-purple-700',
@@ -8,9 +8,9 @@ export function PathTypeBadge({ pathType }: { pathType: RepoPermission['pathType
   }
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[pathType]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[matchType]}`}
     >
-      {pathType.toLowerCase()}
+      {matchType.toLowerCase()}
     </span>
   )
 }
