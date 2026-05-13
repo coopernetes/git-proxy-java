@@ -99,10 +99,10 @@ class PushControllerTest {
     class List_ {
         @Test
         void noFilters_delegatesToStore() {
-            when(pushStore.find(any())).thenReturn(java.util.List.of());
+            when(pushStore.findSummaries(any())).thenReturn(java.util.List.of());
             var result = controller.list(null, null, null, null, null, 50, 0, true);
             assertEquals(0, result.size());
-            verify(pushStore).find(argThat(q -> q.getLimit() == 50 && q.getOffset() == 0));
+            verify(pushStore).findSummaries(argThat(q -> q.getLimit() == 50 && q.getOffset() == 0));
         }
 
         @Test
@@ -115,9 +115,9 @@ class PushControllerTest {
 
         @Test
         void validStatus_passedToQuery() {
-            when(pushStore.find(any())).thenReturn(java.util.List.of());
+            when(pushStore.findSummaries(any())).thenReturn(java.util.List.of());
             controller.list("PENDING", null, null, null, null, 50, 0, true);
-            verify(pushStore).find(argThat(q -> q.getStatus() == PushStatus.PENDING));
+            verify(pushStore).findSummaries(argThat(q -> q.getStatus() == PushStatus.PENDING));
         }
     }
 
