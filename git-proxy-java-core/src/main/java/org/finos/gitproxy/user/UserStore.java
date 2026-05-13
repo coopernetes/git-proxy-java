@@ -62,6 +62,14 @@ public interface UserStore extends ReadOnlyUserStore {
      */
     void upsertUser(String username);
 
+    /**
+     * Ensures a user row exists and syncs the given roles on every IdP login. Roles are authoritative from the IdP —
+     * any existing roles are overwritten so that IdP group changes take effect on next sign-in.
+     */
+    default void upsertUser(String username, List<String> roles) {
+        upsertUser(username);
+    }
+
     /** Inserts or updates an email for a user as locked (owned by the identity provider). */
     void upsertLockedEmail(String username, String email, String authSource);
 
