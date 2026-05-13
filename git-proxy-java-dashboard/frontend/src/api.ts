@@ -248,12 +248,12 @@ export async function addUserPermission(
   return res.json()
 }
 
-export async function createAccessRule(rule: {
+export async function createUrlRule(rule: {
   access: 'ALLOW' | 'DENY'
   operations: 'BOTH' | 'PUSH' | 'FETCH'
-  slug?: string
-  owner?: string
-  name?: string
+  target: 'SLUG' | 'OWNER' | 'NAME'
+  value: string
+  matchType: 'LITERAL' | 'GLOB' | 'REGEX'
   provider?: string
   description?: string
   ruleOrder?: number
@@ -263,13 +263,13 @@ export async function createAccessRule(rule: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...rule, enabled: true, source: 'DB' }),
   })
-  if (!res.ok) await parseErrorResponse(res, 'Failed to create access rule')
+  if (!res.ok) await parseErrorResponse(res, 'Failed to create URL rule')
   return res.json()
 }
 
-export async function deleteAccessRule(id: string) {
+export async function deleteUrlRule(id: string) {
   const res = await apiFetch(`/api/repos/rules/${encodeURIComponent(id)}`, { method: 'DELETE' })
-  if (!res.ok) await parseErrorResponse(res, 'Failed to delete access rule')
+  if (!res.ok) await parseErrorResponse(res, 'Failed to delete URL rule')
 }
 
 export interface TcpResult {
@@ -330,8 +330,8 @@ export interface LogStep {
 export interface ProviderConnectivity {
   uri: string
   tcp: TcpResult
-  tls: TlsResult | null
-  http: HttpResult | null
+  tls?: TlsResult | null
+  http?: HttpResult | null
   /** Only present on targeted checks (provider + repoPath supplied) */
   gitProbe?: GitProbe | null
   /** Structured step log — only present on targeted checks */
