@@ -247,6 +247,38 @@ class JdbcUserStoreIntegrationTest {
         assertEquals("{noop}pw", result.get().getPasswordHash());
     }
 
+    @Test
+    void upsertUser_withRoles_setsRolesOnNewUser() {
+        store.upsertUser("oidcuser", List.of("USER", "ADMIN"));
+
+        var result = store.findByUsername("oidcuser");
+        assertTrue(result.isPresent());
+        assertNull(result.get().getPasswordHash());
+        assertTrue(result.get().getRoles().contains("ADMIN"));
+        assertTrue(result.get().getRoles().contains("USER"));
+    }
+
+    @Test
+    void upsertUser_withRoles_syncsRolesOnSubsequentLogin() {
+        store.upsertUser("oidcuser", List.of("USER"));
+        store.upsertUser("oidcuser", List.of("USER", "SELF_CERTIFY"));
+
+        var result = store.findByUsername("oidcuser");
+        assertTrue(result.isPresent());
+        assertTrue(result.get().getRoles().contains("SELF_CERTIFY"));
+    }
+
+    @Test
+    void upsertUser_withRoles_syncsRolesForYamlUser() {
+        store.upsertAll(List.of(user("alice", List.of(), List.of())));
+        store.upsertUser("alice", List.of("USER", "ADMIN"));
+
+        var result = store.findByUsername("alice");
+        assertTrue(result.isPresent());
+        assertEquals("{noop}pw", result.get().getPasswordHash());
+        assertTrue(result.get().getRoles().contains("ADMIN"));
+    }
+
     // ---- upsertLockedEmail ----
 
     @Test

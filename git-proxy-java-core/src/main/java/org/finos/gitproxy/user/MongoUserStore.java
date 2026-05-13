@@ -157,14 +157,23 @@ public class MongoUserStore implements UserStore {
 
     @Override
     public void upsertUser(String username) {
+        upsertUser(username, List.of("USER"));
+    }
+
+    @Override
+    public void upsertUser(String username, List<String> roles) {
+        String rolesStr = roles.isEmpty() ? "USER" : String.join(",", roles);
         if (getCollection().find(Filters.eq("_id", username)).first() == null) {
             getCollection()
                     .insertOne(new Document("_id", username)
                             .append("passwordHash", null)
-                            .append("roles", "USER")
+                            .append("roles", rolesStr)
                             .append("emails", List.of())
                             .append("scmIdentities", List.of()));
-            log.debug("Auto-provisioned IdP user '{}'", username);
+            log.debug("Auto-provisioned IdP user '{}' with roles {}", username, rolesStr);
+        } else {
+            getCollection().updateOne(Filters.eq("_id", username), Updates.set("roles", rolesStr));
+            log.debug("Synced IdP roles for user '{}': {}", username, rolesStr);
         }
     }
 

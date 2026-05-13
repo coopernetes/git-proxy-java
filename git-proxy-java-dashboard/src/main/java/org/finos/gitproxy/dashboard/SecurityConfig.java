@@ -474,7 +474,13 @@ public class SecurityConfig {
 
         if (authSource == null) return;
 
-        jdbc.upsertUser(username);
+        List<String> roles = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(a -> a.startsWith("ROLE_"))
+                .map(a -> a.substring(5))
+                .toList();
+        if (roles.isEmpty()) roles = List.of("USER");
+        jdbc.upsertUser(username, roles);
         if (email != null && !email.isBlank()) {
             try {
                 jdbc.upsertLockedEmail(username, email.strip().toLowerCase(), authSource);

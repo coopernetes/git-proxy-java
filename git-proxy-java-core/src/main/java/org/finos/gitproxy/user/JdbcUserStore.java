@@ -208,14 +208,25 @@ public class JdbcUserStore implements UserStore {
      * The password is left NULL so the account cannot be used for form login.
      */
     public void upsertUser(String username) {
+        upsertUser(username, List.of("USER"));
+    }
+
+    @Override
+    public void upsertUser(String username, List<String> roles) {
+        String rolesStr = roles.isEmpty() ? "USER" : String.join(",", roles);
         boolean exists = !jdbc.queryForList(
                         "SELECT username FROM proxy_users WHERE username = :u", Map.of("u", username), String.class)
                 .isEmpty();
         if (!exists) {
             jdbc.update(
-                    "INSERT INTO proxy_users (username, password_hash, roles) VALUES (:u, NULL, 'USER')",
-                    Map.of("u", username));
-            log.debug("Auto-provisioned IdP user '{}'", username);
+                    "INSERT INTO proxy_users (username, password_hash, roles) VALUES (:u, NULL, :roles)",
+                    Map.of("u", username, "roles", rolesStr));
+            log.debug("Auto-provisioned IdP user '{}' with roles {}", username, rolesStr);
+        } else {
+            jdbc.update(
+                    "UPDATE proxy_users SET roles = :roles WHERE username = :u",
+                    Map.of("u", username, "roles", rolesStr));
+            log.debug("Synced IdP roles for user '{}': {}", username, rolesStr);
         }
     }
 

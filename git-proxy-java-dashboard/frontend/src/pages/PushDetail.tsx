@@ -100,7 +100,6 @@ function formatTime(ts: string | number | undefined) {
   }
 }
 
-
 /**
  * Build a direct link to the commit on the upstream SCM.
  * GitHub / Gitea / Codeberg: {repo}/commit/{sha}

@@ -185,6 +185,11 @@ public class CompositeUserStore implements UserStore {
     }
 
     @Override
+    public void upsertUser(String username, List<String> roles) {
+        mutableStore.upsertUser(username, roles);
+    }
+
+    @Override
     public void upsertLockedEmail(String username, String email, String authSource) {
         mutableStore.upsertLockedEmail(username, email, authSource);
     }
