@@ -2,6 +2,7 @@ package org.finos.gitproxy.user;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Full user store interface: extends read access with write operations for user, email, and SCM identity management.
@@ -72,6 +73,20 @@ public interface UserStore extends ReadOnlyUserStore {
 
     /** Inserts or updates an email for a user as locked (owned by the identity provider). */
     void upsertLockedEmail(String username, String email, String authSource);
+
+    // ── API key management ────────────────────────────────────────────────────
+
+    /** Stores the SHA-256 hash of the user's API key. Replaces any existing key. */
+    void setApiKey(String username, String keyHash);
+
+    /** Removes the API key for the given user. No-op if no key is set. */
+    void revokeApiKey(String username);
+
+    /** Returns the user whose {@code api_key_hash} matches, or empty if none. */
+    Optional<UserEntry> findByApiKey(String keyHash);
+
+    /** Returns {@code true} if the user currently has an active API key. */
+    boolean hasApiKey(String username);
 
     // ── enriched queries (for admin UI) ──────────────────────────────────────────
 

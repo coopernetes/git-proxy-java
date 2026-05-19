@@ -71,11 +71,14 @@ public class AuthController {
                 ? repoPermissionService.findByUsername(username)
                 : List.of();
 
+        boolean hasApiKey = userStore instanceof UserStore jdbc && user != null && jdbc.hasApiKey(username);
+
         return Map.of(
                 "username", username != null ? username : "",
                 "emails", emails,
                 "scmIdentities", scmIdentities,
                 "authorities", authorities,
-                "permissions", permissions);
+                "permissions", permissions,
+                "hasApiKey", hasApiKey);
     }
 }

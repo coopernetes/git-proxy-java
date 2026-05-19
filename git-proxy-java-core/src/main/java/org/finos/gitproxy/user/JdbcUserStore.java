@@ -301,6 +301,42 @@ public class JdbcUserStore implements UserStore {
         log.debug("Upserted locked email '{}' ({}) for user '{}'", email, authSource, username);
     }
 
+    @Override
+    public void setApiKey(String username, String keyHash) {
+        int updated = jdbc.update(
+                "UPDATE proxy_users SET api_key_hash = :hash WHERE username = :u",
+                Map.of("u", username, "hash", keyHash));
+        if (updated == 0) throw new IllegalArgumentException("User not found: " + username);
+        log.debug("Set API key for user '{}'", username);
+    }
+
+    @Override
+    public void revokeApiKey(String username) {
+        jdbc.update("UPDATE proxy_users SET api_key_hash = NULL WHERE username = :u", Map.of("u", username));
+        log.debug("Revoked API key for user '{}'", username);
+    }
+
+    @Override
+    public Optional<UserEntry> findByApiKey(String keyHash) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT username, password_hash, roles FROM proxy_users WHERE api_key_hash = :hash",
+                Map.of("hash", keyHash));
+        if (rows.isEmpty()) return Optional.empty();
+        String username = (String) rows.get(0).get("username");
+        String hash = (String) rows.get(0).get("password_hash");
+        String rolesStr = (String) rows.get(0).get("roles");
+        return Optional.of(buildEntry(username, hash, rolesStr));
+    }
+
+    @Override
+    public boolean hasApiKey(String username) {
+        List<String> rows = jdbc.queryForList(
+                "SELECT api_key_hash FROM proxy_users WHERE username = :u AND api_key_hash IS NOT NULL",
+                Map.of("u", username),
+                String.class);
+        return !rows.isEmpty();
+    }
+
     private UserEntry buildEntry(String username, String passwordHash, String rolesStr) {
         List<String> emails = jdbc.queryForList(
                 "SELECT email FROM user_emails WHERE username = :u ORDER BY email",

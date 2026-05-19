@@ -40,7 +40,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
                     && MessageDigest.isEqual(expectedKey.getBytes(), provided.getBytes())
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
                 var auth = new UsernamePasswordAuthenticationToken(
-                        "api-key",
+                        "operator-api-key",
                         null,
                         List.of(new SimpleGrantedAuthority("ROLE_USER"), new SimpleGrantedAuthority("ROLE_ADMIN")));
                 SecurityContextHolder.getContext().setAuthentication(auth);

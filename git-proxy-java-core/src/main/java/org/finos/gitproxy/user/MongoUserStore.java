@@ -178,6 +178,33 @@ public class MongoUserStore implements UserStore {
     }
 
     @Override
+    public void setApiKey(String username, String keyHash) {
+        getCollection().updateOne(Filters.eq("_id", username), Updates.set("apiKeyHash", keyHash));
+        log.debug("Set API key for user '{}'", username);
+    }
+
+    @Override
+    public void revokeApiKey(String username) {
+        getCollection().updateOne(Filters.eq("_id", username), Updates.unset("apiKeyHash"));
+        log.debug("Revoked API key for user '{}'", username);
+    }
+
+    @Override
+    public Optional<UserEntry> findByApiKey(String keyHash) {
+        Document doc = getCollection().find(Filters.eq("apiKeyHash", keyHash)).first();
+        if (doc == null) return Optional.empty();
+        return findByUsername(doc.getString("_id"));
+    }
+
+    @Override
+    public boolean hasApiKey(String username) {
+        return getCollection()
+                        .find(Filters.and(Filters.eq("_id", username), Filters.exists("apiKeyHash")))
+                        .first()
+                != null;
+    }
+
+    @Override
     public void addEmail(String username, String email) {
         String normalized = email.toLowerCase();
         Document owner = getCollection()

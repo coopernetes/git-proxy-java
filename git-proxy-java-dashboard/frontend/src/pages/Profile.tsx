@@ -4,8 +4,10 @@ import {
   addScmIdentity,
   fetchMe,
   fetchProviders,
+  generateApiKey,
   removeEmail,
   removeScmIdentity,
+  revokeApiKey,
 } from '../api'
 import { OperationsBadge, PathTypeBadge } from '../components/PermissionBadges'
 import type { CurrentUser, EmailEntry, RepoPermission, ScmIdentity } from '../types'
@@ -118,6 +120,38 @@ export function Profile() {
       )
     } catch (err: unknown) {
       setIdentityError(err instanceof Error ? err.message : 'Failed to remove identity')
+    }
+  }
+
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null)
+  const [apiKeyBusy, setApiKeyBusy] = useState(false)
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null)
+
+  async function handleGenerateApiKey() {
+    setApiKeyBusy(true)
+    setApiKeyError(null)
+    try {
+      const { key } = await generateApiKey()
+      setGeneratedKey(key)
+      setProfile((p) => p && { ...p, hasApiKey: true })
+    } catch (err: unknown) {
+      setApiKeyError(err instanceof Error ? err.message : 'Failed to generate API key')
+    } finally {
+      setApiKeyBusy(false)
+    }
+  }
+
+  async function handleRevokeApiKey() {
+    setApiKeyBusy(true)
+    setApiKeyError(null)
+    try {
+      await revokeApiKey()
+      setGeneratedKey(null)
+      setProfile((p) => p && { ...p, hasApiKey: false })
+    } catch (err: unknown) {
+      setApiKeyError(err instanceof Error ? err.message : 'Failed to revoke API key')
+    } finally {
+      setApiKeyBusy(false)
     }
   }
 
@@ -294,6 +328,69 @@ export function Profile() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* API Key section — SELF_CERTIFY users only */}
+      {profile.authorities.includes('ROLE_SELF_CERTIFY') && (
+        <div className="space-y-3 border-t border-gray-100 pt-6">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">API Key</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Use this key with the <code className="font-mono">X-Api-Key</code> header to
+              authenticate API calls (e.g. self-certify) from automated pipelines.
+            </p>
+          </div>
+
+          {generatedKey ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                Copy this key now — it will not be shown again.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={generatedKey}
+                  className="flex-1 font-mono text-xs rounded border border-gray-300 px-3 py-2 bg-gray-50 select-all"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  onClick={() => navigator.clipboard.writeText(generatedKey)}
+                  className="px-3 py-2 rounded border border-gray-300 text-xs text-gray-600 hover:bg-gray-50"
+                >
+                  Copy
+                </button>
+              </div>
+              <button
+                onClick={handleRevokeApiKey}
+                disabled={apiKeyBusy}
+                className="text-xs text-red-600 hover:underline disabled:opacity-50"
+              >
+                Revoke key
+              </button>
+            </div>
+          ) : profile.hasApiKey ? (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">API key active</span>
+              <button
+                onClick={handleRevokeApiKey}
+                disabled={apiKeyBusy}
+                className="text-xs text-red-600 hover:underline disabled:opacity-50"
+              >
+                Revoke
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerateApiKey}
+              disabled={apiKeyBusy}
+              className="px-4 py-2 rounded bg-slate-700 text-white text-sm hover:bg-slate-600 disabled:opacity-50 transition-colors"
+            >
+              {apiKeyBusy ? 'Generating…' : 'Generate API Key'}
+            </button>
+          )}
+
+          {apiKeyError && <p className="text-sm text-red-600">{apiKeyError}</p>}
         </div>
       )}
 

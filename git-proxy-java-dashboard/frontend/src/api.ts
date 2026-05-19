@@ -161,6 +161,17 @@ export async function addScmIdentity(provider: string, username: string) {
   return res.json()
 }
 
+export async function generateApiKey(): Promise<{ key: string }> {
+  const res = await apiFetch('/api/me/api-key', { method: 'POST' })
+  if (!res.ok) await parseErrorResponse(res, 'Failed to generate API key')
+  return res.json()
+}
+
+export async function revokeApiKey(): Promise<void> {
+  const res = await apiFetch('/api/me/api-key', { method: 'DELETE' })
+  if (!res.ok) await parseErrorResponse(res, 'Failed to revoke API key')
+}
+
 export async function removeScmIdentity(provider: string, scmUsername: string) {
   const res = await apiFetch(
     `/api/me/identities/${encodeURIComponent(provider)}/${encodeURIComponent(scmUsername)}`,

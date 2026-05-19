@@ -190,6 +190,26 @@ public class CompositeUserStore implements UserStore {
     }
 
     @Override
+    public void setApiKey(String username, String keyHash) {
+        mutableStore.setApiKey(username, keyHash);
+    }
+
+    @Override
+    public void revokeApiKey(String username) {
+        mutableStore.revokeApiKey(username);
+    }
+
+    @Override
+    public Optional<UserEntry> findByApiKey(String keyHash) {
+        return mutableStore.findByApiKey(keyHash);
+    }
+
+    @Override
+    public boolean hasApiKey(String username) {
+        return mutableStore.hasApiKey(username);
+    }
+
+    @Override
     public void upsertLockedEmail(String username, String email, String authSource) {
         mutableStore.upsertLockedEmail(username, email, authSource);
     }

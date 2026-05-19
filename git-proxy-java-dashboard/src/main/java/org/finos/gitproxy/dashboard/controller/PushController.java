@@ -16,6 +16,8 @@ import org.finos.gitproxy.jetty.config.AttestationQuestion;
 import org.finos.gitproxy.jetty.config.GitProxyConfig;
 import org.finos.gitproxy.jetty.reload.ConfigHolder;
 import org.finos.gitproxy.permission.RepoPermissionService;
+import org.finos.gitproxy.user.ReadOnlyUserStore;
+import org.finos.gitproxy.user.UserStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,6 +42,9 @@ public class PushController {
 
     @Autowired
     private ConfigHolder configHolder;
+
+    @Autowired(required = false)
+    private ReadOnlyUserStore userStore;
 
     /** Returns the authenticated username, falling back to {@code body.reviewerUsername}, then {@code "system"}. */
     private static String resolveReviewer(Map<String, String> body) {
@@ -242,11 +247,12 @@ public class PushController {
                     if (attestationError != null) return attestationError;
 
                     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                    String reviewer = resolveReviewerFromApproveBody(body, auth);
                     var attestation = Attestation.builder()
                             .pushId(id)
                             .type(Attestation.Type.APPROVAL)
-                            .reviewerUsername(resolveReviewerFromApproveBody(body, auth))
-                            .reviewerEmail(body.reviewerEmail())
+                            .reviewerUsername(reviewer)
+                            .reviewerEmail(resolveReviewerEmail(reviewer))
                             .reason(body.reason())
                             .selfApproval(isSelfApproval(record, auth, adminOverride))
                             .answers(body.attestations())
@@ -290,6 +296,31 @@ public class PushController {
         return body != null && body.reviewerUsername() != null ? body.reviewerUsername() : "system";
     }
 
+    /**
+     * Resolves the reviewer's email from the user store. Prefers the IdP-locked email when available (most reliable
+     * across OIDC/LDAP), falls back to any registered email, and returns {@code null} for local users with no email or
+     * when the user store is unavailable (e.g. operator-api-key).
+     */
+    private String resolveReviewerEmail(String username) {
+        if (username == null || userStore == null) return null;
+        if (userStore instanceof UserStore jdbc) {
+            return jdbc.findEmailsWithVerified(username).stream()
+                    .filter(e -> Boolean.TRUE.equals(e.get("locked")))
+                    .map(e -> (String) e.get("email"))
+                    .findFirst()
+                    .orElseGet(() -> userStore
+                            .findByUsername(username)
+                            .filter(u -> !u.getEmails().isEmpty())
+                            .map(u -> u.getEmails().get(0))
+                            .orElse(null));
+        }
+        return userStore
+                .findByUsername(username)
+                .filter(u -> !u.getEmails().isEmpty())
+                .map(u -> u.getEmails().get(0))
+                .orElse(null);
+    }
+
     /** Reject a push. Body: { "reviewerUsername": "...", "reviewerEmail": "...", "reason": "..." } (reason required) */
     @Operation(operationId = "rejectPush", summary = "Reject a push")
     @PostMapping("/{id}/reject")
@@ -308,11 +339,12 @@ public class PushController {
                     ResponseEntity<?> identityError = checkReviewerIdentity(record, true);
                     if (identityError != null) return identityError;
                     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                    String reviewer = resolveReviewer(body);
                     var attestation = Attestation.builder()
                             .pushId(id)
                             .type(Attestation.Type.REJECTION)
-                            .reviewerUsername(resolveReviewer(body))
-                            .reviewerEmail(body.get("reviewerEmail"))
+                            .reviewerUsername(reviewer)
+                            .reviewerEmail(resolveReviewerEmail(reviewer))
                             .reason(reason)
                             .selfApproval(isSelfApproval(record, auth, true))
                             .build();

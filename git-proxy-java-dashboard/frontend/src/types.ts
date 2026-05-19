@@ -108,6 +108,7 @@ export interface CurrentUser {
   emails: EmailEntry[]
   scmIdentities: ScmIdentity[]
   authorities: string[]
+  hasApiKey: boolean
 }
 
 export interface UserSummary {

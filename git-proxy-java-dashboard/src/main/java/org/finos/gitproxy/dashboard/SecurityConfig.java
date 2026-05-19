@@ -133,6 +133,10 @@ public class SecurityConfig {
             http.addFilterBefore(new ApiKeyAuthFilter(generated), UsernamePasswordAuthenticationFilter.class);
         }
 
+        if (userStore instanceof UserStore mutableStore) {
+            http.addFilterBefore(new UserApiKeyAuthFilter(mutableStore), UsernamePasswordAuthenticationFilter.class);
+        }
+
         List<String> allowedOrigins = gitProxyConfig.getServer().getAllowedOrigins();
         if (!allowedOrigins.isEmpty()) {
             log.info("CORS enabled for origins: {}", allowedOrigins);
